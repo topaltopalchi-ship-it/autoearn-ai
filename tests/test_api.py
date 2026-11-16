@@ -545,6 +545,60 @@ def test_vault_api_stores_secret_but_never_returns_it(client, tmp_path, monkeypa
     assert vault.get_secret(created.json()["id"], payload["passphrase"]) == payload["secret"]
 
 
+def test_openai_connection_check_uses_saved_secret_without_returning_it(client, tmp_path, monkeypatch):
+    from app import vault
+    from app import provider_checks
+    monkeypatch.setattr(vault, "VAULT_DB", tmp_path / "vault-openai-check.db")
+    payload = {
+        "label": "OpenAI personal", "provider": "OpenAI",
+        "credential_type": "api_key", "secret": "sk-test-never-return",
+        "passphrase": "a-long-test-vault-passphrase",
+    }
+    created = client.post("/api/vault/credentials", json=payload)
+    assert created.status_code == 201
+    seen = {}
+    def fake_check(secret):
+        seen["secret"] = secret
+        return {"status": "connected", "connected": True}
+    monkeypatch.setattr(provider_checks, "check_openai_api_key", fake_check)
+    response = client.post(
+        f"/api/vault/credentials/{created.json()['id']}/test-connection",
+        json={"passphrase": payload["passphrase"]},
+    )
+    assert response.status_code == 200
+    assert response.json() == {"status": "connected", "connected": True}
+    assert seen["secret"] == payload["secret"]
+    assert payload["secret"] not in response.text
+
+
+def test_openai_connection_check_rejects_wrong_passphrase(client, tmp_path, monkeypatch):
+    from app import vault
+    monkeypatch.setattr(vault, "VAULT_DB", tmp_path / "vault-openai-wrong.db")
+    created = client.post("/api/vault/credentials", json={
+        "label": "OpenAI", "provider": "openai", "credential_type": "api_key",
+        "secret": "sk-test", "passphrase": "a-long-test-vault-passphrase",
+    })
+    response = client.post(
+        f"/api/vault/credentials/{created.json()['id']}/test-connection",
+        json={"passphrase": "a-different-long-passphrase"},
+    )
+    assert response.status_code == 400
+
+
+def test_openai_connection_check_rejects_non_openai_credentials(client, tmp_path, monkeypatch):
+    from app import vault
+    monkeypatch.setattr(vault, "VAULT_DB", tmp_path / "vault-non-openai.db")
+    created = client.post("/api/vault/credentials", json={
+        "label": "Signing", "provider": "wallet", "credential_type": "signing_key",
+        "secret": "private-signing-material", "passphrase": "a-long-test-vault-passphrase",
+    })
+    response = client.post(
+        f"/api/vault/credentials/{created.json()['id']}/test-connection",
+        json={"passphrase": "a-long-test-vault-passphrase"},
+    )
+    assert response.status_code == 422
+
+
 def test_vault_api_rejects_wrong_passphrase_for_delete(client, tmp_path, monkeypatch):
     from app import vault
     monkeypatch.setattr(vault, "VAULT_DB", tmp_path / "vault-delete.db")
