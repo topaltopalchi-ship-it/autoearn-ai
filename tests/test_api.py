@@ -123,10 +123,70 @@ def test_api_canonicalizes_case_tracking_and_trailing_slash(client):
     assert duplicate.status_code == 409
 
 
-def test_discover_requires_search_provider_configuration(client, monkeypatch):
+def test_discover_uses_free_mwmbl_when_no_keys_are_configured(client, monkeypatch):
+    from app import main
+    from autoearn.opportunities import SearchResult
+
     monkeypatch.delenv("BRAVE_SEARCH_API_KEY", raising=False)
+    monkeypatch.delenv("MWMBL_API_KEY", raising=False)
+
+    class FakeProvider:
+        def search(self, query, limit=10):
+            assert query == "game rewards"
+            return [SearchResult(
+                title="Game rewards terms",
+                url="https://example.com/rewards",
+                snippet="Eligibility and payout details",
+                provider="mwmbl",
+            )]
+
+    monkeypatch.setattr(main, "MwmblSearchProvider", lambda api_key=None: FakeProvider())
     response = client.post("/api/discover", json={"query": "game rewards"})
-    assert response.status_code == 503
+
+    assert response.status_code == 200
+    assert response.json()[0]["provider"] == "mwmbl"
+    assert response.json()[0]["verified"] is False
+    assert response.json()[0]["review_required"] is True
+
+
+def test_discover_passes_optional_mwmbl_api_key(client, monkeypatch):
+    from app import main
+
+    monkeypatch.delenv("BRAVE_SEARCH_API_KEY", raising=False)
+    monkeypatch.setenv("MWMBL_API_KEY", "optional-test-key")
+    seen = {}
+
+    class FakeProvider:
+        def __init__(self, api_key=None):
+            seen["api_key"] = api_key
+
+        def search(self, query, limit=10):
+            return []
+
+    monkeypatch.setattr(main, "MwmblSearchProvider", FakeProvider)
+    response = client.post("/api/discover", json={"query": "game rewards"})
+
+    assert response.status_code == 200
+    assert seen["api_key"] == "optional-test-key"
+
+
+def test_brave_provider_takes_precedence_when_configured(client, monkeypatch):
+    from app import main
+
+    monkeypatch.setenv("BRAVE_SEARCH_API_KEY", "brave-test-key")
+    monkeypatch.setenv("MWMBL_API_KEY", "mwmbl-test-key")
+    seen = {}
+
+    class FakeProvider:
+        def search(self, query, limit=10):
+            seen["called"] = True
+            return []
+
+    monkeypatch.setattr(main, "BraveSearchProvider", lambda token: FakeProvider())
+    response = client.post("/api/discover", json={"query": "game rewards"})
+
+    assert response.status_code == 200
+    assert seen["called"] is True
 
 
 def test_discover_returns_unverified_candidates_for_human_review(client, monkeypatch):
