@@ -6,7 +6,6 @@ websites, click controls, submit entries, or interact with anti-bot mechanisms.
 from __future__ import annotations
 
 from fractions import Fraction
-from itertools import permutations
 from typing import Any
 
 
@@ -22,27 +21,6 @@ def solve_target_number(numbers: list[int], target: int) -> dict[str, Any]:
         raise ValueError("Number tiles must be integers from 0 to 1000.")
     if type(target) is not int or not -10000 <= target <= 10000:
         raise ValueError("Target must be an integer between -10000 and 10000.")
-
-    # Each state maps a rational value to one expression; memoization keeps search bounded.
-    def search(values: tuple[int, ...]) -> str | None:
-        if len(values) == 1:
-            return str(values[0]) if values[0] == target else None
-        # Recursively combine ordered pairs; the first exact solution is sufficient.
-        for i in range(len(values)):
-            for j in range(len(values)):
-                if i == j:
-                    continue
-                a, b = values[i], values[j]
-                rest = [values[k] for k in range(len(values)) if k not in (i, j)]
-                candidates = [(a + b, "+"), (a - b, "-"), (a * b, "*")]
-                if b and a % b == 0:
-                    candidates.append((a // b, "/"))
-                for value, _op in candidates:
-                    result = search(tuple(rest + [value]))
-                    if result is not None:
-                        # Rebuild a valid expression from the recursive result.
-                        return f"({a} {_op} {b})" if len(rest) == 0 else None
-        return None
 
     # General expression search with exact Fractions and explicit expression trees.
     def combine(items: list[tuple[Fraction, str]]) -> str | None:
@@ -86,7 +64,7 @@ def authorize_game_strategy(opportunity: dict[str, Any]) -> None:
         raise PermissionError("Only skill-contest opportunities are supported.")
     if opportunity.get("automation_policy") != "allowed":
         raise PermissionError("The platform must explicitly permit automated play.")
-    if opportunity.get("captcha_required") is not False:
+    if opportunity.get("captcha_required") is None or bool(opportunity.get("captcha_required")):
         raise PermissionError("Unknown or required CAPTCHA blocks automated play.")
     if opportunity.get("automation_eligibility") != "auto":
         raise PermissionError("Policy evidence is incomplete or not cleared.")
