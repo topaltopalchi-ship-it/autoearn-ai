@@ -151,3 +151,32 @@ def test_policy_evidence_url_must_be_http(client):
         "policy_evidence_url": "javascript:alert(1)",
     })
     assert response.status_code == 422
+
+
+def test_existing_opportunities_receive_safe_policy_defaults(tmp_path, monkeypatch):
+    import sqlite3
+    from app import main
+    db_path = tmp_path / "legacy.db"
+    monkeypatch.setattr(main, "DB_PATH", db_path)
+    with sqlite3.connect(db_path) as db:
+        db.execute("""
+            CREATE TABLE opportunities (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL, platform TEXT NOT NULL, url TEXT NOT NULL,
+                category TEXT NOT NULL DEFAULT 'game', reward_description TEXT NOT NULL DEFAULT '',
+                eligibility TEXT NOT NULL DEFAULT '', terms_url TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'discovered', score INTEGER NOT NULL DEFAULT 0,
+                notes TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL
+            )
+        """)
+        db.execute("""
+            INSERT INTO opportunities (title, platform, url, created_at)
+            VALUES ('Legacy opportunity', 'Example', 'https://legacy.example', 'old')
+        """)
+    main.init_db()
+    with sqlite3.connect(db_path) as db:
+        row = db.execute(
+            "SELECT automation_policy, captcha_required, opportunity_category, automation_eligibility "
+            "FROM opportunities WHERE id = 1"
+        ).fetchone()
+    assert row == ("unknown", None, "ordinary", "manual_only")
