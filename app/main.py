@@ -359,14 +359,13 @@ def vault_delete_credential(credential_id: int, data: VaultCredentialDeleteIn):
 def vault_test_connection(credential_id: int, data: VaultConnectionCheckIn):
     """Test a saved provider key only after an explicit owner request."""
     try:
-        with credential_vault._connect() as db:
-            row = db.execute(
-                "SELECT provider, credential_type FROM credentials WHERE id = ?",
-                (credential_id,),
-            ).fetchone()
-        if row is None:
+        metadata = next(
+            (item for item in credential_vault.list_credentials() if item["id"] == credential_id),
+            None,
+        )
+        if metadata is None:
             raise HTTPException(404, "کلید موردنظر پیدا نشد.")
-        if row["provider"].strip().lower() != "openai" or row["credential_type"] != "api_key":
+        if metadata["provider"].strip().lower() != "openai" or metadata["credential_type"] != "api_key":
             raise HTTPException(422, "آزمایش اتصال فعلاً فقط برای کلید API سرویس OpenAI فعال است.")
         secret = credential_vault.get_secret(credential_id, data.passphrase)
         from app.provider_checks import check_openai_api_key
