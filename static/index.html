@@ -36,6 +36,21 @@
         <button class="primary" type="submit">Find strategy</button>
       </form>
       <pre id="game-result" class="empty">No strategy calculated yet.</pre>
+      <div class="section-head"><div><h3>Word deduction</h3><p>Filter your supplied word list using previous guess feedback (G=green, Y=yellow, .=absent).</p></div></div>
+      <form id="word-form" class="toolbar">
+        <input id="word-candidates" placeholder="Candidates: apple,ample,apply" required>
+        <input id="word-guesses" placeholder="Guesses JSON: [{&quot;guess&quot;:&quot;allee&quot;,&quot;feedback&quot;:&quot;GY..G&quot;}]" >
+        <button class="secondary" type="submit">Filter words</button>
+      </form>
+      <pre id="word-result" class="empty">No word candidates filtered yet.</pre>
+      <div class="section-head"><div><h3>Logic deduction · Mastermind</h3><p>Enumerate codes consistent with exact and misplaced color feedback.</p></div></div>
+      <form id="logic-form" class="toolbar">
+        <input id="logic-colors" placeholder="Colors: red,blue,green" required>
+        <input id="logic-length" type="number" min="2" max="6" value="4" required>
+        <input id="logic-history" placeholder="History JSON: [{&quot;guess&quot;:[&quot;red&quot;,&quot;blue&quot;],&quot;exact&quot;:1,&quot;misplaced&quot;:0}]">
+        <button class="secondary" type="submit">Deduce codes</button>
+      </form>
+      <pre id="logic-result" class="empty">No logic candidates generated yet.</pre>
     </section>
     <section class="panel" id="tasks">
       <div class="section-head"><div><span class="eyebrow">ASSISTED EXECUTION</span><h2>Tasks awaiting action</h2></div><button class="secondary" id="prepare-automation">Prepare eligible reviews</button></div>
