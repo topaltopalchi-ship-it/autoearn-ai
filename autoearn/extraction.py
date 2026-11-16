@@ -18,7 +18,7 @@ _AGE_PATTERNS = (
 )
 _TERMS_RE = re.compile(r"\b(terms(?: and conditions)?|conditions|official rules|eligibility rules)\b", re.I)
 _ELIGIBILITY_RE = re.compile(
-    r"\b(eligible|eligibility|residents? of|available in|only in|restricted to|must be located in|age requirement)\b",
+    r"\b(eligible|eligibility|residents? of|available in|only in|restricted to|must be located in|participants must be|age requirement)\b",
     re.I,
 )
 
