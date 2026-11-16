@@ -100,22 +100,27 @@ def test_opportunity_score_is_out_of_100(client):
 
 def test_automation_policy_fails_closed_for_unknown_or_captcha():
     from app.policy import derive_automation_eligibility
-    assert derive_automation_eligibility("unknown", None, "ordinary") == "manual_only"
-    assert derive_automation_eligibility("allowed", True, "ordinary") == "manual_only"
-    assert derive_automation_eligibility("prohibited", False, "ordinary") == "excluded"
+    evidence = ("terms", "https://example.com/terms", "Automation rules reviewed")
+    assert derive_automation_eligibility("unknown", None, "ordinary", *evidence) == "manual_only"
+    assert derive_automation_eligibility("allowed", True, "ordinary", *evidence) == "manual_only"
+    assert derive_automation_eligibility("prohibited", False, "ordinary", *evidence) == "excluded"
 
 
 def test_paid_lottery_and_betting_are_never_auto_eligible():
     from app.policy import derive_automation_eligibility
+    evidence = ("terms", "https://example.com/terms", "Reviewed")
     for category in ("paid_lottery", "betting"):
-        assert derive_automation_eligibility("allowed", False, category) == "manual_only"
+        assert derive_automation_eligibility("allowed", False, category, *evidence) == "manual_only"
 
 
-def test_free_giveaway_and_skill_contest_require_explicit_policy_clearance():
+def test_free_giveaway_and_skill_contest_require_explicit_policy_clearance_and_evidence():
     from app.policy import derive_automation_eligibility
-    assert derive_automation_eligibility("allowed", False, "giveaway_free") == "auto"
-    assert derive_automation_eligibility("allowed", False, "skill_contest") == "auto"
-    assert derive_automation_eligibility("unknown", False, "giveaway_free") == "manual_only"
+    evidence = ("terms", "https://example.com/terms", "Automation explicitly permitted")
+    assert derive_automation_eligibility("allowed", False, "giveaway_free", *evidence) == "auto"
+    assert derive_automation_eligibility("allowed", False, "skill_contest", *evidence) == "auto"
+    assert derive_automation_eligibility("unknown", False, "giveaway_free", *evidence) == "manual_only"
+    assert derive_automation_eligibility("allowed", False, "giveaway_free") == "manual_only"
+    assert derive_automation_eligibility("allowed", False, "giveaway_free", "unknown", "", "") == "manual_only"
 
 
 def test_opportunity_policy_metadata_and_auto_eligible_filter(client):
@@ -125,6 +130,12 @@ def test_opportunity_policy_metadata_and_auto_eligible_filter(client):
         "automation_policy": "allowed", "captcha_required": False,
         "opportunity_category": "skill_contest",
         "policy_source": "terms", "policy_evidence_url": "https://policy-auto.example/terms",
+    })
+    no_evidence = client.post("/api/opportunities", json={
+        "title": "Unsupported policy claim", "platform": "Example",
+        "url": "https://policy-no-evidence.example/contest",
+        "automation_policy": "allowed", "captcha_required": False,
+        "opportunity_category": "giveaway_free",
     })
     unknown = client.post("/api/opportunities", json={
         "title": "Unknown giveaway", "platform": "Example",
@@ -136,8 +147,9 @@ def test_opportunity_policy_metadata_and_auto_eligible_filter(client):
         "url": "https://policy-blocked.example/offer",
         "automation_policy": "prohibited", "captcha_required": False,
     })
-    assert auto.status_code == unknown.status_code == blocked.status_code == 201
+    assert auto.status_code == no_evidence.status_code == unknown.status_code == blocked.status_code == 201
     assert auto.json()["automation_eligibility"] == "auto"
+    assert no_evidence.json()["automation_eligibility"] == "manual_only"
     assert unknown.json()["automation_eligibility"] == "manual_only"
     assert blocked.json()["automation_eligibility"] == "excluded"
     eligible = client.get("/api/opportunities/automation-eligible").json()
