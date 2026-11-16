@@ -287,7 +287,7 @@ class OwnerPreferencesIn(BaseModel):
     payout_method: Literal["none", "bank", "paypal", "crypto", "visa", "mastercard", "turkish_bank"] = "none"
     card_network: Literal["", "visa", "mastercard"] = ""
     bank_country: str = Field(default="", max_length=2, pattern=r"^[A-Za-z]{0,2}$")
-    bank_currency: Literal["", "TRY", "USD", "EUR", "GBP"] = ""
+    bank_currency: Literal["", "TRY", "USD", "EUR"] = ""
     wallet_address: str = Field(default="", max_length=128)
     wallet_network: str = Field(default="", max_length=32)
 
@@ -569,8 +569,11 @@ def update_owner_preferences(data: OwnerPreferencesIn):
         raise HTTPException(422, "Wallet address and network are only used with crypto payouts.")
     if method in {"visa", "mastercard"} and data.card_network != method:
         raise HTTPException(422, "Card network must match the selected payout method.")
-    if method == "turkish_bank" and not data.bank_country:
-        raise HTTPException(422, "Specify the bank account country.")
+    if method == "turkish_bank":
+        if data.bank_country.upper() != "TR":
+            raise HTTPException(422, "Turkish bank payouts require bank_country TR.")
+        if data.bank_currency not in {"TRY", "USD", "EUR"}:
+            raise HTTPException(422, "Choose TRY, USD or EUR for the Turkish bank account.")
     if method not in {"visa", "mastercard"} and data.card_network:
         raise HTTPException(422, "Card network is only used for card payouts.")
     if method != "turkish_bank" and (data.bank_country or data.bank_currency):
