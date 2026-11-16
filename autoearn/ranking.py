@@ -48,8 +48,13 @@ def rank_opportunity(item: RankingInput, country: str | None = None) -> dict:
     else:
         components["country_fit"] = 35
 
-    if item.payout_method.strip():
-        components["payout_clarity"] = 85
+    payout_details = bool(item.payout_method.strip())
+    threshold_details = item.minimum_payout is not None
+    if payout_details and threshold_details:
+        components["payout_clarity"] = 100
+        known += 1
+    elif payout_details or threshold_details:
+        components["payout_clarity"] = 65
         known += 1
     else:
         components["payout_clarity"] = 35
@@ -78,6 +83,8 @@ def rank_opportunity(item: RankingInput, country: str | None = None) -> dict:
         warnings.append("محدودیت کشور نامشخص است؛ پیش از ثبت‌نام شرایط منطقه‌ای را بررسی کنید.")
     if not item.payout_method.strip():
         warnings.append("روش پرداخت مشخص نیست؛ امکان دریافت وجه تأیید نشده است.")
+    if item.minimum_payout is None:
+        warnings.append("حداقل مبلغ برداشت مشخص نیست.")
     if item.risk_score is None:
         warnings.append("ارزیابی ریسک ثبت نشده؛ امتیاز پایین به معنی معتبر بودن نیست.")
     return {
