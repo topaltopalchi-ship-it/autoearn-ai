@@ -67,6 +67,8 @@
     return out;
   };
   const translateNode = node => {
+    if (node.nodeType === Node.ELEMENT_NODE && (node.closest("[data-no-translate]") || ["SCRIPT","STYLE"].includes(node.tagName))) return;
+    if (node.nodeType === Node.TEXT_NODE && node.parentElement?.closest("[data-no-translate]")) return;
     if (node.nodeType === Node.TEXT_NODE && node.nodeValue.trim()) node.nodeValue = translate(node.nodeValue);
     else if (node.nodeType === Node.ELEMENT_NODE) {
       for (const attr of ["placeholder","aria-label","title"]) {
