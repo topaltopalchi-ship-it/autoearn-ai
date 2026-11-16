@@ -56,6 +56,35 @@ nothing is clicked, registered, or acted on automatically. Search-provider
 errors return HTTP 502. Mwmbl is used for a no-card prototype; confirm the
 applicable data and API terms before any commercial launch.
 
+
+## Broad opportunity categories
+
+Discovery supports a broad category taxonomy through the `category` field:
+`all`, `games`, `surveys`, `user_testing`, `microtasks`, `freelance`,
+`cashback`, `affiliate`, `creator`, `tutoring`, `digital_products`,
+`research`, and `bug_bounty`. The `all` category expands a search toward
+multiple online-income models; a specific category adds relevant search terms
+while preserving the user's query.
+
+Example requests:
+
+```bash
+# Search across the broad opportunity landscape
+curl -X POST http://127.0.0.1:8000/api/discover \
+  -H "Content-Type: application/json" \
+  -d '{"query":"legitimate remote opportunities in Europe","category":"all","limit":20}'
+
+# Focus on usability testing
+curl -X POST http://127.0.0.1:8000/api/discover \
+  -H "Content-Type: application/json" \
+  -d '{"query":"remote tester opportunities","category":"user_testing","limit":10}'
+```
+
+Category expansion improves search coverage; it does not guarantee exhaustive
+results. Search results remain unverified leads. Compare current official
+terms, country availability, minimum payout, fees, required effort, privacy
+requirements, and withdrawal conditions before deciding whether to join.
+
 ## Scoring notes
 
 The score is a heuristic based only on metadata supplied to the application. It is not proof that a platform is legitimate or that a reward will be paid. Users must verify eligibility, regional restrictions, and platform terms before participating.
