@@ -65,7 +65,8 @@
     </section>
     <section class="panel" id="opportunities">
       <div class="section-head"><div><span class="eyebrow">DISCOVERY & DUE DILIGENCE</span><h2>Opportunities</h2></div><button class="primary" id="add-opportunity">+ Add opportunity</button></div>
-      <div class="toolbar"><input id="search" placeholder="Search platform or opportunity…"><select id="filter"><option value="">All statuses</option><option>discovered</option><option>reviewing</option><option>eligible</option><option>ineligible</option><option>archived</option></select></div>
+      <div class="toolbar"><input id="search" placeholder="Search platform or opportunity…"><select id="filter"><option value="">All statuses</option><option>discovered</option><option>reviewing</option><option>eligible</option><option>ineligible</option><option>archived</option></select><input id="ranking-country" maxlength="2" placeholder="Country code e.g. DE" aria-label="Country code for ranking"></div>
+      <p class="helper">Opportunities are sorted by fit score. Add a two-letter country code to check regional eligibility. Scores reflect supplied data only.</p>
       <div id="opportunity-list" class="empty">No opportunities yet. Add a platform you want to evaluate.</div>
     </section>
     <section class="panel" id="tasks">
@@ -85,6 +86,13 @@
     <label>Category<select name="category"><option value="game">Game</option><option value="mobile">Mobile app</option><option value="skill">Skill / competition</option><option value="survey">Survey / offer</option><option value="other">Other</option></select></label>
     <label>Advertised reward<textarea name="reward_description" placeholder="Describe the advertised reward; do not assume it is guaranteed."></textarea></label>
     <label>Eligibility / country restrictions<textarea name="eligibility"></textarea></label>
+    <label>Estimated reward amount (optional)<input name="estimated_reward" type="number" min="0.01" step="0.01" placeholder="e.g. 15"></label>
+    <label>Reward currency<input name="reward_currency" value="EUR" maxlength="8"></label>
+    <label>Estimated hours per task (optional)<input name="estimated_hours" type="number" min="0.1" step="0.1" placeholder="e.g. 2"></label>
+    <label>Eligible country codes (comma-separated)<input name="eligible_countries" maxlength="300" placeholder="DE, AT, NL or ALL"></label>
+    <label>Payout method<input name="payout_method" maxlength="120" placeholder="Bank transfer, PayPal, etc."></label>
+    <label>Minimum payout amount (optional)<input name="minimum_payout" type="number" min="0" step="0.01"></label>
+    <label>Risk score (0–100, optional)<input name="risk_score" type="number" min="0" max="100" step="1" placeholder="From your risk review"></label>
     <label>Terms URL<input name="terms_url" type="url" placeholder="https://example.com/terms"></label>
     <label>Notes<textarea name="notes"></textarea></label><button class="primary" type="submit">Save opportunity</button>
   </form></dialog>

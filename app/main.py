@@ -19,6 +19,7 @@ from autoearn.mwmbl import MwmblSearchProvider
 from autoearn.extraction import extract_opportunity_details
 from autoearn.catalog import CATEGORY_LABELS, expand_discovery_query
 from autoearn.risk import RiskSignals, assess_risk
+from autoearn.ranking import RankingInput, rank_opportunity
 from pydantic import BaseModel, Field, HttpUrl
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -53,6 +54,13 @@ def init_db() -> None:
             status TEXT NOT NULL DEFAULT 'discovered',
             score INTEGER NOT NULL DEFAULT 0,
             notes TEXT NOT NULL DEFAULT '',
+            estimated_reward REAL,
+            reward_currency TEXT NOT NULL DEFAULT 'USD',
+            estimated_hours REAL,
+            eligible_countries TEXT NOT NULL DEFAULT '',
+            payout_method TEXT NOT NULL DEFAULT '',
+            minimum_payout REAL,
+            risk_score INTEGER,
             created_at TEXT NOT NULL
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_opportunities_url ON opportunities(url);
@@ -94,6 +102,19 @@ def init_db() -> None:
         );
         """)
         # Additive migration for databases created by earlier discovery builds.
+        opportunity_columns = {row["name"] for row in db.execute("PRAGMA table_info(opportunities)")}
+        opportunity_migrations = {
+            "estimated_reward": "REAL",
+            "reward_currency": "TEXT NOT NULL DEFAULT 'USD'",
+            "estimated_hours": "REAL",
+            "eligible_countries": "TEXT NOT NULL DEFAULT ''",
+            "payout_method": "TEXT NOT NULL DEFAULT ''",
+            "minimum_payout": "REAL",
+            "risk_score": "INTEGER",
+        }
+        for column, definition in opportunity_migrations.items():
+            if column not in opportunity_columns:
+                db.execute(f"ALTER TABLE opportunities ADD COLUMN {column} {definition}")
         candidate_columns = {row["name"] for row in db.execute("PRAGMA table_info(discovered_candidates)")}
         if "review_status" not in candidate_columns:
             db.execute("ALTER TABLE discovered_candidates ADD COLUMN review_status TEXT NOT NULL DEFAULT 'pending'")
@@ -159,6 +180,13 @@ class OpportunityIn(BaseModel):
     eligibility: str = Field(default="", max_length=1000)
     terms_url: str = Field(default="", max_length=500)
     notes: str = Field(default="", max_length=1000)
+    estimated_reward: float | None = Field(default=None, gt=0)
+    reward_currency: str = Field(default="USD", min_length=3, max_length=8)
+    estimated_hours: float | None = Field(default=None, gt=0)
+    eligible_countries: str = Field(default="", max_length=300)
+    payout_method: str = Field(default="", max_length=120)
+    minimum_payout: float | None = Field(default=None, ge=0)
+    risk_score: int | None = Field(default=None, ge=0, le=100)
 
 
 class TaskIn(BaseModel):
@@ -352,6 +380,26 @@ def list_opportunities(status: str | None = None, q: str | None = Query(default=
         return [row_dict(r) for r in db.execute(sql, params).fetchall()]
 
 
+@app.get("/api/opportunities/ranked")
+def ranked_opportunities(country: str | None = Query(default=None, min_length=2, max_length=2)):
+    """List tracked opportunities by explainable fit score for an optional ISO country code."""
+    with connect() as db:
+        rows = db.execute("SELECT * FROM opportunities ORDER BY created_at DESC").fetchall()
+    ranked = []
+    for row in rows:
+        item = row_dict(row)
+        result = rank_opportunity(RankingInput(
+            estimated_reward=item.get("estimated_reward"),
+            estimated_hours=item.get("estimated_hours"),
+            eligible_countries=item.get("eligible_countries", ""),
+            payout_method=item.get("payout_method", ""),
+            minimum_payout=item.get("minimum_payout"),
+            risk_score=item.get("risk_score"),
+        ), country=country)
+        ranked.append({**item, "ranking": result})
+    return sorted(ranked, key=lambda item: (item["ranking"]["ranking_score"], item["ranking"]["data_coverage"]), reverse=True)
+
+
 @app.post("/api/opportunities", status_code=201)
 def create_opportunity(data: OpportunityIn):
     payload = data.model_dump()
@@ -372,11 +420,15 @@ def create_opportunity(data: OpportunityIn):
             raise HTTPException(409, "This opportunity URL is already registered.")
         cur = db.execute("""
             INSERT INTO opportunities
-            (title, platform, url, category, reward_description, eligibility, terms_url, notes, score, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (title, platform, url, category, reward_description, eligibility, terms_url, notes, score,
+             estimated_reward, reward_currency, estimated_hours, eligible_countries, payout_method,
+             minimum_payout, risk_score, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (payload["title"], payload["platform"], payload["url"], payload["category"],
               payload["reward_description"], payload["eligibility"], payload["terms_url"],
-              payload["notes"], score, now()))
+              payload["notes"], score, payload["estimated_reward"], payload["reward_currency"].upper(),
+              payload["estimated_hours"], payload["eligible_countries"], payload["payout_method"],
+              payload["minimum_payout"], payload["risk_score"], now()))
         row = db.execute("SELECT * FROM opportunities WHERE id = ?", (cur.lastrowid,)).fetchone()
         return row_dict(row)
 

@@ -24,7 +24,9 @@ const faCategory = value => ({
   survey:"نظرسنجی / پیشنهاد",other:"سایر"
 }[value] || value);
 async function refresh(){
-  const [dash,opps,tasks,rewards]=await Promise.all([api("/api/dashboard"),api("/api/opportunities"),api("/api/tasks"),api("/api/rewards")]);
+  const country=($("ranking-country")?.value||"").trim().toUpperCase();
+  const rankingUrl="/api/opportunities/ranked"+(country?("?country="+encodeURIComponent(country)):"");
+  const [dash,opps,tasks,rewards]=await Promise.all([api("/api/dashboard"),api(rankingUrl),api("/api/tasks"),api("/api/rewards")]);
   opportunities=opps;
   $("stat-opps").textContent=dash.opportunities;$("stat-tasks").textContent=dash.tasks;
   $("stat-approval").textContent=dash.awaiting_approval;$("stat-paid").textContent=money(dash.paid_total);
@@ -34,7 +36,7 @@ async function refresh(){
 function renderOpportunities(){
   const q=$("search").value.toLowerCase(),status=$("filter").value;
   const rows=opportunities.filter(o=>(!status||o.status===status)&&[o.title,o.platform,o.category].some(x=>x.toLowerCase().includes(q)));
-  $("opportunity-list").innerHTML=rows.length?rows.map(o=>`<div class="item"><div><h3><span data-no-translate>${esc(o.title)}</span> <span class="pill">${esc(faStatus(o.status))}</span></h3><p><span data-no-translate>${esc(o.platform)}</span> · ${esc(faCategory(o.category))} · امتیاز بررسی ${o.score}/60<br><a href="${esc(o.url)}" target="_blank" rel="noopener noreferrer">بازکردن پلتفرم ↗</a> ${o.terms_url?'· <a href="'+esc(o.terms_url)+'" target="_blank" rel="noopener noreferrer">قوانین ↗</a>':''}<br><span data-no-translate>${esc(o.reward_description||"جزئیات پاداش وارد نشده")}</span></p></div><div class="item-actions"><button class="secondary" data-task="${o.id}">ایجاد کار</button><button class="secondary" data-status="${o.id}" data-next="reviewing">بررسی</button></div></div>`).join(""):'<div class="empty">فرصتی با این مشخصات پیدا نشد.</div>';
+  $("opportunity-list").innerHTML=rows.length?rows.map(o=>`<div class="item"><div><h3><span data-no-translate>${esc(o.title)}</span> <span class="pill">${esc(faStatus(o.status))}</span></h3><p><span data-no-translate>${esc(o.platform)}</span> · ${esc(faCategory(o.category))} · رتبه تناسب ${o.ranking?.ranking_score ?? "—"}/100 · پوشش داده ${o.ranking?.data_coverage ?? 0}%<br><a href="${esc(o.url)}" target="_blank" rel="noopener noreferrer">بازکردن پلتفرم ↗</a> ${o.terms_url?'· <a href="'+esc(o.terms_url)+'" target="_blank" rel="noopener noreferrer">قوانین ↗</a>':''}<br><span data-no-translate>${esc(o.reward_description||"جزئیات پاداش وارد نشده")}</span></p></div><div class="item-actions"><button class="secondary" data-task="${o.id}">ایجاد کار</button><button class="secondary" data-status="${o.id}" data-next="reviewing">بررسی</button></div></div>`).join(""):'<div class="empty">فرصتی با این مشخصات پیدا نشد.</div>';
   $("opportunity-list").querySelectorAll("[data-task]").forEach(b=>b.onclick=()=>createTask(Number(b.dataset.task)));
   $("opportunity-list").querySelectorAll("[data-status]").forEach(b=>b.onclick=()=>setStatus(Number(b.dataset.status),b.dataset.next));
 }
@@ -49,9 +51,10 @@ function fillRewardOptions(){$("reward-opportunity").innerHTML='<option value=""
 $("add-opportunity").onclick=()=>$("opportunity-dialog").showModal();
 $("add-reward").onclick=()=>$("reward-dialog").showModal();
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>b.closest("dialog").close());
-$("opportunity-form").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));try{await api("/api/opportunities",{method:"POST",body:JSON.stringify(data)});e.target.closest("dialog").close();e.target.reset();toast("فرصت ذخیره شد");refresh()}catch(err){toast(err.message)}};
+$("opportunity-form").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));for(const key of ["estimated_reward","estimated_hours","minimum_payout","risk_score"])data[key]=data[key]===""?null:Number(data[key]);try{await api("/api/opportunities",{method:"POST",body:JSON.stringify(data)});e.target.closest("dialog").close();e.target.reset();toast("فرصت ذخیره شد");refresh()}catch(err){toast(err.message)}};
 $("reward-form").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));data.opportunity_id=data.opportunity_id?Number(data.opportunity_id):null;data.amount=Number(data.amount);try{await api("/api/rewards",{method:"POST",body:JSON.stringify(data)});e.target.closest("dialog").close();e.target.reset();toast("پاداش ثبت شد");refresh()}catch(err){toast(err.message)}};
 $("search").oninput=renderOpportunities;$("filter").onchange=renderOpportunities;
+$("ranking-country").onchange=()=>refresh().catch(err=>toast(err.message));
 
 const riskForm=$("risk-form");
 if(riskForm){

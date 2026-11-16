@@ -342,3 +342,26 @@ def test_discovery_category_is_persisted(client, monkeypatch):
     assert response.status_code == 200
     assert response.json()[0]["category"] == "user_testing"
     assert client.get("/api/discoveries").json()[0]["category"] == "user_testing"
+
+
+def test_ranked_opportunities_api_uses_saved_metadata_and_country(tmp_path, monkeypatch):
+    from app import main
+    monkeypatch.setattr(main, "DB_PATH", tmp_path / "ranking-api.db")
+    main.init_db()
+    with TestClient(app) as test_client:
+        response = test_client.post("/api/opportunities", json={
+            "title": "Remote task", "platform": "Example",
+            "url": "https://example.org/task",
+            "estimated_reward": 20, "reward_currency": "EUR",
+            "estimated_hours": 2, "eligible_countries": "DE,AT",
+            "payout_method": "Bank transfer", "minimum_payout": 5,
+            "risk_score": 10
+        })
+        assert response.status_code == 201
+        ranked = test_client.get("/api/opportunities/ranked?country=DE")
+        assert ranked.status_code == 200
+        item = ranked.json()[0]
+        assert item["ranking"]["data_coverage"] == 100
+        assert item["reward_currency"] == "EUR"
+        outside = test_client.get("/api/opportunities/ranked?country=US").json()[0]
+        assert outside["ranking"]["components"][2]["score"] == 0

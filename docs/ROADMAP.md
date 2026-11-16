@@ -12,6 +12,7 @@ AutoEarn AI is an assisted, human-in-the-loop workspace for finding and evaluati
 - [x] Task queue with explicit approval before completion
 - [x] Reward ledger and dashboard
 - [x] API tests and GitHub Actions CI
+- [x] Explainable opportunity-fit ranking using supplied reward, time, country, payout, and risk metadata (advisory only)
 
 ## Next milestones
 
