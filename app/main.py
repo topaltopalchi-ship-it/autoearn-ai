@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 from contextlib import asynccontextmanager
@@ -50,6 +51,19 @@ def init_db() -> None:
             created_at TEXT NOT NULL
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_opportunities_url ON opportunities(url);
+        CREATE TABLE IF NOT EXISTS discovered_candidates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            canonical_url TEXT NOT NULL UNIQUE,
+            snippet TEXT NOT NULL DEFAULT '',
+            provider TEXT NOT NULL,
+            domain TEXT NOT NULL,
+            discovered_at TEXT NOT NULL,
+            confidence INTEGER NOT NULL CHECK(confidence BETWEEN 0 AND 100),
+            signals_json TEXT NOT NULL DEFAULT '[]',
+            review_required INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             opportunity_id INTEGER NOT NULL REFERENCES opportunities(id) ON DELETE CASCADE,
@@ -150,20 +164,62 @@ def discover(data: DiscoverIn):
     except RuntimeError as exc:
         raise HTTPException(502, "The search provider is temporarily unavailable.") from exc
 
+    saved = []
+    with connect() as db:
+        for item in results:
+            cursor = db.execute(
+                """
+                INSERT OR IGNORE INTO discovered_candidates
+                (title, canonical_url, snippet, provider, domain, discovered_at,
+                 confidence, signals_json, review_required, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+                """,
+                (
+                    item.title, item.url, item.snippet, item.provider, item.domain,
+                    item.discovered_at, item.confidence, json.dumps(list(item.signals)), now(),
+                ),
+            )
+            row = db.execute(
+                "SELECT * FROM discovered_candidates WHERE canonical_url = ?", (item.url,)
+            ).fetchone()
+            saved.append({
+                "id": row["id"],
+                "title": row["title"],
+                "url": row["canonical_url"],
+                "snippet": row["snippet"],
+                "provider": row["provider"],
+                "domain": row["domain"],
+                "discovered_at": row["discovered_at"],
+                "confidence": row["confidence"],
+                "signals": json.loads(row["signals_json"]),
+                "review_required": bool(row["review_required"]),
+                "verified": False,
+                "is_new": cursor.rowcount == 1,
+            })
+    return saved
+
+
+@app.get("/api/discoveries")
+def list_discoveries():
+    with connect() as db:
+        rows = db.execute(
+            "SELECT * FROM discovered_candidates ORDER BY created_at DESC, id DESC"
+        ).fetchall()
     return [
         {
-            "title": item.title,
-            "url": item.url,
-            "snippet": item.snippet,
-            "provider": item.provider,
-            "domain": item.domain,
-            "discovered_at": item.discovered_at,
-            "confidence": item.confidence,
-            "signals": list(item.signals),
-            "review_required": True,
+            "id": row["id"],
+            "title": row["title"],
+            "url": row["canonical_url"],
+            "snippet": row["snippet"],
+            "provider": row["provider"],
+            "domain": row["domain"],
+            "discovered_at": row["discovered_at"],
+            "confidence": row["confidence"],
+            "signals": json.loads(row["signals_json"]),
+            "review_required": bool(row["review_required"]),
             "verified": False,
         }
-        for item in results
+        for row in rows
     ]
 
 
