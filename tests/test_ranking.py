@@ -57,3 +57,17 @@ def test_discovery_review_priority_rewards_evidence_without_claiming_verificatio
     assert detailed["review_priority_score"] > sparse["review_priority_score"]
     assert detailed["verified"] is False
     assert "اولویت بررسی انسانی" in detailed["label"]
+
+
+def test_saved_payout_preference_improves_matching_offer_fit():
+    matching = rank_opportunity(RankingInput(
+        payout_method="Turkish bank transfer",
+        preferred_payout_method="turkish_bank",
+    ))
+    mismatching = rank_opportunity(RankingInput(
+        payout_method="PayPal",
+        preferred_payout_method="turkish_bank",
+    ))
+    assert matching["components"][-1] == {"code": "payout_preference_fit", "score": 100}
+    assert mismatching["components"][-1] == {"code": "payout_preference_fit", "score": 0}
+    assert matching["ranking_score"] > mismatching["ranking_score"]

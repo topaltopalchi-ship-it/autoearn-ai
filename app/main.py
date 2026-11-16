@@ -108,6 +108,19 @@ def init_db() -> None:
             completed_at TEXT,
             created_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS owner_preferences (
+            id INTEGER PRIMARY KEY CHECK(id = 1),
+            residence_country TEXT NOT NULL DEFAULT '',
+            country_source TEXT NOT NULL DEFAULT 'self_declared',
+            payout_asset TEXT NOT NULL DEFAULT 'USD',
+            payout_method TEXT NOT NULL DEFAULT 'none',
+            wallet_address TEXT NOT NULL DEFAULT '',
+            wallet_network TEXT NOT NULL DEFAULT '',
+            card_network TEXT NOT NULL DEFAULT '',
+            bank_country TEXT NOT NULL DEFAULT '',
+            bank_currency TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS rewards (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             opportunity_id INTEGER REFERENCES opportunities(id) ON DELETE SET NULL,
@@ -118,6 +131,24 @@ def init_db() -> None:
             created_at TEXT NOT NULL
         );
         """)
+        # Additive migration for owner payout preferences created by earlier builds.
+        owner_preference_columns = {row["name"] for row in db.execute("PRAGMA table_info(owner_preferences)")}
+        owner_preference_migrations = {
+            "residence_country": "TEXT NOT NULL DEFAULT ''",
+            "country_source": "TEXT NOT NULL DEFAULT 'self_declared'",
+            "payout_asset": "TEXT NOT NULL DEFAULT 'USD'",
+            "payout_method": "TEXT NOT NULL DEFAULT 'none'",
+            "wallet_address": "TEXT NOT NULL DEFAULT ''",
+            "wallet_network": "TEXT NOT NULL DEFAULT ''",
+            "card_network": "TEXT NOT NULL DEFAULT ''",
+            "bank_country": "TEXT NOT NULL DEFAULT ''",
+            "bank_currency": "TEXT NOT NULL DEFAULT ''",
+            "updated_at": "TEXT NOT NULL DEFAULT ''",
+        }
+        for column, definition in owner_preference_migrations.items():
+            if column not in owner_preference_columns:
+                db.execute(f"ALTER TABLE owner_preferences ADD COLUMN {column} {definition}")
+
         # Additive migration for databases created by earlier discovery builds.
         opportunity_columns = {row["name"] for row in db.execute("PRAGMA table_info(opportunities)")}
         opportunity_migrations = {
@@ -266,6 +297,17 @@ class EconomicsEvaluateIn(BaseModel):
 class TaskIn(BaseModel):
     opportunity_id: int
     description: str = Field(min_length=3, max_length=500)
+
+
+class OwnerPreferencesIn(BaseModel):
+    residence_country: str = Field(default="", max_length=2, pattern=r"^[A-Za-z]{0,2}$")
+    payout_asset: Literal["USD", "BTC", "ETH", "USDT", "USDC"] = "USD"
+    payout_method: Literal["none", "bank", "paypal", "crypto", "visa", "mastercard", "turkish_bank"] = "none"
+    card_network: Literal["", "visa", "mastercard"] = ""
+    bank_country: str = Field(default="", max_length=2, pattern=r"^[A-Za-z]{0,2}$")
+    bank_currency: Literal["", "TRY", "USD", "EUR"] = ""
+    wallet_address: str = Field(default="", max_length=128)
+    wallet_network: str = Field(default="", max_length=32)
 
 
 class RewardIn(BaseModel):
@@ -504,6 +546,78 @@ def persist_opportunity_economics(opportunity_id: int, data: EconomicsEvaluateIn
     result["risk_assessment"] = json.loads(result.pop("risk_assessment_json") or "{}")
     result["economics"] = json.loads(result.pop("economics_json") or "{}")
     return {"opportunity": result, "assessment": assessment}
+
+
+@app.get("/api/owner/preferences")
+def get_owner_preferences():
+    """Return self-declared residence and preferred payout destination; never infer country from IP."""
+    with connect() as db:
+        row = db.execute("SELECT * FROM owner_preferences WHERE id = 1").fetchone()
+        if row:
+            return row_dict(row)
+    return {
+        "residence_country": "",
+        "country_source": "self_declared",
+        "payout_asset": "USD",
+        "payout_method": "none",
+        "wallet_address": "",
+        "wallet_network": "",
+        "card_network": "",
+        "bank_country": "",
+        "bank_currency": "",
+        "updated_at": None,
+    }
+
+
+@app.put("/api/owner/preferences")
+def update_owner_preferences(data: OwnerPreferencesIn):
+    country = data.residence_country.upper()
+    asset = data.payout_asset
+    method = data.payout_method
+    address = data.wallet_address.strip()
+    network = data.wallet_network.strip().upper()
+    if method == "crypto":
+        if asset == "USD":
+            raise HTTPException(422, "Choose a crypto asset for a crypto wallet payout.")
+        if len(address) < 20:
+            raise HTTPException(422, "Enter a valid public wallet address.")
+        if not network:
+            raise HTTPException(422, "Select the blockchain network for this wallet.")
+    elif address or network:
+        raise HTTPException(422, "Wallet address and network are only used with crypto payouts.")
+    if method in {"visa", "mastercard"} and data.card_network != method:
+        raise HTTPException(422, "Card network must match the selected payout method.")
+    if method == "turkish_bank":
+        if data.bank_country.upper() != "TR":
+            raise HTTPException(422, "Turkish bank payouts require bank_country TR.")
+        if data.bank_currency not in {"TRY", "USD", "EUR"}:
+            raise HTTPException(422, "Choose TRY, USD or EUR for the Turkish bank account.")
+    if method not in {"visa", "mastercard"} and data.card_network:
+        raise HTTPException(422, "Card network is only used for card payouts.")
+    if method != "turkish_bank" and (data.bank_country or data.bank_currency):
+        raise HTTPException(422, "Bank details are only used for bank payouts.")
+    with connect() as db:
+        db.execute(
+            """INSERT INTO owner_preferences
+            (id, residence_country, country_source, payout_asset, payout_method,
+             wallet_address, wallet_network, card_network, bank_country, bank_currency, updated_at)
+            VALUES (1, ?, 'self_declared', ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              residence_country=excluded.residence_country,
+              country_source='self_declared',
+              payout_asset=excluded.payout_asset,
+              payout_method=excluded.payout_method,
+              wallet_address=excluded.wallet_address,
+              wallet_network=excluded.wallet_network,
+              card_network=excluded.card_network,
+              bank_country=excluded.bank_country,
+              bank_currency=excluded.bank_currency,
+              updated_at=excluded.updated_at""",
+            (country, asset, method, address, network, data.card_network, data.bank_country.upper(), data.bank_currency, now()),
+        )
+        return row_dict(db.execute(
+            "SELECT * FROM owner_preferences WHERE id = 1"
+        ).fetchone())
 
 
 @app.get("/api/health")
@@ -783,9 +897,12 @@ def list_opportunities(status: str | None = None, q: str | None = Query(default=
 
 @app.get("/api/opportunities/ranked")
 def ranked_opportunities(country: str | None = Query(default=None, min_length=2, max_length=2)):
-    """List tracked opportunities by explainable fit score for an optional ISO country code."""
+    """Rank opportunities using explicit country input and saved payout preference."""
     with connect() as db:
         rows = db.execute("SELECT * FROM opportunities ORDER BY created_at DESC").fetchall()
+        preferences = db.execute("SELECT residence_country, payout_method FROM owner_preferences WHERE id = 1").fetchone()
+    effective_country = country or (preferences["residence_country"] if preferences else "") or None
+    preferred_payout_method = preferences["payout_method"] if preferences else ""
     ranked = []
     for row in rows:
         item = row_dict(row)
@@ -796,7 +913,8 @@ def ranked_opportunities(country: str | None = Query(default=None, min_length=2,
             payout_method=item.get("payout_method", ""),
             minimum_payout=item.get("minimum_payout"),
             risk_score=item.get("risk_score"),
-        ), country=country)
+            preferred_payout_method=preferred_payout_method,
+        ), country=effective_country)
         ranked.append({**item, "ranking": result})
     return sorted(ranked, key=lambda item: (item["ranking"]["ranking_score"], item["ranking"]["data_coverage"]), reverse=True)
 
@@ -840,6 +958,14 @@ def update_opportunity(opportunity_id: int, data: OpportunityUpdateIn):
     changes = data.model_dump(exclude_unset=True)
     if not changes:
         raise HTTPException(422, "At least one opportunity field must be supplied.")
+    non_nullable_fields = {
+        "title", "platform", "url", "category", "reward_description",
+        "eligibility", "terms_url", "notes", "reward_currency",
+        "eligible_countries", "payout_method",
+    }
+    null_fields = sorted(key for key in non_nullable_fields if key in changes and changes[key] is None)
+    if null_fields:
+        raise HTTPException(422, f"Fields cannot be null: {', '.join(null_fields)}")
     if "url" in changes and changes["url"] is not None:
         changes["url"] = normalize_url(str(changes["url"]))
         if not safe_url(changes["url"]):

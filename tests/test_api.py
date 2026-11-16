@@ -49,6 +49,116 @@ def opportunity(client):
     return response.json()
 
 
+
+def test_owner_preferences_use_self_declared_country_and_crypto_wallet(client):
+    response = client.put("/api/owner/preferences", json={
+        "residence_country": "LU",
+        "payout_asset": "BTC",
+        "payout_method": "crypto",
+        "wallet_address": "bc1qexamplepublicwalletaddress123456789",
+        "wallet_network": "BITCOIN",
+    })
+    assert response.status_code == 200
+    saved = response.json()
+    assert saved["residence_country"] == "LU"
+    assert saved["country_source"] == "self_declared"
+    assert saved["payout_asset"] == "BTC"
+    assert saved["payout_method"] == "crypto"
+    assert saved["wallet_network"] == "BITCOIN"
+    assert client.get("/api/owner/preferences").json() == saved
+
+
+def test_crypto_payout_requires_public_address_and_network(client):
+    response = client.put("/api/owner/preferences", json={
+        "residence_country": "LU",
+        "payout_asset": "USDT",
+        "payout_method": "crypto",
+        "wallet_address": "",
+        "wallet_network": "",
+    })
+    assert response.status_code == 422
+
+
+def test_non_crypto_payout_rejects_wallet_fields(client):
+    response = client.put("/api/owner/preferences", json={
+        "residence_country": "LU",
+        "payout_asset": "USD",
+        "payout_method": "bank",
+        "wallet_address": "bc1qexamplepublicwalletaddress123456789",
+        "wallet_network": "BITCOIN",
+    })
+    assert response.status_code == 422
+
+
+
+def test_owner_can_select_visa_or_mastercard_payout(client):
+    for method in ("visa", "mastercard"):
+        response = client.put("/api/owner/preferences", json={
+            "residence_country": "TR",
+            "payout_asset": "USD",
+            "payout_method": method,
+            "card_network": method,
+        })
+        assert response.status_code == 200
+        assert response.json()["payout_method"] == method
+        assert response.json()["card_network"] == method
+
+
+def test_owner_can_select_turkish_bank_transfer(client):
+    response = client.put("/api/owner/preferences", json={
+        "residence_country": "TR",
+        "payout_asset": "USD",
+        "payout_method": "turkish_bank",
+        "bank_country": "TR",
+        "bank_currency": "USD",
+    })
+    assert response.status_code == 200
+    assert response.json()["bank_country"] == "TR"
+    assert response.json()["bank_currency"] == "USD"
+
+
+
+def test_turkish_bank_accepts_try_usd_and_eur(client):
+    for currency in ("TRY", "USD", "EUR"):
+        response = client.put("/api/owner/preferences", json={
+            "residence_country": "LU",
+            "payout_asset": "USD",
+            "payout_method": "turkish_bank",
+            "bank_country": "TR",
+            "bank_currency": currency,
+        })
+        assert response.status_code == 200
+        assert response.json()["bank_country"] == "TR"
+        assert response.json()["bank_currency"] == currency
+
+
+def test_turkish_bank_rejects_other_country_or_unsupported_currency(client):
+    wrong_country = client.put("/api/owner/preferences", json={
+        "residence_country": "LU",
+        "payout_method": "turkish_bank",
+        "bank_country": "DE",
+        "bank_currency": "EUR",
+    })
+    unsupported_currency = client.put("/api/owner/preferences", json={
+        "residence_country": "LU",
+        "payout_method": "turkish_bank",
+        "bank_country": "TR",
+        "bank_currency": "GBP",
+    })
+    assert wrong_country.status_code == 422
+    assert unsupported_currency.status_code == 422
+
+
+def test_card_payout_requires_matching_card_network(client):
+    response = client.put("/api/owner/preferences", json={
+        "residence_country": "TR",
+        "payout_asset": "USD",
+        "payout_method": "visa",
+        "card_network": "mastercard",
+    })
+    assert response.status_code == 422
+
+
 def test_health(client):
     assert client.get("/api/health").json()["status"] == "ok"
 
@@ -776,3 +886,72 @@ def test_opportunity_economics_rejects_mixed_currencies(client):
         "estimated_cost": 5,
     })
     assert response.status_code == 422
+
+def test_owner_preferences_migrate_legacy_columns(tmp_path, monkeypatch):
+    import sqlite3
+    from app import main
+    db_path = tmp_path / "legacy-owner-preferences.db"
+    monkeypatch.setattr(main, "DB_PATH", db_path)
+    with sqlite3.connect(db_path) as db:
+        db.execute("""
+            CREATE TABLE owner_preferences (
+                id INTEGER PRIMARY KEY CHECK(id = 1),
+                residence_country TEXT NOT NULL DEFAULT '',
+                country_source TEXT NOT NULL DEFAULT 'self_declared',
+                payout_asset TEXT NOT NULL DEFAULT 'USD',
+                payout_method TEXT NOT NULL DEFAULT 'none',
+                wallet_address TEXT NOT NULL DEFAULT '',
+                wallet_network TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL
+            )
+        """)
+        db.execute("INSERT INTO owner_preferences (id, updated_at) VALUES (1, 'legacy')")
+    main.init_db()
+    with sqlite3.connect(db_path) as db:
+        columns = {row[1] for row in db.execute("PRAGMA table_info(owner_preferences)")}
+        row = db.execute("SELECT card_network, bank_country, bank_currency FROM owner_preferences WHERE id = 1").fetchone()
+    assert {"card_network", "bank_country", "bank_currency"} <= columns
+    assert row == ("", "", "")
+
+def test_ranked_opportunities_use_saved_country_and_payout_preference(client):
+    saved = client.put("/api/owner/preferences", json={
+        "residence_country": "TR",
+        "payout_method": "turkish_bank",
+        "bank_country": "TR",
+        "bank_currency": "EUR",
+    })
+    assert saved.status_code == 200
+    match = client.post("/api/opportunities", json={
+        "title": "Turkish bank offer", "platform": "Example",
+        "url": "https://rank-bank-match.example/offer",
+        "eligible_countries": "TR", "payout_method": "Turkish bank transfer",
+    })
+    mismatch = client.post("/api/opportunities", json={
+        "title": "PayPal offer", "platform": "Example",
+        "url": "https://rank-bank-mismatch.example/offer",
+        "eligible_countries": "TR", "payout_method": "PayPal",
+    })
+    assert match.status_code == mismatch.status_code == 201
+    ranked = client.get("/api/opportunities/ranked").json()
+    assert ranked[0]["id"] == match.json()["id"]
+    fit = next(part for part in ranked[0]["ranking"]["components"] if part["code"] == "payout_preference_fit")
+    assert fit["score"] == 100
+
+
+@pytest.mark.parametrize("field", [
+    "title", "platform", "url", "category", "reward_description",
+    "eligibility", "terms_url", "notes", "reward_currency",
+    "eligible_countries", "payout_method",
+])
+def test_opportunity_patch_rejects_explicit_null_for_required_fields(client, field):
+    created = client.post("/api/opportunities", json={
+        "title": "Null safety offer", "platform": "Example",
+        "url": "https://null-safety.example/offer",
+    })
+    assert created.status_code == 201
+    response = client.patch(
+        f"/api/opportunities/{created.json()['id']}",
+        json={field: None},
+    )
+    assert response.status_code == 422
+    assert "cannot be null" in response.json()["detail"]

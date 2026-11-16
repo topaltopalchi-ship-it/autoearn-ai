@@ -16,6 +16,7 @@ class RankingInput:
     payout_method: str = ""
     minimum_payout: float | None = None
     risk_score: int | None = None
+    preferred_payout_method: str = ""
 
 
 def _bounded(value: float, low: float = 0, high: float = 100) -> int:
@@ -77,6 +78,21 @@ def rank_opportunity(item: RankingInput, country: str | None = None) -> dict:
     }
     score = round(sum(components[key] * weight for key, weight in weights.items()) / 100)
     coverage = round(known / len(weights) * 100)
+    payout_fit = None
+    preferred = item.preferred_payout_method.strip().lower()
+    offered = item.payout_method.strip().lower()
+    if preferred and preferred != "none":
+        aliases = {
+            "turkish_bank": ("bank", "bank transfer", "wire", "iban"),
+            "bank": ("bank", "bank transfer", "wire", "iban"),
+            "visa": ("visa",),
+            "mastercard": ("mastercard",),
+            "paypal": ("paypal",),
+            "crypto": ("crypto", "bitcoin", "btc", "ethereum", "eth", "usdt", "usdc"),
+        }
+        payout_fit = 100 if offered and any(term in offered for term in aliases.get(preferred, (preferred,))) else (0 if offered else 35)
+        score = round(score * 0.9 + payout_fit * 0.1)
+        components["payout_preference_fit"] = payout_fit
     warnings = []
     if item.estimated_reward is None:
         warnings.append("درآمد تخمینی ثبت نشده؛ مبلغ واقعی قابل پیش‌بینی نیست.")
@@ -88,6 +104,10 @@ def rank_opportunity(item: RankingInput, country: str | None = None) -> dict:
         warnings.append("کشور محل اقامت مشخص نشده؛ سازگاری این فرصت با محل اقامت قابل ارزیابی نیست.")
     if not item.payout_method.strip():
         warnings.append("روش پرداخت مشخص نیست؛ امکان دریافت وجه تأیید نشده است.")
+    if payout_fit == 0:
+        warnings.append("روش پرداخت ثبت‌شده با ترجیح دریافت مالک تطابق متنی ندارد؛ پشتیبانی واقعی باید نزد ارائه‌دهنده بررسی شود.")
+    elif payout_fit == 35:
+        warnings.append("روش پرداخت فرصت مشخص نیست؛ سازگاری با ترجیح دریافت مالک قابل ارزیابی نیست.")
     if item.minimum_payout is None:
         warnings.append("حداقل مبلغ برداشت مشخص نیست.")
     if item.risk_score is None:

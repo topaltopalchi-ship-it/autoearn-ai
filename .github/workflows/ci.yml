@@ -1,12 +1,11 @@
-name: CI
+name: CI (Ubuntu 24.04)
 on:
   push:
     branches: [main, develop]
   pull_request:
-    branches: [main, develop]
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -14,4 +13,5 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements.txt
+      - run: python -m playwright install --with-deps chromium
       - run: pytest -q
