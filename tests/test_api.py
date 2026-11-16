@@ -211,7 +211,8 @@ def test_discover_returns_unverified_candidates_for_human_review(client, monkeyp
 
     class FakeProvider:
         def search(self, query, limit=10):
-            assert query == "game rewards"
+            assert query.startswith("game rewards ")
+            assert "surveys" in query and "freelance" in query
             assert limit == 3
             return [SearchResult(
                 title="Rewards program terms",
