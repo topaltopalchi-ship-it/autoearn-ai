@@ -15,11 +15,9 @@ from pathlib import Path
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-from app.vault import (
-    KEY_BYTES, NONCE_BYTES, SALT_BYTES, VaultError, _aad, _derive_key,
-)
+from app.vault import NONCE_BYTES, SALT_BYTES, VaultError, _aad, _derive_key
 
-MAGIC = b"AUTOEARN-VAULT-BACKUP\x01"
+MAGIC = b"AUTOEARN-VAULT-BACKUP\\x01"
 MAX_BACKUP_BYTES = 64 * 1024 * 1024
 _REQUIRED_COLUMNS = {
     "id", "label", "provider", "credential_type",
@@ -47,11 +45,15 @@ def _snapshot_database(source: Path) -> bytes:
     return result
 
 
-def create_backup(source: str | Path, destination: str | Path, passphrase: str) -> Path:
-    """Create an encrypted backup without exposing plaintext database bytes."""
+def create_backup(
+    source: str | Path, destination: str | Path, passphrase: str, *, overwrite: bool = False
+) -> Path:
+    """Create an encrypted backup; never replace an existing file by default."""
     source, destination = Path(source), Path(destination)
     if source.resolve() == destination.resolve():
         raise VaultError("Backup destination must differ from the vault database.")
+    if destination.exists() and not overwrite:
+        raise FileExistsError("Backup destination exists; pass overwrite=True to replace it.")
     plaintext = _snapshot_database(source)
     salt, nonce = secrets.token_bytes(SALT_BYTES), secrets.token_bytes(NONCE_BYTES)
     key = _derive_key(passphrase, salt)
@@ -64,7 +66,12 @@ def create_backup(source: str | Path, destination: str | Path, passphrase: str) 
             stream.flush()
             os.fsync(stream.fileno())
         os.chmod(temporary_name, 0o600)
-        os.replace(temporary_name, destination)
+        # Atomic hard-link creation provides no-clobber semantics on the same filesystem.
+        if overwrite:
+            os.replace(temporary_name, destination)
+        else:
+            os.link(temporary_name, destination)
+            os.unlink(temporary_name)
         try:
             os.chmod(destination, 0o600)
         except OSError:
@@ -111,9 +118,12 @@ def restore_backup(
         raise VaultError("Backup and restore destination must differ.")
     if destination.exists() and not overwrite:
         raise FileExistsError("Restore destination exists; pass overwrite=True to replace it.")
-    raw = backup.read_bytes()
     header_size = len(MAGIC) + SALT_BYTES + NONCE_BYTES
-    if len(raw) <= header_size or len(raw) > MAX_BACKUP_BYTES + header_size + 16 or not raw.startswith(MAGIC):
+    maximum_file_size = MAX_BACKUP_BYTES + header_size + 16
+    if not backup.is_file() or backup.stat().st_size <= header_size or backup.stat().st_size > maximum_file_size:
+        raise InvalidBackup("Backup format or size is invalid.")
+    raw = backup.read_bytes()
+    if not raw.startswith(MAGIC):
         raise InvalidBackup("Backup format or size is invalid.")
     offset = len(MAGIC)
     salt, nonce = raw[offset:offset + SALT_BYTES], raw[offset + SALT_BYTES:header_size]
@@ -133,14 +143,17 @@ def restore_backup(
             stream.flush()
             os.fsync(stream.fileno())
         os.chmod(temporary_name, 0o600)
-        # Re-open the exact staged file before the atomic replacement.
         check = sqlite3.connect(temporary_name)
         try:
             if check.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
                 raise InvalidBackup("Staged restore failed integrity validation.")
         finally:
             check.close()
-        os.replace(temporary_name, destination)
+        if overwrite:
+            os.replace(temporary_name, destination)
+        else:
+            os.link(temporary_name, destination)
+            os.unlink(temporary_name)
         try:
             os.chmod(destination, 0o600)
         except OSError:
