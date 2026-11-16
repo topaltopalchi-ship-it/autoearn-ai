@@ -128,7 +128,7 @@ class PersianDashboardBrowserTests(unittest.TestCase):
         self.assertIn("هنوز کاری ثبت نشده است", page.locator("#task-list").text_content())
 
         page.once("dialog", lambda dialog: dialog.accept("Review the official platform terms"))
-        page.get_by_role("button", name="ایجاد کار").click()
+        page.locator("#opportunity-list [data-task]").first.click()
         page.wait_for_function(
             "() => document.querySelector('#task-list')?.textContent.includes('Review the official platform terms')"
         )
