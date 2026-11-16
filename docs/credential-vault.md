@@ -1,7 +1,6 @@
 # Private credential vault
 
-The vault is a local-only encrypted storage primitive for the single owner. It is
-not yet wired into dashboard/API routes or provider integrations.
+The vault is a local-only encrypted store for the single owner, integrated with authenticated API routes and a Persian dashboard form. Provider integrations are not enabled yet.
 
 ## Security model
 
@@ -27,11 +26,7 @@ not yet wired into dashboard/API routes or provider integrations.
 
 ## Important limitations before use
 
-This storage module is not yet exposed through the UI or HTTP API. The app
-currently has no login system; keep it bound to 127.0.0.1 and do not expose it
-through a public host, LAN, or tunnel. Do not enter production credentials until
-the API/UI integration, local access controls, backup/restore, and security
-review are complete. Never store seed phrases or private wallet keys unless a
+The dashboard can add credentials and list metadata; it never returns secret material. The API supports metadata listing, encrypted creation/update, and passphrase-verified deletion. Each write request carries the vault passphrase and the browser does not persist it. Do not enter production credentials until backup/restore and an independent security review are complete. Provider API calls are not wired to retrieve or use stored credentials yet. Never store seed phrases or private wallet keys unless a
 specific integration requires them and its security model has been reviewed.
 
 
@@ -43,3 +38,16 @@ a loopback IP address, even if the server is accidentally started on
 authentication: local processes running under the same operating-system user
 can still access the app. Do not place the app behind a publicly reachable
 reverse proxy or tunnel, and keep the local machine account protected.
+
+
+## HTTP API and dashboard integration
+
+- `GET /api/vault/credentials` returns metadata only.
+- `POST /api/vault/credentials` encrypts and stores a credential.
+- `PUT /api/vault/credentials/{id}` replaces a secret after passphrase verification.
+- `DELETE /api/vault/credentials/{id}` verifies the passphrase before deletion.
+- All vault routes are protected by the local owner session middleware.
+- The UI clears the secret and passphrase fields after a successful save. Secret values are never rendered again.
+- Keep the app bound to loopback. Loopback access is not a substitute for OS account security or protection from other local processes.
+
+Provider integration is a separate milestone. No stored key is automatically sent to an external service by this change.

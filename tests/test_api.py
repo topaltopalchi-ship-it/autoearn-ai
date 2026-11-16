@@ -371,9 +371,13 @@ def test_discovery_category_is_persisted(client, monkeypatch):
 
 def test_ranked_opportunities_api_uses_saved_metadata_and_country(tmp_path, monkeypatch):
     from app import main
+    monkeypatch.setenv("AUTOEARN_MASTER_PASSWORD", "test-owner-password")
+    monkeypatch.setenv("AUTOEARN_AUTH_SECRET", "test-auth-secret")
     monkeypatch.setattr(main, "DB_PATH", tmp_path / "ranking-api.db")
     main.init_db()
     with TestClient(app, client=("127.0.0.1", 12345)) as test_client:
+        login = test_client.post("/api/auth/login", json={"password": "test-owner-password"})
+        assert login.status_code == 200
         response = test_client.post("/api/opportunities", json={
             "title": "Remote task", "platform": "Example",
             "url": "https://example.org/task",
@@ -520,3 +524,56 @@ def test_accepts_loopback_client(tmp_path, monkeypatch):
     with TestClient(app, client=("127.0.0.1", 54321)) as local_client:
         response = local_client.get("/api/health")
     assert response.status_code == 200
+
+
+def test_vault_api_stores_secret_but_never_returns_it(client, tmp_path, monkeypatch):
+    from app import vault
+    monkeypatch.setattr(vault, "VAULT_DB", tmp_path / "vault-api.db")
+    payload = {
+        "label": "OpenAI personal", "provider": "OpenAI",
+        "credential_type": "api_key", "secret": "sk-test-secret-do-not-return",
+        "passphrase": "a-long-test-vault-passphrase",
+    }
+    created = client.post("/api/vault/credentials", json=payload)
+    assert created.status_code == 201
+    assert "secret" not in created.json()
+    assert "ciphertext" not in created.json()
+    listed = client.get("/api/vault/credentials")
+    assert listed.status_code == 200
+    assert len(listed.json()) == 1
+    assert "sk-test-secret-do-not-return" not in listed.text
+    assert vault.get_secret(created.json()["id"], payload["passphrase"]) == payload["secret"]
+
+
+def test_vault_api_rejects_wrong_passphrase_for_delete(client, tmp_path, monkeypatch):
+    from app import vault
+    monkeypatch.setattr(vault, "VAULT_DB", tmp_path / "vault-delete.db")
+    created = client.post("/api/vault/credentials", json={
+        "label": "Search key", "provider": "Search",
+        "credential_type": "api_key", "secret": "private-value",
+        "passphrase": "a-long-test-vault-passphrase",
+    })
+    assert created.status_code == 201
+    deleted = client.request("DELETE", f"/api/vault/credentials/{created.json()['id']}", json={
+        "passphrase": "a-different-long-passphrase"
+    })
+    assert deleted.status_code == 400
+    assert len(client.get("/api/vault/credentials").json()) == 1
+
+
+def test_vault_api_replaces_secret_without_returning_plaintext(client, tmp_path, monkeypatch):
+    from app import vault
+    monkeypatch.setattr(vault, "VAULT_DB", tmp_path / "vault-update.db")
+    created = client.post("/api/vault/credentials", json={
+        "label": "AI key", "provider": "AI",
+        "credential_type": "api_key", "secret": "old-secret-value",
+        "passphrase": "a-long-test-vault-passphrase",
+    })
+    assert created.status_code == 201
+    updated = client.put(f"/api/vault/credentials/{created.json()['id']}", json={
+        "secret": "new-secret-value",
+        "passphrase": "a-long-test-vault-passphrase",
+    })
+    assert updated.status_code == 200
+    assert "new-secret-value" not in updated.text
+    assert vault.get_secret(created.json()["id"], "a-long-test-vault-passphrase") == "new-secret-value"

@@ -10,7 +10,7 @@
 <body>
   <aside class="sidebar">
     <div class="brand"><span class="brand-mark">A</span><div><b>AutoEarn</b><small>AI WORKSPACE</small></div></div>
-    <nav><a class="active" href="#overview">◫ &nbsp; Overview</a><a href="#opportunities">◎ &nbsp; Opportunities</a><a href="#tasks">▣ &nbsp; Assisted tasks</a><a href="#rewards">◇ &nbsp; Rewards</a></nav>
+    <nav><a class="active" href="#overview">◫ &nbsp; Overview</a><a href="#opportunities">◎ &nbsp; Opportunities</a><a href="#tasks">▣ &nbsp; Assisted tasks</a><a href="#rewards">◇ &nbsp; Rewards</a><a href="#vault">⚿ &nbsp; کلیدهای من</a></nav>
     <div class="sidebar-note"><b>Human in control</b><p>Review platform rules and approve every task before participating.</p></div>
   </aside>
   <main>
@@ -76,6 +76,19 @@
     <section class="panel" id="rewards">
       <div class="section-head"><div><span class="eyebrow">TRANSPARENT LEDGER</span><h2>Reward tracking</h2><button class="secondary" id="add-reward">+ Record reward</button></div></div>
       <div id="reward-list" class="empty">No rewards recorded.</div>
+    </section>
+    <section class="panel" id="vault">
+      <div class="section-head"><div><span class="eyebrow">PRIVATE ENCRYPTED STORAGE</span><h2>خزانه امن کلیدها و اطلاعات</h2></div><button class="secondary" id="refresh-vault" type="button">به‌روزرسانی فهرست</button></div>
+      <p class="helper">مقدار کلید پس از ذخیره دوباره نمایش داده نمی‌شود. عبارت اصلی خزانه را با رمز ورود برنامه یکی نکنید و آن را در مرورگر ذخیره نکنید.</p>
+      <form id="vault-form" class="vault-form">
+        <label>عنوان<input name="label" required maxlength="80" placeholder="کلید شخصی OpenAI"></label>
+        <label>سرویس / ارائه‌دهنده<input name="provider" required maxlength="80" placeholder="OpenAI"></label>
+        <label>نوع اطلاعات<select name="credential_type"><option value="api_key">کلید API</option><option value="access_token">توکن دسترسی</option><option value="signing_key">کلید امضا</option><option value="account_secret">اطلاعات محرمانه حساب</option></select></label>
+        <label>مقدار محرمانه<input name="secret" type="password" required maxlength="8192" autocomplete="off"></label>
+        <label>عبارت اصلی خزانه<input name="passphrase" type="password" required minlength="14" maxlength="1024" autocomplete="new-password"></label>
+        <button class="primary" type="submit">رمزگذاری و ذخیره</button>
+      </form>
+      <div id="vault-list" class="empty">برای مشاهده کلیدهای ذخیره‌شده، فهرست را به‌روزرسانی کنید.</div>
     </section>
     <footer>AutoEarn AI · MVP 0.1 · No earnings are guaranteed. Always follow each platform’s terms.</footer>
   </main>

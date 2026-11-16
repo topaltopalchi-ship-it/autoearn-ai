@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse, urlunparse
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -23,6 +23,8 @@ from autoearn.ranking import RankingInput, rank_opportunity, rank_discovery_cand
 from pydantic import BaseModel, Field, HttpUrl
 
 from app.auth import COOKIE_NAME, configured as auth_configured, issue_session, valid_session, verify_password
+from app import vault as credential_vault
+from app.vault import VaultError
 
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.getenv("AUTOEARN_DB", ROOT / "autoearn.db"))
@@ -161,7 +163,7 @@ async def enforce_loopback_only(request: Request, call_next):
             status_code=403,
             content={"detail": "This personal app only accepts loopback connections."},
         )
-    if request.url.path.startswith("/api/") and request.url.path not in {"/api/auth/status", "/api/auth/login"}:
+    if request.url.path.startswith("/api/") and request.url.path not in {"/api/auth/status", "/api/auth/login", "/api/health"}:
         if not auth_configured():
             return JSONResponse(
                 status_code=503,
@@ -262,6 +264,23 @@ class LoginIn(BaseModel):
     password: str = Field(min_length=1, max_length=200)
 
 
+class VaultCredentialIn(BaseModel):
+    label: str = Field(min_length=1, max_length=80)
+    provider: str = Field(min_length=1, max_length=80)
+    credential_type: Literal["api_key", "access_token", "signing_key", "account_secret"]
+    secret: str = Field(min_length=1, max_length=8192)
+    passphrase: str = Field(min_length=14, max_length=1024)
+
+
+class VaultCredentialUpdateIn(BaseModel):
+    secret: str = Field(min_length=1, max_length=8192)
+    passphrase: str = Field(min_length=14, max_length=1024)
+
+
+class VaultCredentialDeleteIn(BaseModel):
+    passphrase: str = Field(min_length=14, max_length=1024)
+
+
 @app.get("/api/auth/status")
 def auth_status(request: Request):
     return {"configured": auth_configured(), "authenticated": valid_session(request.cookies.get(COOKIE_NAME))}
@@ -289,6 +308,47 @@ def auth_login(data: LoginIn, response: Response):
 def auth_logout(response: Response):
     response.delete_cookie(COOKIE_NAME, path="/")
     return {"authenticated": False}
+
+
+@app.get("/api/vault/credentials")
+def vault_list_credentials():
+    """Return credential metadata only; secret values are never serialized."""
+    return credential_vault.list_credentials()
+
+
+@app.post("/api/vault/credentials", status_code=201)
+def vault_add_credential(data: VaultCredentialIn):
+    try:
+        return credential_vault.add_credential(
+            label=data.label, provider=data.provider,
+            credential_type=data.credential_type, secret=data.secret,
+            passphrase=data.passphrase,
+        )
+    except VaultError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@app.put("/api/vault/credentials/{credential_id}")
+def vault_update_credential(credential_id: int, data: VaultCredentialUpdateIn):
+    try:
+        return credential_vault.update_credential(
+            credential_id, secret=data.secret, passphrase=data.passphrase,
+        )
+    except KeyError as exc:
+        raise HTTPException(404, "کلید موردنظر پیدا نشد.") from exc
+    except VaultError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@app.delete("/api/vault/credentials/{credential_id}")
+def vault_delete_credential(credential_id: int, data: VaultCredentialDeleteIn):
+    try:
+        credential_vault.delete_credential(credential_id, data.passphrase)
+        return {"deleted": True}
+    except KeyError as exc:
+        raise HTTPException(404, "کلید موردنظر پیدا نشد.") from exc
+    except VaultError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
 
 @app.get("/api/discovery-categories")
