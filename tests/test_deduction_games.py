@@ -15,7 +15,7 @@ def test_wordle_feedback_handles_duplicate_letters():
 def test_word_filter_respects_duplicate_letter_feedback():
     result = filter_word_candidates(
         ["apple", "ample", "allee", "apply"],
-        [{"guess": "allee", "feedback": "G.Y.G"}],
+        [{"guess": "allee", "feedback": "GY..G"}],
     )
     assert result["candidates"] == ["apple", "ample"]
     assert result["external_action_taken"] is False
