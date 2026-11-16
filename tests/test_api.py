@@ -102,6 +102,34 @@ def test_reward_ledger(client):
     assert client.get("/api/dashboard").json()["paid_total"] == 4.5
 
 
+def test_dashboard_never_adds_different_reward_currencies(client):
+    opp = opportunity(client)
+    for amount, currency, status in [
+        (10, "EUR", "paid"),
+        (20, "USD", "paid"),
+        (3, "EUR", "pending"),
+        (7, "GBP", "pending"),
+    ]:
+        response = client.post("/api/rewards", json={
+            "opportunity_id": opp["id"], "amount": amount,
+            "currency": currency, "status": status,
+        })
+        assert response.status_code == 201
+
+    dashboard = client.get("/api/dashboard").json()
+    assert dashboard["paid_total"] is None
+    assert dashboard["paid_currency"] is None
+    assert dashboard["paid_by_currency"] == [
+        {"currency": "EUR", "amount": 10.0},
+        {"currency": "USD", "amount": 20.0},
+    ]
+    assert dashboard["pending_total"] is None
+    assert dashboard["pending_by_currency"] == [
+        {"currency": "EUR", "amount": 3.0},
+        {"currency": "GBP", "amount": 7.0},
+    ]
+
+
 def test_duplicate_opportunity_url_is_rejected(client):
     payload = {
         "title": "Puzzle rewards", "platform": "Example Games",

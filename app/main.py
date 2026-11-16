@@ -835,7 +835,27 @@ def dashboard():
         opportunities = db.execute("SELECT COUNT(*) FROM opportunities").fetchone()[0]
         tasks = db.execute("SELECT COUNT(*) FROM tasks").fetchone()[0]
         awaiting = db.execute("SELECT COUNT(*) FROM tasks WHERE status = 'pending_approval'").fetchone()[0]
-        paid = db.execute("SELECT COALESCE(SUM(amount), 0) FROM rewards WHERE status = 'paid'").fetchone()[0]
-        pending = db.execute("SELECT COALESCE(SUM(amount), 0) FROM rewards WHERE status = 'pending'").fetchone()[0]
-        return {"opportunities": opportunities, "tasks": tasks, "awaiting_approval": awaiting,
-                "paid_total": round(paid, 2), "pending_total": round(pending, 2)}
+        paid_rows = db.execute(
+            "SELECT UPPER(currency) AS currency, ROUND(SUM(amount), 2) AS amount "
+            "FROM rewards WHERE status = 'paid' GROUP BY UPPER(currency) ORDER BY UPPER(currency)"
+        ).fetchall()
+        pending_rows = db.execute(
+            "SELECT UPPER(currency) AS currency, ROUND(SUM(amount), 2) AS amount "
+            "FROM rewards WHERE status = 'pending' GROUP BY UPPER(currency) ORDER BY UPPER(currency)"
+        ).fetchall()
+        paid_by_currency = [row_dict(row) for row in paid_rows]
+        pending_by_currency = [row_dict(row) for row in pending_rows]
+        # Keep scalar fields only when a single currency exists; never add unlike currencies.
+        paid_total = paid_by_currency[0]["amount"] if len(paid_by_currency) == 1 else (0 if not paid_by_currency else None)
+        pending_total = pending_by_currency[0]["amount"] if len(pending_by_currency) == 1 else (0 if not pending_by_currency else None)
+        return {
+            "opportunities": opportunities,
+            "tasks": tasks,
+            "awaiting_approval": awaiting,
+            "paid_total": paid_total,
+            "pending_total": pending_total,
+            "paid_currency": paid_by_currency[0]["currency"] if len(paid_by_currency) == 1 else None,
+            "pending_currency": pending_by_currency[0]["currency"] if len(pending_by_currency) == 1 else None,
+            "paid_by_currency": paid_by_currency,
+            "pending_by_currency": pending_by_currency,
+        }

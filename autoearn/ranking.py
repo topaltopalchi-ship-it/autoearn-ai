@@ -41,9 +41,12 @@ def rank_opportunity(item: RankingInput, country: str | None = None) -> dict:
 
     eligible = [part.strip().upper() for part in item.eligible_countries.split(",") if part.strip()]
     if eligible:
-        components["country_fit"] = (
-            100 if not country or country.strip().upper() in eligible or "ALL" in eligible else 0
-        )
+        if not country or not country.strip():
+            components["country_fit"] = 35
+        else:
+            components["country_fit"] = (
+                100 if country.strip().upper() in eligible or "ALL" in eligible else 0
+            )
         known += 1
     else:
         components["country_fit"] = 35
@@ -81,6 +84,8 @@ def rank_opportunity(item: RankingInput, country: str | None = None) -> dict:
         warnings.append("زمان انجام مشخص نیست؛ بهره‌وری زمانی قابل مقایسه نیست.")
     if not eligible:
         warnings.append("محدودیت کشور نامشخص است؛ پیش از ثبت‌نام شرایط منطقه‌ای را بررسی کنید.")
+    elif not country or not country.strip():
+        warnings.append("کشور محل اقامت مشخص نشده؛ سازگاری این فرصت با محل اقامت قابل ارزیابی نیست.")
     if not item.payout_method.strip():
         warnings.append("روش پرداخت مشخص نیست؛ امکان دریافت وجه تأیید نشده است.")
     if item.minimum_payout is None:

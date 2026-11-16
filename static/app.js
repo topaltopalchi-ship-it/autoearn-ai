@@ -43,8 +43,11 @@ async function refresh(){
   const [dash,opps,tasks,rewards]=await Promise.all([api("/api/dashboard"),api(rankingUrl),api("/api/tasks"),api("/api/rewards")]);
   opportunities=opps;
   $("stat-opps").textContent=dash.opportunities;$("stat-tasks").textContent=dash.tasks;
-  $("stat-approval").textContent=dash.awaiting_approval;$("stat-paid").textContent=money(dash.paid_total);
-  $("stat-pending").textContent="در انتظار: "+money(dash.pending_total);
+  $("stat-approval").textContent=dash.awaiting_approval;
+  const paidTotals=(dash.paid_by_currency||[]).map(item=>money(item.amount,item.currency)).join(" · ");
+  const pendingTotals=(dash.pending_by_currency||[]).map(item=>money(item.amount,item.currency)).join(" · ");
+  $("stat-paid").textContent=paidTotals||"—";
+  $("stat-pending").textContent="در انتظار: "+(pendingTotals||"—");
   renderOpportunities();renderTasks(tasks);renderRewards(rewards);fillRewardOptions();
 }
 function renderOpportunities(){

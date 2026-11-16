@@ -25,6 +25,12 @@ def test_country_mismatch_reduces_fit():
     assert mismatch["components"][2]["score"] == 0
 
 
+def test_missing_user_country_does_not_assume_country_eligibility():
+    result = rank_opportunity(RankingInput(eligible_countries="DE,AT"))
+    assert result["components"][2]["score"] == 35
+    assert any("کشور محل اقامت مشخص نشده" in warning for warning in result["warnings"])
+
+
 def test_missing_information_is_unknown_and_warned():
     result = rank_opportunity(RankingInput())
     assert result["data_coverage"] == 0
