@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field, HttpUrl
 from app.policy import derive_automation_eligibility
 from app.game_engine import authorize_game_strategy, solve_target_number
 from app.game_benchmark import run_target_number_benchmark
+from app.deduction_games import filter_word_candidates, solve_mastermind
 
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.getenv("AUTOEARN_DB", ROOT / "autoearn.db"))
@@ -148,6 +149,19 @@ class GameSolveIn(BaseModel):
     game_type: Literal["target_number"] = "target_number"
     numbers: list[int] = Field(min_length=2, max_length=7)
     target: int = Field(ge=-10000, le=10000)
+
+
+class WordDeductionIn(BaseModel):
+    opportunity_id: int
+    candidates: list[str] = Field(min_length=1, max_length=5000)
+    guesses: list[dict[str, str]] = Field(default_factory=list, max_length=20)
+
+
+class MastermindIn(BaseModel):
+    opportunity_id: int
+    colors: list[str] = Field(min_length=2, max_length=8)
+    length: int = Field(ge=2, le=6)
+    history: list[dict] = Field(default_factory=list, max_length=20)
 
 
 class RewardIn(BaseModel):
@@ -363,6 +377,38 @@ def skill_game_benchmark(rounds: int | None = Query(default=None, ge=1, le=10)):
         return run_target_number_benchmark(rounds)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
+
+
+@app.post("/api/games/word/filter")
+def filter_word_game(data: WordDeductionIn):
+    """Filter user-supplied word candidates locally; no site interaction occurs."""
+    with connect() as db:
+        row = db.execute("SELECT * FROM opportunities WHERE id = ?", (data.opportunity_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "Opportunity not found")
+        try:
+            authorize_game_strategy(row_dict(row))
+            return filter_word_candidates(data.candidates, data.guesses)
+        except PermissionError as exc:
+            raise HTTPException(403, str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+
+@app.post("/api/games/logic/mastermind")
+def solve_logic_game(data: MastermindIn):
+    """Deduce possible Mastermind codes from supplied feedback; no external play."""
+    with connect() as db:
+        row = db.execute("SELECT * FROM opportunities WHERE id = ?", (data.opportunity_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "Opportunity not found")
+        try:
+            authorize_game_strategy(row_dict(row))
+            return solve_mastermind(data.colors, data.length, data.history)
+        except PermissionError as exc:
+            raise HTTPException(403, str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
 
 
 @app.get("/api/games/stats")
