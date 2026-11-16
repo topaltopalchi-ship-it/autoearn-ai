@@ -1,3 +1,4 @@
+import pytest
 import unittest
 
 from autoearn.opportunities import Opportunity, normalize_url, score_opportunity
