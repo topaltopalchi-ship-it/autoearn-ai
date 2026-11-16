@@ -183,7 +183,8 @@ def create_opportunity(data: OpportunityIn):
     if payload["policy_evidence_url"] and not safe_url(payload["policy_evidence_url"]):
         raise HTTPException(422, "Policy evidence URL must be an http/https URL.")
     payload["automation_eligibility"] = derive_automation_eligibility(
-        payload["automation_policy"], payload["captcha_required"], payload["opportunity_category"]
+        payload["automation_policy"], payload["captcha_required"], payload["opportunity_category"],
+        payload["policy_source"], payload["policy_evidence_url"], payload["policy_evidence"],
     )
     score = 20
     score += 25 if payload["terms_url"] else 0
@@ -212,7 +213,7 @@ def create_opportunity(data: OpportunityIn):
 
 @app.get("/api/opportunities/automation-eligible")
 def list_automation_eligible_opportunities():
-    """Return only opportunities whose recorded policy permits automation and has no CAPTCHA."""
+    """Return only opportunities with explicit policy clearance and supporting evidence."""
     with connect() as db:
         return [row_dict(r) for r in db.execute(
             "SELECT * FROM opportunities WHERE automation_eligibility = 'auto' ORDER BY created_at DESC"
