@@ -559,3 +559,21 @@ def test_vault_api_rejects_wrong_passphrase_for_delete(client, tmp_path, monkeyp
     })
     assert deleted.status_code == 400
     assert len(client.get("/api/vault/credentials").json()) == 1
+
+
+def test_vault_api_replaces_secret_without_returning_plaintext(client, tmp_path, monkeypatch):
+    from app import vault
+    monkeypatch.setattr(vault, "VAULT_DB", tmp_path / "vault-update.db")
+    created = client.post("/api/vault/credentials", json={
+        "label": "AI key", "provider": "AI",
+        "credential_type": "api_key", "secret": "old-secret-value",
+        "passphrase": "a-long-test-vault-passphrase",
+    })
+    assert created.status_code == 201
+    updated = client.put(f"/api/vault/credentials/{created.json()['id']}", json={
+        "secret": "new-secret-value",
+        "passphrase": "a-long-test-vault-passphrase",
+    })
+    assert updated.status_code == 200
+    assert "new-secret-value" not in updated.text
+    assert vault.get_secret(created.json()["id"], "a-long-test-vault-passphrase") == "new-secret-value"
