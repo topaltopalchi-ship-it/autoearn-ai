@@ -238,7 +238,7 @@ class PersianDashboardBrowserTests(unittest.TestCase):
 
 
     def test_risk_assessment_form_shows_explainable_high_and_low_results(self):
-        page = self.browser.new_page(viewport={"width": 390, "height": 844})
+        page = self.authenticated_page(viewport={"width": 390, "height": 844})
         page_errors = []
         page.on("pageerror", lambda error: page_errors.append(str(error)))
         page.goto(self.base_url + "/", wait_until="networkidle")
