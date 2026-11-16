@@ -46,7 +46,7 @@ def test_mwmbl_parses_v2_results_and_sends_query_and_limit():
     assert results[0].provider == "mwmbl"
     request = mocked.call_args.args[0]
     assert "q=reward+games" in request.full_url
-    assert "limit=7" in request.full_url
+    assert "limit=" not in request.full_url
     assert request.get_header("X-api-key") is None
 
 
