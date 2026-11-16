@@ -116,8 +116,9 @@ def create_automation_plan(opportunity_id: int):
                  timestamp, timestamp),
             )
 
-        db.execute("UPDATE automation_runs SET status = 'awaiting_approval' WHERE id = ?",
-                   (run_id,))
+        run_status = 'awaiting_approval' if next_action else 'blocked'
+        db.execute("UPDATE automation_runs SET status = ? WHERE id = ?",
+                   (run_status, run_id))
         actions = db.execute(
             "SELECT * FROM automation_actions WHERE run_id = ? ORDER BY id", (run_id,)
         ).fetchall()
