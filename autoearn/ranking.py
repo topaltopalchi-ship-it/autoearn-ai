@@ -95,3 +95,41 @@ def rank_opportunity(item: RankingInput, country: str | None = None) -> dict:
         "currency_note": "مبالغ ارزهای مختلف با یکدیگر تبدیل یا مقایسه نشده‌اند.",
         "disclaimer": "این رتبه‌بندی فقط بر اساس اطلاعات ثبت‌شده است؛ درآمد، پرداخت یا اعتبار هیچ پلتفرمی را تضمین نمی‌کند.",
     }
+
+
+def rank_discovery_candidate(confidence: int, extraction: dict | None = None, review_status: str = "pending") -> dict:
+    """Prioritize human review using discovery confidence and extracted evidence only."""
+    extraction = extraction or {}
+    components = {
+        "discovery_confidence": _bounded(confidence),
+        "reward_evidence": 100 if extraction.get("reward_amounts") else 0,
+        "eligibility_evidence": 100 if extraction.get("eligibility_evidence") else 0,
+        "terms_evidence": 100 if extraction.get("terms_mentioned") else 0,
+    }
+    weights = {
+        "discovery_confidence": 45,
+        "reward_evidence": 20,
+        "eligibility_evidence": 20,
+        "terms_evidence": 15,
+    }
+    score = round(sum(components[key] * weight for key, weight in weights.items()) / 100)
+    reasons = []
+    if not extraction:
+        reasons.append("متن صفحه هنوز برای استخراج اطلاعات ارائه نشده است.")
+    if not extraction.get("reward_amounts"):
+        reasons.append("شواهد مشخصی از مبلغ پاداش استخراج نشده است.")
+    if not extraction.get("eligibility_evidence"):
+        reasons.append("شرایط احراز صلاحیت از متن ارائه‌شده مشخص نیست.")
+    if not extraction.get("terms_mentioned"):
+        reasons.append("اشاره روشنی به قوانین و شرایط در متن پیدا نشد.")
+    if extraction.get("verified") is not False:
+        reasons.append("خروجی استخراج باید همچنان توسط انسان بررسی شود.")
+    if review_status == "rejected":
+        reasons.append("این نتیجه قبلاً توسط کاربر رد شده است.")
+    return {
+        "review_priority_score": score,
+        "components": [{"code": key, "score": value} for key, value in components.items()],
+        "reasons": reasons,
+        "label": "اولویت بررسی انسانی؛ نه رتبه درآمد یا اعتبار",
+        "verified": False,
+    }
