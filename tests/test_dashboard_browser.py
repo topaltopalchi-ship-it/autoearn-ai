@@ -73,7 +73,24 @@ class PersianDashboardBrowserTests(unittest.TestCase):
         self.assertIn("text/html", response.headers.get("content-type", ""))
         self.assertEqual(page.title(), "AutoEarn AI")
         self.assertEqual(page.locator("html").get_attribute("lang"), "fa")
-        self.assertEqual(page.locator("html").get_attribute("dir"), "rtl")\n\n        # Dynamic UI copy should be translated, while external/user text is preserved.\n        page.evaluate("""() => {\n          const root = document.createElement("div");\n          root.id = "translation-smoke";\n          const dynamic = document.createElement("p");\n          dynamic.textContent = "Opportunity saved";\n          const userText = document.createElement("span");\n          userText.dataset.noTranslate = "";\n          userText.textContent = "My Custom Platform";\n          root.append(dynamic, userText);\n          document.body.append(root);\n        }""")\n        page.wait_for_function(\n            "() => document.querySelector('#translation-smoke p')?.textContent === 'فرصت ذخیره شد'"\n        )\n        self.assertEqual(page.locator("#translation-smoke span").text_content(), "My Custom Platform")
+        self.assertEqual(page.locator("html").get_attribute("dir"), "rtl")
+
+        # Dynamic UI copy should be translated, while external/user text is preserved.
+        page.evaluate("""() => {
+          const root = document.createElement("div");
+          root.id = "translation-smoke";
+          const dynamic = document.createElement("p");
+          dynamic.textContent = "Opportunity saved";
+          const userText = document.createElement("span");
+          userText.dataset.noTranslate = "";
+          userText.textContent = "My Custom Platform";
+          root.append(dynamic, userText);
+          document.body.append(root);
+        }""")
+        page.wait_for_function(
+            "() => document.querySelector('#translation-smoke p')?.textContent === 'فرصت ذخیره شد'"
+        )
+        self.assertEqual(page.locator("#translation-smoke span").text_content(), "My Custom Platform")
 
         sidebar = page.locator(".sidebar")
         self.assertEqual(sidebar.evaluate("(el) => getComputedStyle(el).position"), "fixed")
