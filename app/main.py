@@ -108,6 +108,16 @@ def init_db() -> None:
             completed_at TEXT,
             created_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS owner_preferences (
+            id INTEGER PRIMARY KEY CHECK(id = 1),
+            residence_country TEXT NOT NULL DEFAULT '',
+            country_source TEXT NOT NULL DEFAULT 'self_declared',
+            payout_asset TEXT NOT NULL DEFAULT 'USD',
+            payout_method TEXT NOT NULL DEFAULT 'none',
+            wallet_address TEXT NOT NULL DEFAULT '',
+            wallet_network TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS rewards (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             opportunity_id INTEGER REFERENCES opportunities(id) ON DELETE SET NULL,
@@ -266,6 +276,14 @@ class EconomicsEvaluateIn(BaseModel):
 class TaskIn(BaseModel):
     opportunity_id: int
     description: str = Field(min_length=3, max_length=500)
+
+
+class OwnerPreferencesIn(BaseModel):
+    residence_country: str = Field(default="", max_length=2, pattern=r"^[A-Za-z]{0,2}$")
+    payout_asset: Literal["USD", "BTC", "ETH", "USDT", "USDC"] = "USD"
+    payout_method: Literal["none", "bank", "paypal", "crypto"] = "none"
+    wallet_address: str = Field(default="", max_length=128)
+    wallet_network: str = Field(default="", max_length=32)
 
 
 class RewardIn(BaseModel):
@@ -504,6 +522,61 @@ def persist_opportunity_economics(opportunity_id: int, data: EconomicsEvaluateIn
     result["risk_assessment"] = json.loads(result.pop("risk_assessment_json") or "{}")
     result["economics"] = json.loads(result.pop("economics_json") or "{}")
     return {"opportunity": result, "assessment": assessment}
+
+
+@app.get("/api/owner/preferences")
+def get_owner_preferences():
+    """Return self-declared residence and preferred payout destination; never infer country from IP."""
+    with connect() as db:
+        row = db.execute("SELECT * FROM owner_preferences WHERE id = 1").fetchone()
+        if row:
+            return row_dict(row)
+    return {
+        "residence_country": "",
+        "country_source": "self_declared",
+        "payout_asset": "USD",
+        "payout_method": "none",
+        "wallet_address": "",
+        "wallet_network": "",
+        "updated_at": None,
+    }
+
+
+@app.put("/api/owner/preferences")
+def update_owner_preferences(data: OwnerPreferencesIn):
+    country = data.residence_country.upper()
+    asset = data.payout_asset
+    method = data.payout_method
+    address = data.wallet_address.strip()
+    network = data.wallet_network.strip().upper()
+    if method == "crypto":
+        if asset == "USD":
+            raise HTTPException(422, "Choose a crypto asset for a crypto wallet payout.")
+        if len(address) < 20:
+            raise HTTPException(422, "Enter a valid public wallet address.")
+        if not network:
+            raise HTTPException(422, "Select the blockchain network for this wallet.")
+    elif address or network:
+        raise HTTPException(422, "Wallet address and network are only used with crypto payouts.")
+    with connect() as db:
+        db.execute(
+            """INSERT INTO owner_preferences
+            (id, residence_country, country_source, payout_asset, payout_method,
+             wallet_address, wallet_network, updated_at)
+            VALUES (1, ?, 'self_declared', ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              residence_country=excluded.residence_country,
+              country_source='self_declared',
+              payout_asset=excluded.payout_asset,
+              payout_method=excluded.payout_method,
+              wallet_address=excluded.wallet_address,
+              wallet_network=excluded.wallet_network,
+              updated_at=excluded.updated_at""",
+            (country, asset, method, address, network, now()),
+        )
+        return row_dict(db.execute(
+            "SELECT * FROM owner_preferences WHERE id = 1"
+        ).fetchone())
 
 
 @app.get("/api/health")
