@@ -307,3 +307,8 @@ def dashboard():
         pending = db.execute("SELECT COALESCE(SUM(amount), 0) FROM rewards WHERE status = 'pending'").fetchone()[0]
         return {"opportunities": opportunities, "tasks": tasks, "awaiting_approval": awaiting,
                 "paid_total": round(paid, 2), "pending_total": round(pending, 2)}
+
+
+# Guarded orchestration is registered after the core database helpers are defined.
+from app.automation import router as automation_router
+app.include_router(automation_router)
