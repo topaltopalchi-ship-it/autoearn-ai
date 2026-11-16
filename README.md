@@ -85,6 +85,25 @@ results. Search results remain unverified leads. Compare current official
 terms, country availability, minimum payout, fees, required effort, privacy
 requirements, and withdrawal conditions before deciding whether to join.
 
+
+## Explainable risk checklist
+
+Use `POST /api/risk-assessments` to score user-observed warning signs such
+as upfront payments, deposits, guaranteed high returns, referral gates before
+withdrawal, unclear terms, early requests for sensitive data, and pressure to
+move off-platform. The endpoint returns a capped 0–100 heuristic risk score,
+individual flags, and a human-review requirement. It does not certify a
+platform as safe or fraudulent. The available category IDs and labels are
+returned by `GET /api/discovery-categories`.
+
+Example:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/risk-assessments \
+  -H "Content-Type: application/json" \
+  -d '{"upfront_payment":true,"deposit_or_top_up":true,"unclear_or_missing_terms":true}'
+```
+
 ## Scoring notes
 
 The score is a heuristic based only on metadata supplied to the application. It is not proof that a platform is legitimate or that a reward will be paid. Users must verify eligibility, regional restrictions, and platform terms before participating.
