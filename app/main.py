@@ -457,9 +457,24 @@ def solve_logic_game(data: MastermindIn):
 
 @app.post("/api/games/strategy/recommend")
 def recommend_game_strategy(data: StrategyRecommendIn):
-    """Recommend a strategy from local practice observations; never plays externally."""
+    """Recommend from explicit history or persisted observations for one local game type."""
+    history = data.history
+    if not history and data.game_type:
+        with connect() as db:
+            rows = db.execute(
+                "SELECT strategy, reward FROM strategy_observations "
+                "WHERE game_type = ? ORDER BY id DESC LIMIT 5000",
+                (data.game_type,),
+            ).fetchall()
+        history = [row_dict(row) for row in reversed(rows)]
     try:
-        return recommend_strategy(data.candidates, data.history, data.exploration)
+        result = recommend_strategy(data.candidates, history, data.exploration)
+        result["game_type"] = data.game_type
+        result["history_source"] = (
+            "persisted_local_practice" if not data.history and data.game_type
+            else "request_history"
+        )
+        return result
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
 
