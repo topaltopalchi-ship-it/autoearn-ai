@@ -113,6 +113,35 @@ class PersianDashboardBrowserTests(unittest.TestCase):
         )
         self.assertEqual(page.locator("html").evaluate("(el) => getComputedStyle(el).direction"), "rtl")
         self.assertEqual(page_errors, [])
+
+        # Exercise the human approval gate end to end: saving an opportunity
+        # creates no task until the user explicitly starts one, and the task
+        # remains pending until the separate approval confirmation.
+        page.get_by_role("button", name="افزودن فرصت").click()
+        page.locator('#opportunity-form input[name="title"]').fill("Browser Test Opportunity")
+        page.locator('#opportunity-form input[name="platform"]').fill("Example Platform")
+        page.locator('#opportunity-form input[name="url"]').fill("https://example.com")
+        page.locator('#opportunity-form button[type="submit"]').click()
+        page.wait_for_function(
+            "() => document.querySelector('#opportunity-list')?.textContent.includes('Browser Test Opportunity')"
+        )
+        self.assertIn("هنوز کاری ثبت نشده است", page.locator("#task-list").text_content())
+
+        page.once("dialog", lambda dialog: dialog.accept("Review the official platform terms"))
+        page.get_by_role("button", name="ایجاد کار").click()
+        page.wait_for_function(
+            "() => document.querySelector('#task-list')?.textContent.includes('Review the official platform terms')"
+        )
+        self.assertIn("در انتظار تأیید", page.locator("#task-list").text_content())
+        self.assertTrue(page.get_by_role("button", name="تأیید کار").is_visible())
+
+        page.once("dialog", lambda dialog: dialog.accept())
+        page.get_by_role("button", name="تأیید کار").click()
+        page.wait_for_function(
+            "() => document.querySelector('#task-list')?.textContent.includes('تأییدشده')"
+        )
+        self.assertNotIn("تأیید کار", page.locator("#task-list").text_content())
+        self.assertEqual(page_errors, [])
         page.close()
 
 
