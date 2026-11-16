@@ -19,6 +19,7 @@ from app.game_benchmark import run_target_number_benchmark
 from app.game_training import run_offline_practice
 from app.memory_game import run_memory_practice
 from app.deduction_games import filter_word_candidates, solve_mastermind
+from app.strategy_engine import recommend_strategy
 
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.getenv("AUTOEARN_DB", ROOT / "autoearn.db"))
@@ -164,6 +165,12 @@ class MastermindIn(BaseModel):
     colors: list[str] = Field(min_length=2, max_length=8)
     length: int = Field(ge=2, le=6)
     history: list[dict] = Field(default_factory=list, max_length=20)
+
+
+class StrategyRecommendIn(BaseModel):
+    candidates: list[str] = Field(min_length=1, max_length=20)
+    history: list[dict] = Field(default_factory=list, max_length=5000)
+    exploration: float = Field(default=2.0, ge=0, le=5)
 
 
 class RewardIn(BaseModel):
@@ -429,6 +436,15 @@ def solve_logic_game(data: MastermindIn):
             raise HTTPException(403, str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
+
+
+@app.post("/api/games/strategy/recommend")
+def recommend_game_strategy(data: StrategyRecommendIn):
+    """Recommend a strategy from local practice observations; never plays externally."""
+    try:
+        return recommend_strategy(data.candidates, data.history, data.exploration)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
 
 @app.get("/api/games/stats")
