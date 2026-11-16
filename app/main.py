@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from autoearn.opportunities import BraveSearchProvider, discover_opportunities, normalize_url
+from autoearn.mwmbl import MwmblSearchProvider
 from pydantic import BaseModel, Field, HttpUrl
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -166,13 +167,15 @@ def health():
 
 @app.post("/api/discover")
 def discover(data: DiscoverIn):
-    api_key = os.getenv("BRAVE_SEARCH_API_KEY", "").strip()
-    if not api_key:
-        raise HTTPException(503, "Discovery provider is not configured. Set BRAVE_SEARCH_API_KEY.")
+    brave_key = os.getenv("BRAVE_SEARCH_API_KEY", "").strip()
+    mwmbl_key = os.getenv("MWMBL_API_KEY", "").strip()
     try:
+        # Prefer Brave when explicitly configured; otherwise use Mwmbl's
+        # anonymous free tier (1,000 requests/month, 1 request/second).
+        provider = BraveSearchProvider(brave_key) if brave_key else MwmblSearchProvider(api_key=mwmbl_key or None)
         results = discover_opportunities(
             data.query,
-            BraveSearchProvider(api_key),
+            provider,
             limit=data.limit,
         )
     except ValueError as exc:
