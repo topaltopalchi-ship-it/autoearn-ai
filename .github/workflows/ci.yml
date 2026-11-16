@@ -2,8 +2,8 @@ name: CI
 on:
   push:
     branches: [main, develop, "feat/compliant-autonomy-orchestrator"]
+  # Run PR validation for every target branch, including stacked feature branches.
   pull_request:
-    branches: [main, develop, "feat/compliant-autonomy-orchestrator"]
 jobs:
   test:
     runs-on: ubuntu-latest
