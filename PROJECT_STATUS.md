@@ -26,7 +26,7 @@ This is an engineering estimate against a practical, local-first AutoEarn AI MVP
 - No automatic gameplay, ad clicks/views, spam, referrals, account creation, or other reward manipulation is intended.
 - Hosting provider remains undecided.
 - Pull requests #1–#4 are open and unmerged. PR #4 is a draft stacked on PR #3.
-- The Persian translation observer now avoids rewriting already-translated text/attributes, preventing redundant MutationObserver callbacks. Browser coverage also checks dynamic-string translation and preservation of user-entered/external text. The latest CI run must pass before the browser test is considered verified.\n- Mwmbl documentation no longer asserts unverified anonymous-access quotas or authentication requirements; live access and current terms remain to be verified.
+- The Persian translation observer now avoids rewriting already-translated text/attributes, preventing redundant MutationObserver callbacks. Browser coverage also checks dynamic-string translation and preservation of user-entered/external text. The latest CI run must pass before the browser test is considered verified.\n- Mwmbl documentation no longer asserts unverified anonymous-access quotas or authentication requirements; live access and current terms remain to be verified.\n- CI triggers were narrowed to avoid duplicate runs for feature-branch commits: feature work is validated by its pull-request workflow, while pushes to main/develop retain push validation.
 
 ## Next milestones
 
