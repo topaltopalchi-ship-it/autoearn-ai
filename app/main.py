@@ -20,6 +20,7 @@ from autoearn.extraction import extract_opportunity_details
 from autoearn.catalog import CATEGORY_LABELS, expand_discovery_query
 from autoearn.risk import RiskSignals, assess_risk
 from autoearn.ranking import RankingInput, rank_opportunity, rank_discovery_candidate
+from autoearn.economics import EconomicsInput, evaluate_economics
 from pydantic import BaseModel, Field, HttpUrl
 
 from app.auth import (
@@ -230,6 +231,17 @@ class OpportunityIn(BaseModel):
     risk_score: int | None = Field(default=None, ge=0, le=100)
 
 
+class EconomicsEvaluateIn(BaseModel):
+    gross_reward: float = Field(ge=0, allow_inf_nan=False)
+    estimated_hours: float = Field(gt=0, allow_inf_nan=False)
+    estimated_cost: float = Field(default=0, ge=0, allow_inf_nan=False)
+    fee_percent: float = Field(default=0, ge=0, le=100, allow_inf_nan=False)
+    flat_fee: float = Field(default=0, ge=0, allow_inf_nan=False)
+    currency: str = Field(default="EUR", min_length=3, max_length=3)
+    cost_currency: str | None = Field(default=None, min_length=3, max_length=3)
+    target_hourly_rate: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+
+
 class TaskIn(BaseModel):
     opportunity_id: int
     description: str = Field(min_length=3, max_length=500)
@@ -398,6 +410,24 @@ def vault_test_connection(credential_id: int, data: VaultConnectionCheckIn):
 @app.get("/api/discovery-categories")
 def discovery_categories():
     return [{"id": key, "label": label} for key, label in CATEGORY_LABELS.items()]
+
+
+@app.post("/api/opportunities/evaluate")
+def evaluate_opportunity_economics(data: EconomicsEvaluateIn):
+    """Calculate estimated net return from owner-entered figures; no API calls."""
+    try:
+        return evaluate_economics(EconomicsInput(
+            gross_reward=data.gross_reward,
+            estimated_hours=data.estimated_hours,
+            estimated_cost=data.estimated_cost,
+            fee_percent=data.fee_percent,
+            flat_fee=data.flat_fee,
+            currency=data.currency,
+            cost_currency=data.cost_currency or data.currency,
+            target_hourly_rate=data.target_hourly_rate,
+        ))
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
 
 @app.post("/api/risk-assessments")

@@ -10,7 +10,7 @@
 <body>
   <aside class="sidebar">
     <div class="brand"><span class="brand-mark">A</span><div><b>AutoEarn</b><small>AI WORKSPACE</small></div></div>
-    <nav><a class="active" href="#overview">◫ &nbsp; Overview</a><a href="#opportunities">◎ &nbsp; Opportunities</a><a href="#tasks">▣ &nbsp; Assisted tasks</a><a href="#rewards">◇ &nbsp; Rewards</a><a href="#vault">⚿ &nbsp; کلیدهای من</a></nav>
+    <nav><a class="active" href="#overview">◫ &nbsp; Overview</a><a href="#opportunities">◎ &nbsp; Opportunities</a><a href="#economics">€ &nbsp; سود خالص</a><a href="#tasks">▣ &nbsp; Assisted tasks</a><a href="#rewards">◇ &nbsp; Rewards</a><a href="#vault">⚿ &nbsp; کلیدهای من</a></nav>
     <div class="sidebar-note"><b>Human in control</b><p>Review platform rules and approve every task before participating.</p></div>
   </aside>
   <main>
@@ -68,6 +68,21 @@
       <div class="toolbar"><input id="search" placeholder="Search platform or opportunity…"><select id="filter"><option value="">All statuses</option><option>discovered</option><option>reviewing</option><option>eligible</option><option>ineligible</option><option>archived</option></select><input id="ranking-country" maxlength="2" placeholder="Country code e.g. DE" aria-label="Country code for ranking"></div>
       <p class="helper">Opportunities are sorted by fit score. Add a two-letter country code to check regional eligibility. Scores reflect supplied data only.</p>
       <div id="opportunity-list" class="empty">No opportunities yet. Add a platform you want to evaluate.</div>
+    </section>
+    <section class="panel" id="economics">
+      <div class="section-head"><div><span class="eyebrow">LOCAL ECONOMICS CALCULATOR</span><h2>محاسبه سود خالص فرصت</h2></div></div>
+      <p class="helper">مبلغ پاداش، زمان، هزینه‌ها و کارمزد را وارد کنید. محاسبه روی همین برنامه انجام می‌شود و هیچ درخواست پولی به سرویس هوش مصنوعی ارسال نمی‌کند. ارز هزینه و پاداش باید یکسان باشد.</p>
+      <form id="economics-form" class="vault-form">
+        <label>پاداش ناخالص<input name="gross_reward" type="number" min="0" step="0.01" value="20" required></label>
+        <label>ساعت موردنیاز<input name="estimated_hours" type="number" min="0.01" step="0.01" value="2" required></label>
+        <label>هزینه مستقیم<input name="estimated_cost" type="number" min="0" step="0.01" value="0"></label>
+        <label>کارمزد درصدی (%)<input name="fee_percent" type="number" min="0" max="100" step="0.01" value="0"></label>
+        <label>کارمزد ثابت<input name="flat_fee" type="number" min="0" step="0.01" value="0"></label>
+        <label>واحد پول<input name="currency" value="EUR" minlength="3" maxlength="3" required></label>
+        <label>حداقل درآمد هدف در ساعت (اختیاری)<input name="target_hourly_rate" type="number" min="0" step="0.01" placeholder="مثلاً 12"></label>
+        <button class="primary" type="submit">محاسبه سود خالص</button>
+      </form>
+      <div id="economics-result" class="empty" aria-live="polite">اطلاعات را وارد کنید تا سود خالص تخمینی و درآمد ساعتی محاسبه شود.</div>
     </section>
     <section class="panel" id="tasks">
       <div class="section-head"><div><span class="eyebrow">ASSISTED EXECUTION</span><h2>Tasks awaiting action</h2></div></div>

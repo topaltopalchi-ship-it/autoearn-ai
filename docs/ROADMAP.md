@@ -13,6 +13,7 @@ AutoEarn AI is a private, single-owner, human-in-the-loop assistant for one pers
 - [x] Reward ledger and dashboard
 - [x] API tests and GitHub Actions CI
 - [x] Explainable opportunity-fit ranking using supplied reward, time, country, payout, and risk metadata (advisory only)
+- [x] Deterministic net-return calculator with direct costs, percentage and flat fees, net hourly estimate, break-even threshold, and optional target hourly rate (same-currency only)
 
 ## Next milestones
 
