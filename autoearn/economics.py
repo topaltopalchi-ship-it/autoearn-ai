@@ -51,7 +51,7 @@ def evaluate_economics(item: EconomicsInput) -> dict:
     total_cost = cost + flat_fee + percentage_fee
     net = gross - total_cost
     hourly = net / hours
-    roi = (net / (cost + flat_fee) * 100) if (cost + flat_fee) > 0 else None
+    roi = (net / total_cost * 100) if total_cost > 0 else None
     minimum_reward = None
     target_met = None
     if fee_percent < 100:
