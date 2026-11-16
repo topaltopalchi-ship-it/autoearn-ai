@@ -38,3 +38,17 @@ Each opportunity can record its automation policy (allowed, prohibited, or unkno
 Free giveaways and skill contests may be marked auto-eligible only when automation is explicitly recorded as allowed, CAPTCHA is explicitly recorded as absent, a non-unknown evidence source is selected, and a supporting evidence URL or reviewer note is supplied. Evidence is still user-provided and must be checked by a person; the application does not independently verify that a website's terms permit automation. Paid lotteries and betting remain manual-only and are not automated. These labels are not legal advice or proof of eligibility, and prizes are not guaranteed income.
 
 The policy classifier does not browse, submit forms, place bets, pay entry fees, solve CAPTCHAs, or bypass robots/anti-bot controls. Missing or uncertain evidence fails closed.
+
+
+## Guarded autonomy and approval workflow
+
+The guarded orchestration API creates an auditable plan for a saved opportunity:
+
+- `POST /api/automation/opportunities/{id}/plan` creates a run using the saved policy decision.
+- A local metadata assessment may be marked complete automatically; this does not contact the third-party site.
+- Unclear policy requires a human-review handoff. Explicitly prohibited automation is blocked.
+- A permitted opportunity can receive a manual-participation handoff, which remains pending approval.
+- `GET /api/automation/runs` and `GET /api/automation/actions` expose the audit trail.
+- Approving an action changes it to `ready_for_user`; it does not click, submit, watch, play, create an account, pay, or claim anything on an external site. The user performs any site interaction personally where allowed.
+
+This is an orchestration and approval foundation, not a live website crawler, AI model integration, ad-viewing bot, game-playing agent, or payout processor. Future site integrations must be separately implemented and checked against each provider's current terms, regional eligibility, CAPTCHA requirements, and applicable law. CAPTCHA solving/bypass, anti-bot evasion, artificial ad views, and automated gameplay are out of scope.
