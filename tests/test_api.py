@@ -60,3 +60,14 @@ def test_reward_ledger(client):
     })
     assert response.status_code == 201
     assert client.get("/api/dashboard").json()["paid_total"] == 4.5
+
+
+def test_duplicate_opportunity_url_is_rejected(client):
+    payload = {
+        "title": "Puzzle rewards", "platform": "Example Games",
+        "url": "https://example.com/game"
+    }
+    assert client.post("/api/opportunities", json=payload).status_code == 201
+    duplicate = client.post("/api/opportunities", json=payload)
+    assert duplicate.status_code == 409
+    assert "already registered" in duplicate.json()["detail"]
