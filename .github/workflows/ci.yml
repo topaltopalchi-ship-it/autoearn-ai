@@ -3,7 +3,7 @@ on:
   push:
     branches: [main, develop]
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, "feat/automation-policy-and-giveaway-filters"]
 jobs:
   test:
     runs-on: ubuntu-latest
