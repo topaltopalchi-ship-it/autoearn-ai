@@ -189,3 +189,31 @@ def test_discover_persists_deduplicated_review_inbox(client, monkeypatch):
     assert inbox.json()[0]["url"] == "https://example.net/rewards"
     assert inbox.json()[0]["review_required"] is True
     assert inbox.json()[0]["verified"] is False
+
+
+def test_discovery_candidate_human_review_is_persisted_but_not_verified(client, monkeypatch):
+    from app import main
+    from autoearn.opportunities import SearchResult
+
+    class FakeProvider:
+        def search(self, query, limit=10):
+            return [SearchResult("Cashback terms", "https://example.org/cashback")]
+
+    monkeypatch.setenv("BRAVE_SEARCH_API_KEY", "test-token")
+    monkeypatch.setattr(main, "BraveSearchProvider", lambda token: FakeProvider())
+    candidate = client.post("/api/discover", json={"query": "cashback", "limit": 1}).json()[0]
+    response = client.patch(
+        f"/api/discoveries/{candidate['id']}/review",
+        json={"status": "accepted", "note": "Check eligibility manually."},
+    )
+    assert response.status_code == 200
+    assert response.json()["review_status"] == "accepted"
+    assert response.json()["review_note"] == "Check eligibility manually."
+    assert response.json()["verified"] is False
+    assert response.json()["review_required"] is True
+    assert client.get("/api/discoveries").json()[0]["review_status"] == "accepted"
+
+
+def test_discovery_review_validates_status_and_candidate_id(client):
+    assert client.patch("/api/discoveries/999/review", json={"status": "accepted"}).status_code == 404
+    assert client.patch("/api/discoveries/999/review", json={"status": "pending"}).status_code == 422
