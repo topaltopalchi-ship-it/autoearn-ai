@@ -106,3 +106,25 @@ def test_memory_practice_endpoint_is_local_and_bounded():
         assert payload["site_played"] is False
         assert payload["prize_or_earnings"] == 0
         assert client.get("/api/games/memory-practice?rounds=7").status_code == 422
+
+
+def test_strategy_recommendation_api_uses_only_local_history():
+    with TestClient(app) as client:
+        response = client.post("/api/games/strategy/recommend", json={
+            "candidates": ["fast", "accurate"],
+            "history": [{"strategy": "fast", "reward": 0.4}],
+        })
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["selected_strategy"] == "accurate"
+        assert payload["external_actions"] == 0
+        assert payload["site_played"] is False
+
+
+def test_strategy_recommendation_api_rejects_invalid_observations():
+    with TestClient(app) as client:
+        response = client.post("/api/games/strategy/recommend", json={
+            "candidates": ["fast"],
+            "history": [{"strategy": "unknown", "reward": 0.8}],
+        })
+        assert response.status_code == 422
