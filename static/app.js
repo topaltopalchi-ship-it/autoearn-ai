@@ -10,13 +10,24 @@ function toast(message){const el=$("toast");el.textContent=message;el.classList.
 function esc(s=""){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 let opportunities=[];
 async function refresh(){
-  const [dash,opps,tasks,rewards]=await Promise.all([api("/api/dashboard"),api("/api/opportunities"),api("/api/tasks"),api("/api/rewards")]);
+  const [dash,opps,tasks,rewards,player]=await Promise.all([api("/api/dashboard"),api("/api/opportunities"),api("/api/tasks"),api("/api/rewards"),api("/api/player/status")]);
   opportunities=opps;
   $("stat-opps").textContent=dash.opportunities;$("stat-tasks").textContent=dash.tasks;
   $("stat-approval").textContent=dash.awaiting_approval;$("stat-paid").textContent=money(dash.paid_total);
   $("stat-pending").textContent="Pending: "+money(dash.pending_total);
-  renderOpportunities();renderTasks(tasks);renderRewards(rewards);fillRewardOptions();fillGameOptions();refreshGameStats();
+  renderOpportunities();renderTasks(tasks);renderRewards(rewards);renderPlayerStatus(player);fillRewardOptions();fillGameOptions();refreshGameStats();
 }
+
+function renderPlayerStatus(player){
+  $("player-attempts").textContent=player.game_attempts;
+  $("player-solve-rate").textContent=player.local_solve_rate===null?"—":Math.round(player.local_solve_rate*100)+"%";
+  $("player-observations").textContent=player.strategy_observations;
+  $("player-game-types").textContent=player.strategy_game_types;
+  $("player-safety-note").textContent=player.external_gameplay_enabled
+    ? "External gameplay status requires separate platform authorization."
+    : "External gameplay and automated payments are disabled. Local solve rate is not a real-world win rate or earnings forecast.";
+}
+
 function renderOpportunities(){
   const q=$("search").value.toLowerCase(),status=$("filter").value,automation=$("automation-filter").value;
   const rows=opportunities.filter(o=>(!status||o.status===status)&&(!automation||o.automation_eligibility===automation)&&[o.title,o.platform,o.category,o.opportunity_category].some(x=>x.toLowerCase().includes(q)));
