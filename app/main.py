@@ -75,6 +75,15 @@ def init_db() -> None:
             strategy TEXT NOT NULL,
             created_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS strategy_observations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            game_type TEXT NOT NULL,
+            strategy TEXT NOT NULL,
+            reward REAL NOT NULL CHECK(reward >= 0 AND reward <= 1),
+            duration_ms INTEGER,
+            created_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_strategy_observations_game ON strategy_observations(game_type, created_at);
         CREATE TABLE IF NOT EXISTS rewards (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             opportunity_id INTEGER REFERENCES opportunities(id) ON DELETE SET NULL,
@@ -168,9 +177,17 @@ class MastermindIn(BaseModel):
 
 
 class StrategyRecommendIn(BaseModel):
+    game_type: str | None = Field(default=None, max_length=40)
     candidates: list[str] = Field(min_length=1, max_length=20)
     history: list[dict] = Field(default_factory=list, max_length=5000)
     exploration: float = Field(default=2.0, ge=0, le=5)
+
+
+class StrategyObservationIn(BaseModel):
+    game_type: str = Field(min_length=1, max_length=40)
+    strategy: str = Field(min_length=1, max_length=80)
+    reward: float = Field(ge=0, le=1)
+    duration_ms: int | None = Field(default=None, ge=0, le=3600000)
 
 
 class RewardIn(BaseModel):
@@ -440,11 +457,48 @@ def solve_logic_game(data: MastermindIn):
 
 @app.post("/api/games/strategy/recommend")
 def recommend_game_strategy(data: StrategyRecommendIn):
-    """Recommend a strategy from local practice observations; never plays externally."""
+    """Recommend from explicit history or persisted observations for one local game type."""
+    history = data.history
+    if not history and data.game_type:
+        with connect() as db:
+            rows = db.execute(
+                "SELECT strategy, reward FROM strategy_observations "
+                "WHERE game_type = ? ORDER BY id DESC LIMIT 5000",
+                (data.game_type,),
+            ).fetchall()
+        history = [row_dict(row) for row in reversed(rows)]
     try:
-        return recommend_strategy(data.candidates, data.history, data.exploration)
+        result = recommend_strategy(data.candidates, history, data.exploration)
+        result["game_type"] = data.game_type
+        result["history_source"] = (
+            "persisted_local_practice" if not data.history and data.game_type
+            else "request_history"
+        )
+        return result
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
+
+
+@app.post("/api/games/strategy/observe", status_code=201)
+def record_strategy_observation(data: StrategyObservationIn):
+    """Persist one bounded local-practice outcome for future strategy selection."""
+    with connect() as db:
+        cur = db.execute(
+            "INSERT INTO strategy_observations (game_type, strategy, reward, duration_ms, created_at) VALUES (?, ?, ?, ?, ?)",
+            (data.game_type, data.strategy, data.reward, data.duration_ms, now()),
+        )
+        return {"id": cur.lastrowid, "stored": True, "mode": "local_practice_only", "external_actions": 0}
+
+
+@app.get("/api/games/strategy/stats")
+def strategy_learning_stats(game_type: str | None = Query(default=None, max_length=40)):
+    with connect() as db:
+        if game_type:
+            rows = db.execute("SELECT game_type, strategy, COUNT(*) AS trials, AVG(reward) AS mean_reward, AVG(duration_ms) AS mean_duration_ms FROM strategy_observations WHERE game_type = ? GROUP BY game_type, strategy ORDER BY mean_reward DESC", (game_type,)).fetchall()
+        else:
+            rows = db.execute("SELECT game_type, strategy, COUNT(*) AS trials, AVG(reward) AS mean_reward, AVG(duration_ms) AS mean_duration_ms FROM strategy_observations GROUP BY game_type, strategy ORDER BY game_type, mean_reward DESC").fetchall()
+        total = db.execute("SELECT COUNT(*) FROM strategy_observations" + (" WHERE game_type = ?" if game_type else ""), (game_type,) if game_type else ()).fetchone()[0]
+    return {"observations": total, "strategies": [row_dict(row) for row in rows], "mode": "local_practice_metrics", "real_world_win_rate": None}
 
 
 @app.get("/api/games/stats")
@@ -513,6 +567,50 @@ def create_reward(data: RewardIn):
         """, (data.opportunity_id, data.amount, data.currency.upper(), data.status, data.reference, now()))
         return row_dict(db.execute("SELECT * FROM rewards WHERE id = ?", (cur.lastrowid,)).fetchone())
 
+
+
+@app.get("/api/player/status")
+def player_status():
+    """Summarize local player readiness without implying external contest capability."""
+    with connect() as db:
+        game_row = db.execute(
+            "SELECT COUNT(*) AS attempts, COALESCE(SUM(solved), 0) AS solved FROM game_runs"
+        ).fetchone()
+        strategy_count = db.execute(
+            "SELECT COUNT(*) FROM strategy_observations"
+        ).fetchone()[0]
+        strategy_types = db.execute(
+            "SELECT COUNT(DISTINCT game_type) FROM strategy_observations"
+        ).fetchone()[0]
+        auto_eligible = db.execute(
+            "SELECT COUNT(*) FROM opportunities WHERE automation_eligibility = 'auto'"
+        ).fetchone()[0]
+        pending_review = db.execute(
+            "SELECT COUNT(*) FROM opportunities WHERE automation_eligibility = 'manual_only'"
+        ).fetchone()[0]
+        excluded = db.execute(
+            "SELECT COUNT(*) FROM opportunities WHERE automation_eligibility = 'excluded'"
+        ).fetchone()[0]
+        paid_rewards = db.execute(
+            "SELECT COALESCE(SUM(amount), 0) FROM rewards WHERE status = 'paid'"
+        ).fetchone()[0]
+    attempts, solved = game_row["attempts"], game_row["solved"]
+    return {
+        "mode": "local_practice_and_readiness",
+        "game_attempts": attempts,
+        "game_solved": solved,
+        "local_solve_rate": round(solved / attempts, 4) if attempts else None,
+        "strategy_observations": strategy_count,
+        "strategy_game_types": strategy_types,
+        "automation_eligible_opportunities": auto_eligible,
+        "opportunities_requiring_review": pending_review,
+        "excluded_opportunities": excluded,
+        "recorded_paid_rewards": round(paid_rewards, 2),
+        "external_gameplay_enabled": False,
+        "automated_payment_enabled": False,
+        "real_world_win_rate": None,
+        "note": "Readiness metrics only. Local puzzle solve rate is not a platform win rate or earnings forecast."
+    }
 
 @app.get("/api/dashboard")
 def dashboard():
