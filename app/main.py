@@ -706,10 +706,21 @@ def promote_discovery(candidate_id: int):
             if reward_parts else ""
         )
         eligibility = "؛ ".join(extraction.get("eligibility_evidence") or [])[:1000]
+        age_hints = extraction.get("minimum_age_hints") or []
+        age_note = (
+            "اشاره به حداقل سن در متن (تأییدنشده): " + "، ".join(str(age) for age in age_hints[:5])
+            if age_hints else ""
+        )
+        terms_note = (
+            "در متن ارسالی به شرایط و قوانین اشاره شده است (وجود و اعتبار صفحه تأیید نشده)."
+            if extraction.get("terms_mentioned") else ""
+        )
         notes_parts = [
             "افزوده‌شده از صندوق کشف؛ هنوز تأیید اعتبار یا پرداخت نیست.",
             (candidate["snippet"] or "")[:400],
             (candidate["review_note"] or "")[:500],
+            age_note,
+            terms_note,
             extraction.get("disclaimer", ""),
         ]
         notes = " ".join(part for part in notes_parts if part).strip()[:1000]
