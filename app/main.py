@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field, HttpUrl
 
 from app.policy import derive_automation_eligibility
 from app.game_engine import authorize_game_strategy, solve_target_number
+from app.game_benchmark import run_target_number_benchmark
 
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.getenv("AUTOEARN_DB", ROOT / "autoearn.db"))
@@ -353,6 +354,15 @@ def solve_skill_game(data: GameSolveIn):
                    (data.opportunity_id, data.game_type, int(result["solved"]), result["strategy"], now()))
     return {**result, "mode": "analysis_only", "site_played": False,
             "note": "Only the supplied puzzle state was analyzed; no external game action was taken."}
+
+
+@app.get("/api/games/benchmark")
+def skill_game_benchmark(rounds: int | None = Query(default=None, ge=1, le=10)):
+    """Run a deterministic local benchmark; no third-party site is contacted."""
+    try:
+        return run_target_number_benchmark(rounds)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
 
 @app.get("/api/games/stats")
