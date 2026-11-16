@@ -51,3 +51,15 @@ The automation orchestrator prepares internal review work automatically for oppo
 - The policy gate fails closed. Even an `auto` label is based on recorded evidence and is not independent legal verification or a guarantee that a provider supports automation.
 
 No automated ad watching, gameplay, clicking, CAPTCHA solving/bypass, anti-bot evasion, account creation, betting, payment, or third-party form submission is enabled. Human presence and approval remain required wherever platform rules or the nature of the action demand them.
+
+
+## Skill-game strategy engine
+
+The first strategy module is a local number-target puzzle solver using exact rational arithmetic. It analyzes a supplied round, returns a transparent expression, and records local solve-rate metrics through:
+
+- `POST /api/games/solve` with an eligible `opportunity_id`, number tiles, and target.
+- `GET /api/games/stats` for attempts and local puzzle solve rate.
+
+The solver is gated by explicit skill-contest classification, a recorded policy that explicitly allows automated play, CAPTCHA absence, and supporting policy evidence. Missing or ambiguous permission fails closed. The evidence is supplied by the user and must be reviewed; it is not independently verified by the application.
+
+**Important scope:** this first engine solves a local puzzle state only. It does not connect to or play a third-party website. A future site adapter must use an official/authorized interface and be reviewed against the specific platform's terms before it can execute moves. No browser-control, CAPTCHA bypass, anti-bot evasion, payment, wagering, or automatic prize-claim behavior is provided. Local puzzle solve rate is not the same as a competition win rate, and no prize or income is guaranteed.
