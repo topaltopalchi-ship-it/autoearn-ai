@@ -22,7 +22,16 @@ from autoearn.risk import RiskSignals, assess_risk
 from autoearn.ranking import RankingInput, rank_opportunity, rank_discovery_candidate
 from pydantic import BaseModel, Field, HttpUrl
 
-from app.auth import (COOKIE_NAME, clear_login_failures, configured as auth_configured,\n                     issue_session, login_retry_after, record_login_failure, valid_session, verify_password)
+from app.auth import (
+    COOKIE_NAME,
+    clear_login_failures,
+    configured as auth_configured,
+    issue_session,
+    login_retry_after,
+    record_login_failure,
+    valid_session,
+    verify_password,
+)
 from app import vault as credential_vault
 from app.vault import VaultError
 
