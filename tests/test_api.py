@@ -9,7 +9,7 @@ def client(tmp_path, monkeypatch):
     from app import main
     monkeypatch.setattr(main, "DB_PATH", tmp_path / "test.db")
     main.init_db()
-    with TestClient(app) as test_client:
+    with TestClient(app, client=("127.0.0.1", 12345)) as test_client:
         yield test_client
 
 
@@ -476,3 +476,22 @@ def test_promotion_reuses_existing_opportunity_for_same_url(client):
     assert response.json()["already_exists"] is True
     assert response.json()["opportunity"]["id"] == opportunity_response.json()["id"]
     assert len(client.get("/api/opportunities").json()) == 1
+
+
+def test_rejects_non_loopback_client_even_when_server_is_bound_externally(tmp_path, monkeypatch):
+    from app import main
+    monkeypatch.setattr(main, "DB_PATH", tmp_path / "remote-client.db")
+    main.init_db()
+    with TestClient(app, client=("203.0.113.10", 54321)) as remote_client:
+        response = remote_client.get("/api/health")
+    assert response.status_code == 403
+    assert response.json()["detail"] == "This personal app only accepts loopback connections."
+
+
+def test_accepts_loopback_client(tmp_path, monkeypatch):
+    from app import main
+    monkeypatch.setattr(main, "DB_PATH", tmp_path / "loopback-client.db")
+    main.init_db()
+    with TestClient(app, client=("127.0.0.1", 54321)) as local_client:
+        response = local_client.get("/api/health")
+    assert response.status_code == 200
