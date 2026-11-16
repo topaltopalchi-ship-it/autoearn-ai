@@ -45,7 +45,7 @@ function renderTasks(tasks){$("task-list").innerHTML=tasks.length?tasks.map(t=>`
   $("task-list").querySelectorAll("[data-complete]").forEach(b=>b.onclick=async()=>{try{await api(`/api/tasks/${b.dataset.complete}/complete`,{method:"POST"});toast("کار به‌عنوان تکمیل‌شده علامت خورد")}catch(e){toast(e.message)}refresh()});
 }
 function renderRewards(rows){$("reward-list").innerHTML=rows.length?rows.map(r=>`<div class="item"><div><h3>${money(r.amount,r.currency)} <span class="pill">${esc(faStatus(r.status))}</span></h3><p><span data-no-translate>${esc(r.opportunity_title||"پاداش بدون پیوند")} · ${esc(r.reference)}</span></p></div></div>`).join(""):'<div class="empty">هنوز پاداشی ثبت نشده است.</div>'}
-function fillRewardOptions(){$("reward-opportunity").innerHTML='<option value="">بدون پیوند</option>'+opportunities.map(o=>'<option value="'+o.id+'">'+esc(o.title)+'</option>').join("")}
+function fillRewardOptions(){$("reward-opportunity").innerHTML='<option value="">بدون پیوند</option>'+opportunities.map(o=>'<option data-no-translate value="'+o.id+'">'+esc(o.title)+'</option>').join("")}
 $("add-opportunity").onclick=()=>$("opportunity-dialog").showModal();
 $("add-reward").onclick=()=>$("reward-dialog").showModal();
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>b.closest("dialog").close());
