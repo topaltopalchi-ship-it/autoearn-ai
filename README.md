@@ -51,3 +51,57 @@ The automation orchestrator prepares internal review work automatically for oppo
 - The policy gate fails closed. Even an `auto` label is based on recorded evidence and is not independent legal verification or a guarantee that a provider supports automation.
 
 No automated ad watching, gameplay, clicking, CAPTCHA solving/bypass, anti-bot evasion, account creation, betting, payment, or third-party form submission is enabled. Human presence and approval remain required wherever platform rules or the nature of the action demand them.
+
+
+## Skill-game strategy engine
+
+The first strategy module is a local number-target puzzle solver using exact rational arithmetic. It analyzes a supplied round, returns a transparent expression, and records local solve-rate metrics through:
+
+- `POST /api/games/solve` with an eligible `opportunity_id`, number tiles, and target.
+- `GET /api/games/stats` for attempts and local puzzle solve rate.
+
+The solver is gated by explicit skill-contest classification, a recorded policy that explicitly allows automated play, CAPTCHA absence, and supporting policy evidence. Missing or ambiguous permission fails closed. The evidence is supplied by the user and must be reviewed; it is not independently verified by the application.
+
+**Important scope:** this first engine solves a local puzzle state only. It does not connect to or play a third-party website. A future site adapter must use an official/authorized interface and be reviewed against the specific platform's terms before it can execute moves. No browser-control, CAPTCHA bypass, anti-bot evasion, payment, wagering, or automatic prize-claim behavior is provided. Local puzzle solve rate is not the same as a competition win rate, and no prize or income is guaranteed.
+
+
+## Skill-game strategy engine (initial vertical)
+
+The skill-game engine adds a local arithmetic-puzzle solver and a fail-closed authorization gate:
+
+- `POST /api/games/solve` accepts a registered skill-contest opportunity plus a small target-number puzzle state. It returns an exact expression when one exists.
+- The opportunity must be classified as a skill contest, have automation explicitly allowed, have CAPTCHA explicitly absent, and carry policy evidence before the solver endpoint is enabled.
+- `GET /api/games/stats` reports local puzzle attempts and solve rate. This is not a third-party competition win rate and must not be represented as earnings or winnings.
+- The current engine analyzes supplied puzzle state only. It does not log in, connect to a game website, click, submit an answer, interact with a browser, or evade anti-bot controls.
+- A future platform adapter must be implemented separately for a documented/authorized API or a platform that expressly permits automated gameplay; authorization must be rechecked before each external action. Unknown or changed rules must stop execution.
+
+Example request:
+
+```json
+{
+  "opportunity_id": 1,
+  "game_type": "target_number",
+  "numbers": [2, 3, 4],
+  "target": 14
+}
+```
+
+This release is a strategy foundation, not an autonomous player on money-prize websites. No win or income is guaranteed.
+
+
+### Local skill-game benchmark
+
+`GET /api/games/benchmark` runs a fixed, deterministic set of 10 arithmetic rounds and reports expected-answer accuracy, local solve rate, median latency, and p95 latency. Use `?rounds=5` to run the first five fixtures. The benchmark is local-only, has no third-party side effects, and is not a measure of real-world prize-game win rate.
+
+
+### Word and logic deduction modules
+
+The dashboard also provides local-only deduction tools for:
+- Word puzzles: filter a user-supplied candidate list with Wordle-style feedback (`G` = exact position, `Y` = present elsewhere, `.` = absent). Duplicate-letter counts are handled.
+- Mastermind-style logic puzzles: enumerate possible color codes from prior guesses and exact/misplaced counts, with a bounded search space.
+
+API endpoints:
+- `POST /api/games/word/filter`
+- `POST /api/games/logic/mastermind`
+
+Both endpoints require the same explicit skill-contest policy clearance as the number solver. They analyze only candidate words or feedback supplied by the user; they do not access a platform, submit guesses, or perform external actions. The Mastermind search is bounded to prevent excessive computation.

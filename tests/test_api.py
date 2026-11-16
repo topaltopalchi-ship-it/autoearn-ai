@@ -289,3 +289,43 @@ def test_legacy_task_rows_get_safe_human_approval_defaults(tmp_path, monkeypatch
         row = db.execute("SELECT action_type, requires_approval FROM tasks WHERE id = 1").fetchone()
     assert {"action_type", "requires_approval"} <= columns
     assert row == ("other", 1)
+
+
+def test_skill_solver_api_requires_explicit_platform_permission(client):
+    blocked = opportunity(client)
+    response = client.post("/api/games/solve", json={
+        "opportunity_id": blocked["id"], "numbers": [2, 3, 4], "target": 14
+    })
+    assert response.status_code == 403
+
+    permitted = client.post("/api/opportunities", json={
+        "title": "Permitted number challenge", "platform": "Example Games",
+        "url": "https://permitted.example/challenge",
+        "opportunity_category": "skill_contest",
+        "automation_policy": "allowed", "captcha_required": False,
+        "policy_source": "terms", "policy_evidence_url": "https://permitted.example/terms",
+    }).json()
+    solved = client.post("/api/games/solve", json={
+        "opportunity_id": permitted["id"], "numbers": [2, 3, 4], "target": 14
+    })
+    assert solved.status_code == 200
+    assert solved.json()["solved"] is True
+    assert solved.json()["site_played"] is False
+    stats = client.get("/api/games/stats").json()
+    assert stats["attempts"] == 1
+    assert stats["solved"] == 1
+    assert stats["metric"] == "local_puzzle_solve_rate_not_platform_win_rate"
+
+
+def test_skill_solver_api_rejects_captcha_and_incomplete_evidence(client):
+    opp = client.post("/api/opportunities", json={
+        "title": "CAPTCHA challenge", "platform": "Example",
+        "url": "https://captcha.example/game",
+        "opportunity_category": "skill_contest",
+        "automation_policy": "allowed", "captcha_required": True,
+        "policy_source": "terms", "policy_evidence_url": "https://captcha.example/terms",
+    }).json()
+    response = client.post("/api/games/solve", json={
+        "opportunity_id": opp["id"], "numbers": [1, 2], "target": 3
+    })
+    assert response.status_code == 403
