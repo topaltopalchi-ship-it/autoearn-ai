@@ -22,10 +22,18 @@ def solve_target_number(numbers: list[int], target: int) -> dict[str, Any]:
     if type(target) is not int or not -10000 <= target <= 10000:
         raise ValueError("Target must be an integer between -10000 and 10000.")
 
-    # General expression search with exact Fractions and explicit expression trees.
+    # Memoize only proven-dead value states. Caching successful expressions by
+    # value alone could accidentally reuse a different set of original tiles.
+    failed_states: set[tuple[Fraction, ...]] = set()
+
     def combine(items: list[tuple[Fraction, str]]) -> str | None:
         if len(items) == 1:
             return items[0][1] if items[0][0] == target else None
+
+        state = tuple(sorted(value for value, _ in items))
+        if state in failed_states:
+            return None
+
         for i in range(len(items)):
             for j in range(i + 1, len(items)):
                 a, ea = items[i]
@@ -45,6 +53,8 @@ def solve_target_number(numbers: list[int], target: int) -> dict[str, Any]:
                     found = combine(rest + [(value, expression)])
                     if found is not None:
                         return found
+
+        failed_states.add(state)
         return None
 
     expression = combine([(Fraction(n), str(n)) for n in numbers])
