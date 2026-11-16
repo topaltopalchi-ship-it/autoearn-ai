@@ -92,3 +92,16 @@ This release is a strategy foundation, not an autonomous player on money-prize w
 ### Local skill-game benchmark
 
 `GET /api/games/benchmark` runs a fixed, deterministic set of 10 arithmetic rounds and reports expected-answer accuracy, local solve rate, median latency, and p95 latency. Use `?rounds=5` to run the first five fixtures. The benchmark is local-only, has no third-party side effects, and is not a measure of real-world prize-game win rate.
+
+
+### Word and logic deduction modules
+
+The dashboard also provides local-only deduction tools for:
+- Word puzzles: filter a user-supplied candidate list with Wordle-style feedback (`G` = exact position, `Y` = present elsewhere, `.` = absent). Duplicate-letter counts are handled.
+- Mastermind-style logic puzzles: enumerate possible color codes from prior guesses and exact/misplaced counts, with a bounded search space.
+
+API endpoints:
+- `POST /api/games/word/filter`
+- `POST /api/games/logic/mastermind`
+
+Both endpoints require the same explicit skill-contest policy clearance as the number solver. They analyze only candidate words or feedback supplied by the user; they do not access a platform, submit guesses, or perform external actions. The Mastermind search is bounded to prevent excessive computation.
