@@ -145,5 +145,72 @@ class PersianDashboardBrowserTests(unittest.TestCase):
         page.close()
 
 
+    def test_discovery_results_render_as_unverified_leads(self):
+        page = self.browser.new_page(viewport={"width": 390, "height": 844})
+        page_errors = []
+        page.on("pageerror", lambda error: page_errors.append(str(error)))
+        page.route(
+            "**/api/discover",
+            lambda route: route.fulfill(
+                status=200,
+                content_type="application/json",
+                body='[{"id":7,"title":"Demo Survey Reward","url":"https://example.org/survey","snippet":"Official rules mention eligibility and payout terms","provider":"test-provider","domain":"example.org","category":"surveys","discovered_at":"2026-11-16T12:00:00+00:00","confidence":60,"signals":["https_transport","terms_or_rules_mentioned","reward_language_found"],"review_required":true,"verified":false}]',
+            ),
+        )
+        page.goto(self.base_url + "/", wait_until="networkidle")
+        page.locator("#discovery-query").fill("paid surveys in Europe")
+        page.locator("#discovery-category").select_option("surveys")
+        page.locator("#discovery-form button[type='submit']").click()
+        page.wait_for_function(
+            "() => document.querySelector('#discovery-results')?.textContent.includes('Demo Survey Reward')"
+        )
+        results = page.locator("#discovery-results")
+        self.assertIn("example.org", results.text_content())
+        self.assertIn("نیازمند بررسی انسانی", results.text_content())
+        self.assertIn("تأییدنشده", results.text_content())
+        self.assertEqual(
+            results.locator("a").first.get_attribute("href"),
+            "https://example.org/survey",
+        )
+        self.assertEqual(page_errors, [])
+        page.close()
+
+    def test_reward_ledger_can_record_and_display_paid_reward(self):
+        page = self.browser.new_page(viewport={"width": 390, "height": 844})
+        page.goto(self.base_url + "/", wait_until="networkidle")
+        created = page.request.post(
+            self.base_url + "/api/opportunities",
+            data={
+                "title": "Ledger Browser Opportunity",
+                "platform": "Example Platform",
+                "url": "https://ledger.example/reward",
+                "reward_description": "Example payout",
+            },
+        )
+        self.assertEqual(created.status, 201)
+        page.reload(wait_until="networkidle")
+
+        page.locator("#add-reward").click()
+        page.locator("#reward-opportunity").select_option(str(created.json()["id"]))
+        page.locator("#reward-form input[name='amount']").fill("4.5")
+        page.locator("#reward-form input[name='currency']").fill("EUR")
+        page.locator("#reward-form select[name='status']").select_option("paid")
+        page.locator("#reward-form input[name='reference']").fill("browser-ledger-proof")
+        page.locator("#reward-form button[type='submit']").click()
+
+        page.wait_for_function(
+            "() => document.querySelector('#reward-list')?.textContent.includes('browser-ledger-proof')"
+        )
+        self.assertIn("Ledger Browser Opportunity", page.locator("#reward-list").text_content())
+        dashboard = page.request.get(self.base_url + "/api/dashboard").json()
+        self.assertEqual(dashboard["paid_total"], 4.5)
+        rewards = page.request.get(self.base_url + "/api/rewards").json()
+        self.assertEqual(len(rewards), 1)
+        self.assertEqual(rewards[0]["currency"], "EUR")
+        self.assertEqual(rewards[0]["status"], "paid")
+        self.assertEqual(rewards[0]["reference"], "browser-ledger-proof")
+        page.close()
+
+
 if __name__ == "__main__":
     unittest.main()
