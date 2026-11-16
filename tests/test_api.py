@@ -371,6 +371,8 @@ def test_discovery_category_is_persisted(client, monkeypatch):
 
 def test_ranked_opportunities_api_uses_saved_metadata_and_country(tmp_path, monkeypatch):
     from app import main
+    monkeypatch.setenv("AUTOEARN_MASTER_PASSWORD", "test-owner-password")
+    monkeypatch.setenv("AUTOEARN_AUTH_SECRET", "test-auth-secret")
     monkeypatch.setattr(main, "DB_PATH", tmp_path / "ranking-api.db")
     main.init_db()
     with TestClient(app, client=("127.0.0.1", 12345)) as test_client:
