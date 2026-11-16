@@ -192,7 +192,7 @@ async function loadVault(){
   try{
     const rows=await api("/api/vault/credentials");
     root.className="";
-    root.innerHTML=rows.length?rows.map(row=>'<div class="item"><div><h3>'+esc(row.label)+' <span class="pill">'+esc(row.credential_type)+'</span></h3><p>'+esc(row.provider)+' · ذخیره‌شده به‌صورت رمزگذاری‌شده · '+esc(row.updated_at)+'</p></div><div class="item-actions"><button class="secondary" data-vault-update="'+row.id+'">جایگزینی کلید</button><button class="secondary" data-vault-delete="'+row.id+'">حذف</button></div></div>').join(""):'<div class="empty">هنوز کلیدی ذخیره نشده است.</div>';
+    root.innerHTML=rows.length?rows.map(row=>'<div class="item"><div><h3>'+esc(row.label)+' <span class="pill">'+esc(row.credential_type)+'</span></h3><p>'+esc(row.provider)+' · ذخیره‌شده به‌صورت رمزگذاری‌شده · '+esc(row.updated_at)+'</p></div><div class="item-actions">'+(row.provider.trim().toLowerCase()==="openai"&&row.credential_type==="api_key"?'<button class="secondary" data-vault-test="'+row.id+'">آزمایش اتصال</button>':"")+'<button class="secondary" data-vault-update="'+row.id+'">جایگزینی کلید</button><button class="secondary" data-vault-delete="'+row.id+'">حذف</button></div></div>').join(""):'<div class="empty">هنوز کلیدی ذخیره نشده است.</div>';
     root.querySelectorAll("[data-vault-test]").forEach(button=>button.onclick=async()=>{
       const passphrase=prompt("برای آزمایش اتصال، عبارت اصلی خزانه را وارد کنید:");
       if(!passphrase)return;
