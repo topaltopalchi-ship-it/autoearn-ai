@@ -43,11 +43,13 @@ curl -X POST http://127.0.0.1:8000/api/discover \
 ```
 
 The endpoint returns normalized candidates with source domains, discovery
-timestamps, explainable text signals, and a heuristic confidence value. These
-signals are not a legitimacy check. Every result is explicitly marked
-`verified: false` and `review_required: true`; candidates are not saved or
-acted on automatically. Without `BRAVE_SEARCH_API_KEY`, the endpoint returns
-HTTP 503. Search-provider errors return HTTP 502.
+timestamps, explainable text signals, and a heuristic confidence value. Results
+are stored in a local review inbox and deduplicated by canonical URL; retrieve
+them with `GET /api/discoveries`. These signals are not a legitimacy check.
+Every result is explicitly marked `verified: false` and `review_required: true`;
+nothing is clicked, registered, or acted on automatically. Without
+`BRAVE_SEARCH_API_KEY`, the endpoint returns HTTP 503. Search-provider errors
+return HTTP 502.
 
 ## Scoring notes
 
