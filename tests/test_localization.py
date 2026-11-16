@@ -22,6 +22,7 @@ class PersianDashboardTests(unittest.TestCase):
         ):
             self.assertIn(expected, translations)
         self.assertIn("MutationObserver", translations)
+        self.assertNotIn("\\n", translations, "JavaScript source must not contain escaped newline tokens")
         self.assertIn("if (translated !== node.nodeValue)", translations)
         self.assertIn("if (translated !== current)", translations)
         self.assertLess(translations.index('["pending_approval"'), translations.index('["pending"'))
