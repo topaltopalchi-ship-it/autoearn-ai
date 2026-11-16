@@ -52,3 +52,23 @@ def test_authorization_fails_closed(changes):
     opportunity.update(changes)
     with pytest.raises(PermissionError):
         authorize_game_strategy(opportunity)
+
+
+def test_local_benchmark_is_deterministic_and_reports_no_external_actions():
+    from app.game_benchmark import run_target_number_benchmark
+
+    result = run_target_number_benchmark()
+    assert result["rounds"] == 10
+    assert result["accuracy"] == 1.0
+    assert result["external_actions"] == 0
+    assert result["site_played"] is False
+    assert result["latency_ms_median"] >= 0
+    assert result["latency_ms_p95"] >= result["latency_ms_median"]
+
+
+@pytest.mark.parametrize("rounds", [0, 11, True, 1.5])
+def test_local_benchmark_rejects_invalid_round_count(rounds):
+    from app.game_benchmark import run_target_number_benchmark
+
+    with pytest.raises(ValueError):
+        run_target_number_benchmark(rounds)
