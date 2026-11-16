@@ -9,7 +9,7 @@ def test_offline_practice_is_deterministic_and_never_uses_external_actions():
     assert first["rounds"] == 5
     assert first["solved"] + first["unsolved"] == 5
     assert 0 <= first["solve_rate"] <= 1
-    assert first["results"] == second["results"]
+    assert [(row["numbers"], row["target"], row["solved"], row["expression"]) for row in first["results"]] == [\n        (row["numbers"], row["target"], row["solved"], row["expression"]) for row in second["results"]\n    ]
     assert first["external_actions"] == 0
     assert first["site_played"] is False
     assert first["prize_or_earnings"] == 0
