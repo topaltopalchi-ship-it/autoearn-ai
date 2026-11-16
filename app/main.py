@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
@@ -147,7 +147,7 @@ def list_opportunities(status: str | None = None, q: str | None = Query(default=
 @app.post("/api/opportunities", status_code=201)
 def create_opportunity(data: OpportunityIn):
     payload = data.model_dump()
-    payload["url"] = str(payload["url"])
+    payload["url"] = normalize_url(str(payload["url"]))
     if not safe_url(payload["url"]):
         raise HTTPException(422, "Only public http/https opportunity URLs are accepted.")
     if payload["terms_url"] and not safe_url(payload["terms_url"]):
