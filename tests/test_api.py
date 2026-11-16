@@ -936,3 +936,22 @@ def test_ranked_opportunities_use_saved_country_and_payout_preference(client):
     assert ranked[0]["id"] == match.json()["id"]
     fit = next(part for part in ranked[0]["ranking"]["components"] if part["code"] == "payout_preference_fit")
     assert fit["score"] == 100
+
+
+@pytest.mark.parametrize("field", [
+    "title", "platform", "url", "category", "reward_description",
+    "eligibility", "terms_url", "notes", "reward_currency",
+    "eligible_countries", "payout_method",
+])
+def test_opportunity_patch_rejects_explicit_null_for_required_fields(client, field):
+    created = client.post("/api/opportunities", json={
+        "title": "Null safety offer", "platform": "Example",
+        "url": "https://null-safety.example/offer",
+    })
+    assert created.status_code == 201
+    response = client.patch(
+        f"/api/opportunities/{created.json()['id']}",
+        json={field: None},
+    )
+    assert response.status_code == 422
+    assert "cannot be null" in response.json()["detail"]
