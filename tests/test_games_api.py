@@ -176,3 +176,20 @@ def test_strategy_observation_rejects_out_of_range_reward():
             "game_type": "word", "strategy": "guess-a", "reward": 1.5,
         })
         assert response.status_code == 422
+
+
+def test_player_status_reports_local_readiness_without_claiming_external_play(tmp_path, monkeypatch):
+    from app import main
+    monkeypatch.setattr(main, "DB_PATH", tmp_path / "player-status.db")
+    main.init_db()
+    with TestClient(app) as client:
+        response = client.get("/api/player/status")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["mode"] == "local_practice_and_readiness"
+        assert payload["game_attempts"] == 0
+        assert payload["local_solve_rate"] is None
+        assert payload["strategy_observations"] == 0
+        assert payload["external_gameplay_enabled"] is False
+        assert payload["automated_payment_enabled"] is False
+        assert payload["real_world_win_rate"] is None
