@@ -14,6 +14,7 @@ def test_net_return_includes_costs_and_both_fee_types():
     assert result["estimated_net"] == 83
     assert result["estimated_net_per_hour"] == 20.75
     assert result["target_met"] is True
+    assert result["break_even_gross_reward"] == 12.63
     assert result["minimum_gross_reward_for_target"] == 75.79
     assert result["verified"] is False
 
@@ -56,4 +57,5 @@ def test_full_percentage_fee_does_not_claim_break_even_reward():
     result = evaluate_economics(EconomicsInput(
         gross_reward=20, estimated_hours=1, fee_percent=100,
     ))
+    assert result["break_even_gross_reward"] is None
     assert result["minimum_gross_reward_for_target"] is None
