@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field, HttpUrl
 from app.policy import derive_automation_eligibility
 from app.game_engine import authorize_game_strategy, solve_target_number
 from app.game_benchmark import run_target_number_benchmark
+from app.game_training import run_offline_practice
 from app.deduction_games import filter_word_candidates, solve_mastermind
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -375,6 +376,15 @@ def skill_game_benchmark(rounds: int | None = Query(default=None, ge=1, le=10)):
     """Run a deterministic local benchmark; no third-party site is contacted."""
     try:
         return run_target_number_benchmark(rounds)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@app.get("/api/games/practice")
+def offline_game_practice(rounds: int = Query(default=10, ge=1, le=10)):
+    """Automatically play bundled practice puzzles locally; never joins a real contest."""
+    try:
+        return run_offline_practice(rounds)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
 
