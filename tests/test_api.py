@@ -294,3 +294,48 @@ def test_discovery_candidate_human_review_is_persisted_but_not_verified(client, 
 def test_discovery_review_validates_status_and_candidate_id(client):
     assert client.patch("/api/discoveries/999/review", json={"status": "accepted"}).status_code == 404
     assert client.patch("/api/discoveries/999/review", json={"status": "pending"}).status_code == 422
+
+
+def test_discovery_categories_endpoint_lists_broad_catalog(client):
+    categories = client.get("/api/discovery-categories").json()
+    ids = {item["id"] for item in categories}
+    assert {"games", "surveys", "user_testing", "microtasks", "freelance",
+            "cashback", "affiliate", "creator", "tutoring", "digital_products",
+            "research", "bug_bounty"} <= ids
+
+
+def test_risk_assessment_endpoint_returns_explainable_flags(client):
+    response = client.post("/api/risk-assessments", json={
+        "upfront_payment": True,
+        "deposit_or_top_up": True,
+        "unclear_or_missing_terms": True,
+    })
+    assert response.status_code == 200
+    result = response.json()
+    assert result["risk_score"] == 55
+    assert result["risk_level"] == "high"
+    assert result["requires_human_review"] is True
+    assert result["verified"] is False
+
+
+def test_discovery_category_is_persisted(client, monkeypatch):
+    from app import main
+
+    class FakeProvider:
+        def search(self, query, limit=10):
+            assert "website app usability testing" in query
+            return [{
+                "title": "Website tester",
+                "url": "https://example.com/tester",
+                "snippet": "Paid website testing",
+                "provider": "fixture",
+            }]
+
+    monkeypatch.setenv("BRAVE_SEARCH_API_KEY", "test-token")
+    monkeypatch.setattr(main, "BraveSearchProvider", lambda token: FakeProvider())
+    response = client.post("/api/discover", json={
+        "query": "remote testing", "category": "user_testing"
+    })
+    assert response.status_code == 200
+    assert response.json()[0]["category"] == "user_testing"
+    assert client.get("/api/discoveries").json()[0]["category"] == "user_testing"
