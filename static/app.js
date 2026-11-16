@@ -193,6 +193,28 @@ async function loadVault(){
     const rows=await api("/api/vault/credentials");
     root.className="";
     root.innerHTML=rows.length?rows.map(row=>'<div class="item"><div><h3>'+esc(row.label)+' <span class="pill">'+esc(row.credential_type)+'</span></h3><p>'+esc(row.provider)+' · ذخیره‌شده به‌صورت رمزگذاری‌شده · '+esc(row.updated_at)+'</p></div><div class="item-actions"><button class="secondary" data-vault-update="'+row.id+'">جایگزینی کلید</button><button class="secondary" data-vault-delete="'+row.id+'">حذف</button></div></div>').join(""):'<div class="empty">هنوز کلیدی ذخیره نشده است.</div>';
+    root.querySelectorAll("[data-vault-test]").forEach(button=>button.onclick=async()=>{
+      const passphrase=prompt("برای آزمایش اتصال، عبارت اصلی خزانه را وارد کنید:");
+      if(!passphrase)return;
+      button.disabled=true;
+      try{
+        const result=await api("/api/vault/credentials/"+button.dataset.vaultTest+"/test-connection",{
+          method:"POST",body:JSON.stringify({passphrase})
+        });
+        const labels={
+          connected:"اتصال OpenAI موفق است.",
+          invalid_credential:"کلید نامعتبر است.",
+          insufficient_permissions:"کلید دسترسی لازم را ندارد.",
+          rate_limited:"محدودیت درخواست سرویس؛ بعداً دوباره تلاش کنید.",
+          timeout:"مهلت اتصال تمام شد.",
+          provider_unreachable:"سرویس فعلاً در دسترس نیست.",
+          unexpected_redirect:"پاسخ تغییرمسیر غیرمنتظره دریافت شد.",
+          provider_error:"سرویس خطا برگرداند."
+        };
+        toast(labels[result.status]||"نتیجه آزمایش اتصال مشخص نیست.");
+      }catch(error){toast(error.message)}
+      finally{button.disabled=false}
+    });
     root.querySelectorAll("[data-vault-update]").forEach(button=>button.onclick=async()=>{
       const secret=prompt("مقدار جدید را وارد کنید. مقدار قبلی قابل بازیابی از داشبورد نیست:");
       if(!secret)return;
