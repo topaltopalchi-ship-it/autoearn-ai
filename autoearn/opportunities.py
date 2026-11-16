@@ -124,7 +124,7 @@ class DiscoveredOpportunity:
 
 
 _REWARD_TERMS = re.compile(
-    r"\b(reward|earn|cashback|points|prize|payout|gift card|bounty|incentive)\b", re.I
+    r"\b(rewards?|earn|cashback|points|prize|payout|gift card|bounty|incentive)\b", re.I
 )
 _TERMS_TERMS = re.compile(r"\b(terms|conditions|eligibility|rules|policy)\b", re.I)
 _ELIGIBILITY_TERMS = re.compile(
