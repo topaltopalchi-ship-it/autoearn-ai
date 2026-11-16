@@ -31,11 +31,10 @@ The score is a heuristic based only on metadata supplied to the application. It 
 
 AutoEarn AI is an assisted decision-support tool. Website discovery and analysis must respect site terms, robots policies, privacy, and applicable law. The product will not automate gameplay, clicks, ad views, referrals, spam, or other activity intended to manipulate reward systems.
 
-
 ## Automation policy and giveaway classification
 
 Each opportunity can record its automation policy (allowed, prohibited, or unknown), CAPTCHA requirement, opportunity category, and the source/evidence used for review. Unknown policy or CAPTCHA status is treated as manual-only. A site that prohibits automation is excluded from automation eligibility. CAPTCHA-protected opportunities are never marked auto-eligible.
 
-Free giveaways and skill contests may be marked auto-eligible only when the policy is explicitly recorded as allowed and CAPTCHA is explicitly recorded as absent. Paid lotteries and betting remain manual-only and are not automated. These labels are review metadata, not legal advice or proof of eligibility, and prizes are not guaranteed income.
+Free giveaways and skill contests may be marked auto-eligible only when automation is explicitly recorded as allowed, CAPTCHA is explicitly recorded as absent, a non-unknown evidence source is selected, and a supporting evidence URL or reviewer note is supplied. Evidence is still user-provided and must be checked by a person; the application does not independently verify that a website's terms permit automation. Paid lotteries and betting remain manual-only and are not automated. These labels are not legal advice or proof of eligibility, and prizes are not guaranteed income.
 
-The policy classifier does not browse, submit forms, place bets, pay entry fees, solve CAPTCHAs, or bypass robots/anti-bot controls. Policy evidence must be reviewed by a person; missing or uncertain evidence fails closed.
+The policy classifier does not browse, submit forms, place bets, pay entry fees, solve CAPTCHAs, or bypass robots/anti-bot controls. Missing or uncertain evidence fails closed.
