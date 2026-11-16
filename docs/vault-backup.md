@@ -14,6 +14,9 @@ from app.vault_backup import create_backup
 create_backup(VAULT_DB, "private-backups/autoearn-vault.aev", "your-long-backup-passphrase")
 ```
 
+By default, creating a backup refuses to replace an existing destination. Set
+`overwrite=True` only when you intentionally want to replace that backup.
+
 ## Restore a backup
 
 ```python
@@ -36,8 +39,11 @@ restore_backup(
   storage location.
 - Restore validates the outer authentication tag, SQLite integrity, schema,
   and every credential's inner AES-GCM tag before replacing a destination.
-- Restore is staged in the destination directory and installed with atomic
-  replacement. Existing files are never overwritten unless `overwrite=True`.
+- Backup and restore refuse to overwrite existing files unless `overwrite=True`.
+  Both operations stage the output in the destination directory and use
+  no-clobber hard-link creation by default; explicit replacement uses atomic
+  rename.
+- Restore rejects files above the configured size limit before reading them.
 - Keep the application stopped while restoring so it cannot write to the vault
   during replacement.
 - This helper backs up the credential vault only. It does not back up the
