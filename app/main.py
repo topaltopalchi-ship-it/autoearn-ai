@@ -75,7 +75,16 @@ def init_db() -> None:
             strategy TEXT NOT NULL,
             created_at TEXT NOT NULL
         );
-        CREATE TABLE IF NOT EXISTS strategy_observations (\n            id INTEGER PRIMARY KEY AUTOINCREMENT,\n            game_type TEXT NOT NULL,\n            strategy TEXT NOT NULL,\n            reward REAL NOT NULL CHECK(reward >= 0 AND reward <= 1),\n            duration_ms INTEGER,\n            created_at TEXT NOT NULL\n        );\n        CREATE INDEX IF NOT EXISTS idx_strategy_observations_game ON strategy_observations(game_type, created_at);\n        CREATE TABLE IF NOT EXISTS rewards (
+        CREATE TABLE IF NOT EXISTS strategy_observations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            game_type TEXT NOT NULL,
+            strategy TEXT NOT NULL,
+            reward REAL NOT NULL CHECK(reward >= 0 AND reward <= 1),
+            duration_ms INTEGER,
+            created_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_strategy_observations_game ON strategy_observations(game_type, created_at);
+        CREATE TABLE IF NOT EXISTS rewards (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             opportunity_id INTEGER REFERENCES opportunities(id) ON DELETE SET NULL,
             amount REAL NOT NULL CHECK(amount >= 0),
@@ -173,7 +182,14 @@ class StrategyRecommendIn(BaseModel):
     exploration: float = Field(default=2.0, ge=0, le=5)
 
 
-class StrategyObservationIn(BaseModel):\n    game_type: str = Field(min_length=1, max_length=40)\n    strategy: str = Field(min_length=1, max_length=80)\n    reward: float = Field(ge=0, le=1)\n    duration_ms: int | None = Field(default=None, ge=0, le=3600000)\n\n\nclass RewardIn(BaseModel):
+class StrategyObservationIn(BaseModel):
+    game_type: str = Field(min_length=1, max_length=40)
+    strategy: str = Field(min_length=1, max_length=80)
+    reward: float = Field(ge=0, le=1)
+    duration_ms: int | None = Field(default=None, ge=0, le=3600000)
+
+
+class RewardIn(BaseModel):
     opportunity_id: int | None = None
     amount: float = Field(ge=0)
     currency: str = Field(default="USD", min_length=3, max_length=8)
@@ -447,7 +463,29 @@ def recommend_game_strategy(data: StrategyRecommendIn):
         raise HTTPException(422, str(exc)) from exc
 
 
-@app.post("/api/games/strategy/observe", status_code=201)\ndef record_strategy_observation(data: StrategyObservationIn):\n    """Persist one bounded local-practice outcome for future strategy selection."""\n    with connect() as db:\n        cur = db.execute(\n            "INSERT INTO strategy_observations (game_type, strategy, reward, duration_ms, created_at) VALUES (?, ?, ?, ?, ?)",\n            (data.game_type, data.strategy, data.reward, data.duration_ms, now()),\n        )\n        return {"id": cur.lastrowid, "stored": True, "mode": "local_practice_only", "external_actions": 0}\n\n\n@app.get("/api/games/strategy/stats")\ndef strategy_learning_stats(game_type: str | None = Query(default=None, max_length=40)):\n    with connect() as db:\n        if game_type:\n            rows = db.execute("SELECT strategy, COUNT(*) AS trials, AVG(reward) AS mean_reward, AVG(duration_ms) AS mean_duration_ms FROM strategy_observations WHERE game_type = ? GROUP BY strategy ORDER BY mean_reward DESC", (game_type,)).fetchall()\n        else:\n            rows = db.execute("SELECT strategy, COUNT(*) AS trials, AVG(reward) AS mean_reward, AVG(duration_ms) AS mean_duration_ms FROM strategy_observations GROUP BY strategy ORDER BY mean_reward DESC").fetchall()\n        total = db.execute("SELECT COUNT(*) FROM strategy_observations" + (" WHERE game_type = ?" if game_type else ""), (game_type,) if game_type else ()).fetchone()[0]\n    return {"observations": total, "strategies": [row_dict(row) for row in rows], "mode": "local_practice_metrics", "real_world_win_rate": None}\n\n\n@app.get("/api/games/stats")
+@app.post("/api/games/strategy/observe", status_code=201)
+def record_strategy_observation(data: StrategyObservationIn):
+    """Persist one bounded local-practice outcome for future strategy selection."""
+    with connect() as db:
+        cur = db.execute(
+            "INSERT INTO strategy_observations (game_type, strategy, reward, duration_ms, created_at) VALUES (?, ?, ?, ?, ?)",
+            (data.game_type, data.strategy, data.reward, data.duration_ms, now()),
+        )
+        return {"id": cur.lastrowid, "stored": True, "mode": "local_practice_only", "external_actions": 0}
+
+
+@app.get("/api/games/strategy/stats")
+def strategy_learning_stats(game_type: str | None = Query(default=None, max_length=40)):
+    with connect() as db:
+        if game_type:
+            rows = db.execute("SELECT strategy, COUNT(*) AS trials, AVG(reward) AS mean_reward, AVG(duration_ms) AS mean_duration_ms FROM strategy_observations WHERE game_type = ? GROUP BY strategy ORDER BY mean_reward DESC", (game_type,)).fetchall()
+        else:
+            rows = db.execute("SELECT strategy, COUNT(*) AS trials, AVG(reward) AS mean_reward, AVG(duration_ms) AS mean_duration_ms FROM strategy_observations GROUP BY strategy ORDER BY mean_reward DESC").fetchall()
+        total = db.execute("SELECT COUNT(*) FROM strategy_observations" + (" WHERE game_type = ?" if game_type else ""), (game_type,) if game_type else ()).fetchone()[0]
+    return {"observations": total, "strategies": [row_dict(row) for row in rows], "mode": "local_practice_metrics", "real_world_win_rate": None}
+
+
+@app.get("/api/games/stats")
 def skill_game_stats():
     with connect() as db:
         row = db.execute("SELECT COUNT(*) AS attempts, COALESCE(SUM(solved), 0) AS solved FROM game_runs").fetchone()
