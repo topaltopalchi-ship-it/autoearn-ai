@@ -11,7 +11,7 @@ from typing import Literal
 from urllib.parse import urlparse, urlunparse
 
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from autoearn.opportunities import BraveSearchProvider, discover_opportunities, normalize_url
@@ -197,7 +197,7 @@ def safe_url(value: str) -> bool:
 
 @app.get("/", include_in_schema=False)
 def home():
-    return FileResponse(STATIC_DIR / "index.html")
+    return HTMLResponse((STATIC_DIR / "index.html").read_text(encoding="utf-8"))
 
 
 @app.get("/api/discovery-categories")
