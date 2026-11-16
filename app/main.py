@@ -897,9 +897,12 @@ def list_opportunities(status: str | None = None, q: str | None = Query(default=
 
 @app.get("/api/opportunities/ranked")
 def ranked_opportunities(country: str | None = Query(default=None, min_length=2, max_length=2)):
-    """List tracked opportunities by explainable fit score for an optional ISO country code."""
+    """Rank opportunities using explicit country input and saved payout preference."""
     with connect() as db:
         rows = db.execute("SELECT * FROM opportunities ORDER BY created_at DESC").fetchall()
+        preferences = db.execute("SELECT residence_country, payout_method FROM owner_preferences WHERE id = 1").fetchone()
+    effective_country = country or (preferences["residence_country"] if preferences else "") or None
+    preferred_payout_method = preferences["payout_method"] if preferences else ""
     ranked = []
     for row in rows:
         item = row_dict(row)
@@ -910,7 +913,8 @@ def ranked_opportunities(country: str | None = Query(default=None, min_length=2,
             payout_method=item.get("payout_method", ""),
             minimum_payout=item.get("minimum_payout"),
             risk_score=item.get("risk_score"),
-        ), country=country)
+            preferred_payout_method=preferred_payout_method,
+        ), country=effective_country)
         ranked.append({**item, "ranking": result})
     return sorted(ranked, key=lambda item: (item["ranking"]["ranking_score"], item["ranking"]["data_coverage"]), reverse=True)
 
