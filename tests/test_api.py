@@ -8,9 +8,34 @@ from app.main import app
 def client(tmp_path, monkeypatch):
     from app import main
     monkeypatch.setattr(main, "DB_PATH", tmp_path / "test.db")
+    monkeypatch.setenv("AUTOEARN_MASTER_PASSWORD", "test-owner-password")
+    monkeypatch.setenv("AUTOEARN_AUTH_SECRET", "test-auth-secret")
     main.init_db()
     with TestClient(app, client=("127.0.0.1", 12345)) as test_client:
+        login = test_client.post("/api/auth/login", json={"password": "test-owner-password"})
+        assert login.status_code == 200
         yield test_client
+
+
+def test_auth_rejects_wrong_password(tmp_path, monkeypatch):
+    from app import main
+    monkeypatch.setenv("AUTOEARN_MASTER_PASSWORD", "test-owner-password")
+    monkeypatch.setenv("AUTOEARN_AUTH_SECRET", "test-auth-secret")
+    monkeypatch.setattr(main, "DB_PATH", tmp_path / "auth.db")
+    main.init_db()
+    with TestClient(app, client=("127.0.0.1", 12345)) as test_client:
+        assert test_client.post("/api/auth/login", json={"password": "wrong"}).status_code == 401
+
+
+def test_auth_requires_configuration(tmp_path, monkeypatch):
+    from app import main
+    monkeypatch.delenv("AUTOEARN_MASTER_PASSWORD", raising=False)
+    monkeypatch.delenv("AUTOEARN_AUTH_SECRET", raising=False)
+    monkeypatch.setattr(main, "DB_PATH", tmp_path / "unconfigured-auth.db")
+    main.init_db()
+    with TestClient(app, client=("127.0.0.1", 12345)) as test_client:
+        response = test_client.get("/api/opportunities")
+        assert response.status_code == 503
 
 
 def opportunity(client):
