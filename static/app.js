@@ -138,7 +138,7 @@ function renderDiscoveryResults(){
     }else if(status==="rejected"){
       actions='<span class="pill">ردشده</span>';
     }else{
-      actions='<button class="secondary" data-accept="'+item.id+'">تأیید برای بررسی</button><button class="secondary" data-reject="'+item.id+'">رد فرصت</button>';
+      actions='<span class="pill">نیازمند بررسی انسانی</span><button class="secondary" data-accept="'+item.id+'">تأیید برای بررسی</button><button class="secondary" data-reject="'+item.id+'">رد فرصت</button>';
     }
     return '<div class="item"><div><h3><span data-no-translate>'+esc(item.title)+'</span> <span class="pill">'+esc(faCategory(item.category||"all"))+'</span></h3><p><span data-no-translate>'+esc(item.domain)+'</span> · شاخص کشف: '+item.confidence+'/100 · اولویت بررسی انسانی: '+(item.review_priority?.review_priority_score??"—")+'/100 · <strong>تأییدنشده</strong><br><span data-no-translate>'+esc(item.snippet||"خلاصه‌ای از منبع ارائه نشده است")+'</span><br><a href="'+esc(item.url)+'" target="_blank" rel="noopener noreferrer">مشاهده منبع ↗</a></p></div><div class="item-actions">'+actions+'</div></div>';
   }).join(""):'<div class="empty">نتیجه‌ای پیدا نشد. عبارت گسترده‌تر یا دسته دیگری را امتحان کنید.</div>';
