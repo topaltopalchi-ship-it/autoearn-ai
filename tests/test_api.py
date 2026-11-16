@@ -486,6 +486,7 @@ def test_accepted_candidate_promotes_without_guessing_numeric_reward(client):
         extraction={
             "reward_amounts": [{"currency": "EUR", "amount_text": "10"}],
             "eligibility_evidence": ["Eligible residents of Germany."],
+            "minimum_age_hints": [18],
             "terms_mentioned": True,
             "verified": False,
             "disclaimer": "Extracted from supplied text only.",
@@ -507,6 +508,10 @@ def test_accepted_candidate_promotes_without_guessing_numeric_reward(client):
     assert opportunity["payout_method"] == ""
     assert opportunity["minimum_payout"] is None
     assert opportunity["risk_score"] is None
+    assert "حداقل سن" in opportunity["notes"]
+    assert "18" in opportunity["notes"]
+    assert "شرایط و قوانین" in opportunity["notes"]
+    assert "تأییدنشده" in opportunity["notes"]
     candidate = client.get("/api/discoveries").json()[0]
     assert candidate["review_status"] == "accepted"
     assert candidate["promoted_opportunity_id"] == opportunity["id"]
