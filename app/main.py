@@ -13,6 +13,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, HttpUrl
 
+from app.policy import derive_automation_eligibility
+
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.getenv("AUTOEARN_DB", ROOT / "autoearn.db"))
 STATIC_DIR = ROOT / "static"
@@ -67,6 +69,20 @@ def init_db() -> None:
             created_at TEXT NOT NULL
         );
         """)
+        # Additive migration keeps existing opportunity records intact.
+        existing_columns = {row[1] for row in db.execute("PRAGMA table_info(opportunities)")}
+        additions = {
+            "automation_policy": "TEXT NOT NULL DEFAULT 'unknown'",
+            "captcha_required": "INTEGER",
+            "opportunity_category": "TEXT NOT NULL DEFAULT 'ordinary'",
+            "automation_eligibility": "TEXT NOT NULL DEFAULT 'manual_only'",
+            "policy_source": "TEXT NOT NULL DEFAULT 'unknown'",
+            "policy_evidence_url": "TEXT NOT NULL DEFAULT ''",
+            "policy_evidence": "TEXT NOT NULL DEFAULT ''",
+        }
+        for column, declaration in additions.items():
+            if column not in existing_columns:
+                db.execute(f"ALTER TABLE opportunities ADD COLUMN {column} {declaration}")
 
 
 @asynccontextmanager
@@ -93,6 +109,12 @@ class OpportunityIn(BaseModel):
     eligibility: str = Field(default="", max_length=1000)
     terms_url: str = Field(default="", max_length=500)
     notes: str = Field(default="", max_length=1000)
+    automation_policy: Literal["allowed", "prohibited", "unknown"] = "unknown"
+    captcha_required: bool | None = None
+    opportunity_category: Literal["ordinary", "giveaway_free", "skill_contest", "paid_lottery", "betting"] = "ordinary"
+    policy_source: Literal["terms", "robots_txt", "provider", "manual_review", "unknown"] = "unknown"
+    policy_evidence_url: str = Field(default="", max_length=500)
+    policy_evidence: str = Field(default="", max_length=500)
 
 
 class TaskIn(BaseModel):
@@ -152,6 +174,11 @@ def create_opportunity(data: OpportunityIn):
         raise HTTPException(422, "Only public http/https opportunity URLs are accepted.")
     if payload["terms_url"] and not safe_url(payload["terms_url"]):
         raise HTTPException(422, "Terms URL must be an http/https URL.")
+    if payload["policy_evidence_url"] and not safe_url(payload["policy_evidence_url"]):
+        raise HTTPException(422, "Policy evidence URL must be an http/https URL.")
+    payload["automation_eligibility"] = derive_automation_eligibility(
+        payload["automation_policy"], payload["captcha_required"], payload["opportunity_category"]
+    )
     score = 0
     score += 25 if payload["terms_url"] else 0
     score += 20 if payload["eligibility"] else 0
@@ -162,13 +189,27 @@ def create_opportunity(data: OpportunityIn):
             raise HTTPException(409, "This opportunity URL is already registered.")
         cur = db.execute("""
             INSERT INTO opportunities
-            (title, platform, url, category, reward_description, eligibility, terms_url, notes, score, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (title, platform, url, category, reward_description, eligibility, terms_url, notes, score, created_at,
+             automation_policy, captcha_required, opportunity_category, automation_eligibility,
+             policy_source, policy_evidence_url, policy_evidence)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (payload["title"], payload["platform"], payload["url"], payload["category"],
               payload["reward_description"], payload["eligibility"], payload["terms_url"],
-              payload["notes"], score, now()))
+              payload["notes"], score, now(), payload["automation_policy"],
+              None if payload["captcha_required"] is None else int(payload["captcha_required"]),
+              payload["opportunity_category"], payload["automation_eligibility"],
+              payload["policy_source"], payload["policy_evidence_url"], payload["policy_evidence"]))
         row = db.execute("SELECT * FROM opportunities WHERE id = ?", (cur.lastrowid,)).fetchone()
         return row_dict(row)
+
+
+@app.get("/api/opportunities/automation-eligible")
+def list_automation_eligible_opportunities():
+    """Return only opportunities whose recorded policy permits automation and has no CAPTCHA."""
+    with connect() as db:
+        return [row_dict(r) for r in db.execute(
+            "SELECT * FROM opportunities WHERE automation_eligibility = 'auto' ORDER BY created_at DESC"
+        ).fetchall()]
 
 
 @app.patch("/api/opportunities/{opportunity_id}/status")
