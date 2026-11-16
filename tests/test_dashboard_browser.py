@@ -235,7 +235,8 @@ class PersianDashboardBrowserTests(unittest.TestCase):
         self.assertIn("الزام به واریز وجه یا شارژ حساب", high_result)
         self.assertIn("اعتبار پلتفرم را تأیید نمی‌کند", high_result)
 
-        page.locator("#risk-form").locator('input[type="checkbox"]').uncheck()
+        for checkbox in page.locator("#risk-form").locator('input[type="checkbox"]').all():
+            checkbox.uncheck()
         page.locator('#risk-form button[type="submit"]').click()
         page.wait_for_function(
             "() => document.querySelector('#risk-result')?.textContent.includes('0/100')"
