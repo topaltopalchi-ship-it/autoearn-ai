@@ -348,7 +348,7 @@ def test_ranked_opportunities_api_uses_saved_metadata_and_country(tmp_path, monk
     from app import main
     monkeypatch.setattr(main, "DB_PATH", tmp_path / "ranking-api.db")
     main.init_db()
-    with TestClient(app) as test_client:
+    with TestClient(app, client=("127.0.0.1", 12345)) as test_client:
         response = test_client.post("/api/opportunities", json={
             "title": "Remote task", "platform": "Example",
             "url": "https://example.org/task",
