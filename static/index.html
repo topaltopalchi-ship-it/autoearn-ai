@@ -21,6 +21,30 @@
       <article><span>Need your approval</span><strong id="stat-approval">0</strong><small>Nothing runs without you</small></article>
       <article><span>Rewards paid</span><strong id="stat-paid">$0.00</strong><small id="stat-pending">Pending: $0.00</small></article>
     </section>
+    <section class="panel" id="discovery">
+      <div class="section-head"><div><span class="eyebrow">MULTI-CATEGORY SEARCH</span><h2>Discover earning opportunities</h2></div></div>
+      <form id="discovery-form" class="discovery-form">
+        <input id="discovery-query" maxlength="220" required placeholder="What kind of opportunity are you looking for? e.g. remote work in Europe">
+        <select id="discovery-category" aria-label="Opportunity category">
+          <option value="all">All opportunity types</option>
+          <option value="games">Games and play rewards</option>
+          <option value="surveys">Surveys and market research</option>
+          <option value="user_testing">Website and app testing</option>
+          <option value="microtasks">Microtasks and data labeling</option>
+          <option value="freelance">Freelance work</option>
+          <option value="cashback">Cashback and loyalty</option>
+          <option value="affiliate">Affiliate programs</option>
+          <option value="creator">Creator monetization</option>
+          <option value="tutoring">Tutoring and teaching</option>
+          <option value="digital_products">Digital products</option>
+          <option value="research">Paid research studies</option>
+          <option value="bug_bounty">Responsible bug bounties</option>
+        </select>
+        <button class="primary" id="discover-button" type="submit">Search opportunities</button>
+      </form>
+      <p class="helper">Search leads are unverified. Review official terms and risk before joining.</p>
+      <div id="discovery-results" class="empty">Choose a category and search to find possible opportunities.</div>
+    </section>
     <section class="panel" id="opportunities">
       <div class="section-head"><div><span class="eyebrow">DISCOVERY & DUE DILIGENCE</span><h2>Opportunities</h2></div><button class="primary" id="add-opportunity">+ Add opportunity</button></div>
       <div class="toolbar"><input id="search" placeholder="Search platform or opportunity…"><select id="filter"><option value="">All statuses</option><option>discovered</option><option>reviewing</option><option>eligible</option><option>ineligible</option><option>archived</option></select></div>
