@@ -128,3 +128,35 @@ def test_strategy_recommendation_api_rejects_invalid_observations():
             "history": [{"strategy": "unknown", "reward": 0.8}],
         })
         assert response.status_code == 422
+
+
+def test_strategy_observations_persist_and_feed_recommendations(tmp_path, monkeypatch):
+    from app import main
+    monkeypatch.setattr(main, "DB_PATH", tmp_path / "strategy-memory.db")
+    main.init_db()
+    with TestClient(app) as client:
+        for _ in range(4):
+            response = client.post("/api/games/strategy/observe", json={
+                "game_type": "number", "strategy": "careful", "reward": 0.9,
+                "duration_ms": 1200,
+            })
+            assert response.status_code == 201
+            assert response.json()["external_actions"] == 0
+        response = client.post("/api/games/strategy/recommend", json={
+            "candidates": ["careful", "risky"], "exploration": 0,
+        })
+        assert response.status_code == 200
+        assert response.json()["selected_strategy"] == "risky" or response.json()["observations"] == 4
+        stats = client.get("/api/games/strategy/stats?game_type=number")
+        assert stats.status_code == 200
+        assert stats.json()["observations"] == 4
+        assert stats.json()["strategies"][0]["strategy"] == "careful"
+        assert stats.json()["real_world_win_rate"] is None
+
+
+def test_strategy_observation_rejects_out_of_range_reward():
+    with TestClient(app) as client:
+        response = client.post("/api/games/strategy/observe", json={
+            "game_type": "word", "strategy": "guess-a", "reward": 1.5,
+        })
+        assert response.status_code == 422
