@@ -23,6 +23,8 @@ class PersianDashboardBrowserTests(unittest.TestCase):
             cls.port = sock.getsockname()[1]
         env = os.environ.copy()
         env["AUTOEARN_DB"] = str(Path(cls.temp_dir.name) / "browser-test.db")
+        env["AUTOEARN_MASTER_PASSWORD"] = "browser-test-password"
+        env["AUTOEARN_AUTH_SECRET"] = "browser-test-auth-secret"
         cls.server = subprocess.Popen(
             [
                 sys.executable, "-m", "uvicorn", "app.main:app",
@@ -64,8 +66,15 @@ class PersianDashboardBrowserTests(unittest.TestCase):
                 cls.server.kill()
         cls.temp_dir.cleanup()
 
+    def authenticated_page(self, **kwargs):
+        page = self.browser.new_page(**kwargs)
+        login = page.request.post(self.base_url + "/api/auth/login", data={"password": "browser-test-password"})
+        if login.status != 200:
+            raise AssertionError(f"Owner login failed: {login.status}")
+        return page
+
     def test_rtl_dashboard_on_desktop_and_mobile(self):
-        page = self.browser.new_page(viewport={"width": 1365, "height": 900})
+        page = self.authenticated_page(viewport={"width": 1365, "height": 900})
         page_errors = []
         page.on("pageerror", lambda error: page_errors.append(str(error)))
         response = page.goto(self.base_url + "/", wait_until="networkidle")
@@ -146,7 +155,7 @@ class PersianDashboardBrowserTests(unittest.TestCase):
 
 
     def test_discovery_results_render_as_unverified_leads(self):
-        page = self.browser.new_page(viewport={"width": 390, "height": 844})
+        page = self.authenticated_page(viewport={"width": 390, "height": 844})
         page_errors = []
         page.on("pageerror", lambda error: page_errors.append(str(error)))
         page.route(
