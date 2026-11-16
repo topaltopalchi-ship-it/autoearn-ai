@@ -231,8 +231,8 @@ class PersianDashboardBrowserTests(unittest.TestCase):
         )
         high_result = page.locator("#risk-result").text_content()
         self.assertIn("ریسک بالا", high_result)
-        self.assertIn("Requires an upfront payment", high_result)
-        self.assertIn("Requires a deposit or account top-up", high_result)
+        self.assertIn("درخواست پرداخت هزینه اولیه", high_result)
+        self.assertIn("الزام به واریز وجه یا شارژ حساب", high_result)
         self.assertIn("اعتبار پلتفرم را تأیید نمی‌کند", high_result)
 
         page.locator("#risk-form").locator('input[type="checkbox"]').uncheck()
@@ -242,7 +242,7 @@ class PersianDashboardBrowserTests(unittest.TestCase):
         )
         low_result = page.locator("#risk-result").text_content()
         self.assertIn("ریسک پایین", low_result)
-        self.assertIn("تضمین‌کننده اعتبار نیست", low_result)
+        self.assertIn("امتیاز پایین، معتبر بودن یا بی‌خطر بودن پلتفرم را ثابت نمی‌کند", low_result)
         self.assertEqual(page_errors, [])
         page.close()
 
