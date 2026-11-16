@@ -195,20 +195,25 @@ def test_existing_opportunities_receive_safe_policy_defaults(tmp_path, monkeypat
 
 
 
-def test_internal_review_is_queued_without_external_approval(client):
+def test_only_server_generated_internal_review_is_queued_without_approval(client):
     opp = client.post("/api/opportunities", json={
-        "title": "Internal checklist", "platform": "Example",
+        "title": "Policy-cleared internal checklist", "platform": "Example",
         "url": "https://internal-review.example/offer",
+        "automation_policy": "allowed", "captcha_required": False,
+        "opportunity_category": "skill_contest", "policy_source": "terms",
+        "policy_evidence_url": "https://internal-review.example/terms",
     }).json()
-    task = client.post("/api/tasks", json={
+    forged = client.post("/api/tasks", json={
         "opportunity_id": opp["id"],
-        "description": "Check completeness of saved metadata",
+        "description": "Try to self-classify as internal",
         "action_type": "internal_review",
     })
-    assert task.status_code == 201
-    assert task.json()["status"] == "auto_queued"
-    assert task.json()["requires_approval"] == 0
-    assert client.post(f"/api/tasks/{task.json()['id']}/complete").status_code == 200
+    assert forged.status_code == 422
+    prepared = client.post("/api/automation/prepare").json()
+    task = prepared["tasks"][0]
+    assert task["status"] == "auto_queued"
+    assert task["requires_approval"] == 0
+    assert client.post(f"/api/tasks/{task['id']}/complete").status_code == 200
 
 
 def test_external_participation_always_requires_human_approval(client):
