@@ -33,3 +33,13 @@ through a public host, LAN, or tunnel. Do not enter production credentials until
 the API/UI integration, local access controls, backup/restore, and security
 review are complete. Never store seed phrases or private wallet keys unless a
 specific integration requires them and its security model has been reviewed.
+
+
+## Network boundary
+
+The ASGI application itself rejects requests when the TCP peer address is not
+a loopback IP address, even if the server is accidentally started on
+0.0.0.0 or a LAN interface. This is a defense-in-depth boundary, not user
+authentication: local processes running under the same operating-system user
+can still access the app. Do not place the app behind a publicly reachable
+reverse proxy or tunnel, and keep the local machine account protected.
