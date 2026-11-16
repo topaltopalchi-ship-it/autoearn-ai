@@ -194,11 +194,40 @@ function renderDiscoveryResults(){
     }else{
       actions='<span class="pill">نیازمند بررسی انسانی</span><button class="secondary" data-accept="'+item.id+'">تأیید برای بررسی</button><button class="secondary" data-reject="'+item.id+'">رد فرصت</button>';
     }
-    return '<div class="item"><div><h3><span data-no-translate>'+esc(item.title)+'</span> <span class="pill">'+esc(faCategory(item.category||"all"))+'</span></h3><p><span data-no-translate>'+esc(item.domain)+'</span> · شاخص کشف: '+item.confidence+'/100 · اولویت بررسی انسانی: '+(item.review_priority?.review_priority_score??"—")+'/100 · <strong>تأییدنشده</strong><br><span data-no-translate>'+esc(item.snippet||"خلاصه‌ای از منبع ارائه نشده است")+'</span><br><a href="'+esc(item.url)+'" target="_blank" rel="noopener noreferrer">مشاهده منبع ↗</a></p></div><div class="item-actions">'+actions+'</div></div>';
+    const extractionSummary=item.extraction?renderExtractionSummary(item.extraction):"";
+    const extractAction='<button class="secondary" data-extract="'+item.id+'">تحلیل متن شرایط</button>';
+    return '<div class="item"><div><h3><span data-no-translate>'+esc(item.title)+'</span> <span class="pill">'+esc(faCategory(item.category||"all"))+'</span></h3><p><span data-no-translate>'+esc(item.domain)+'</span> · شاخص کشف: '+item.confidence+'/100 · اولویت بررسی انسانی: '+(item.review_priority?.review_priority_score??"—")+'/100 · <strong>تأییدنشده</strong><br><span data-no-translate>'+esc(item.snippet||"خلاصه‌ای از منبع ارائه نشده است")+'</span><br><a href="'+esc(item.url)+'" target="_blank" rel="noopener noreferrer">مشاهده منبع ↗</a></p>'+extractionSummary+'</div><div class="item-actions">'+extractAction+actions+'</div></div>';
   }).join(""):'<div class="empty">نتیجه‌ای پیدا نشد. عبارت گسترده‌تر یا دسته دیگری را امتحان کنید.</div>';
   results.querySelectorAll("[data-accept]").forEach(button=>button.onclick=()=>updateCandidateReview(Number(button.dataset.accept),"accepted"));
   results.querySelectorAll("[data-reject]").forEach(button=>button.onclick=()=>updateCandidateReview(Number(button.dataset.reject),"rejected"));
   results.querySelectorAll("[data-promote]").forEach(button=>button.onclick=()=>promoteCandidate(Number(button.dataset.promote)));
+  results.querySelectorAll("[data-extract]").forEach(button=>button.onclick=()=>extractCandidateText(Number(button.dataset.extract)));
+}
+
+function renderExtractionSummary(extraction){
+  const amounts=(extraction.reward_amounts||[]).map(item=>esc(item.currency)+" "+esc(item.amount_text)).join("، ");
+  const evidence=(extraction.eligibility_evidence||[]).map(item=>"<li>"+esc(item)+"</li>").join("");
+  const age=(extraction.minimum_age_hints||[]).join("، ");
+  return '<div class="helper"><strong>نتیجه استخراج متن (تأییدنشده)</strong>'+
+    (amounts?'<p>مبالغ ذکرشده: '+amounts+'</p>':'')+
+    (age?'<p>اشاره به حداقل سن: '+esc(age)+'</p>':'')+
+    (evidence?'<ul>'+evidence+'</ul>':'<p>شواهد صلاحیت از متن استخراج نشد.</p>')+
+    '<p>'+esc(extraction.disclaimer||"متن فقط برای کمک به بررسی استخراج شده و صحت آن تأیید نشده است.")+'</p></div>';
+}
+async function extractCandidateText(id){
+  const item=discoveryItems.find(candidate=>candidate.id===id);
+  if(!item)return;
+  const pageText=prompt("متن شرایط و قوانین را از صفحه رسمی کپی و اینجا وارد کنید. برنامه صفحه را خودکار دریافت نمی‌کند:");
+  if(!pageText||!pageText.trim())return;
+  try{
+    const result=await api("/api/discoveries/"+id+"/extract",{
+      method:"POST",body:JSON.stringify({page_text:pageText})
+    });
+    item.extraction=result.extraction;
+    item.review_priority=result.review_priority;
+    renderDiscoveryResults();
+    toast("متن تحلیل شد؛ اطلاعات همچنان تأییدنشده است.");
+  }catch(error){toast(error.message)}
 }
 
 async function updateCandidateReview(id,status){
