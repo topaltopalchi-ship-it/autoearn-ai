@@ -63,3 +63,27 @@ The first strategy module is a local number-target puzzle solver using exact rat
 The solver is gated by explicit skill-contest classification, a recorded policy that explicitly allows automated play, CAPTCHA absence, and supporting policy evidence. Missing or ambiguous permission fails closed. The evidence is supplied by the user and must be reviewed; it is not independently verified by the application.
 
 **Important scope:** this first engine solves a local puzzle state only. It does not connect to or play a third-party website. A future site adapter must use an official/authorized interface and be reviewed against the specific platform's terms before it can execute moves. No browser-control, CAPTCHA bypass, anti-bot evasion, payment, wagering, or automatic prize-claim behavior is provided. Local puzzle solve rate is not the same as a competition win rate, and no prize or income is guaranteed.
+
+
+## Skill-game strategy engine (initial vertical)
+
+The skill-game engine adds a local arithmetic-puzzle solver and a fail-closed authorization gate:
+
+- `POST /api/games/solve` accepts a registered skill-contest opportunity plus a small target-number puzzle state. It returns an exact expression when one exists.
+- The opportunity must be classified as a skill contest, have automation explicitly allowed, have CAPTCHA explicitly absent, and carry policy evidence before the solver endpoint is enabled.
+- `GET /api/games/stats` reports local puzzle attempts and solve rate. This is not a third-party competition win rate and must not be represented as earnings or winnings.
+- The current engine analyzes supplied puzzle state only. It does not log in, connect to a game website, click, submit an answer, interact with a browser, or evade anti-bot controls.
+- A future platform adapter must be implemented separately for a documented/authorized API or a platform that expressly permits automated gameplay; authorization must be rechecked before each external action. Unknown or changed rules must stop execution.
+
+Example request:
+
+```json
+{
+  "opportunity_id": 1,
+  "game_type": "target_number",
+  "numbers": [2, 3, 4],
+  "target": 14
+}
+```
+
+This release is a strategy foundation, not an autonomous player on money-prize websites. No win or income is guaranteed.
