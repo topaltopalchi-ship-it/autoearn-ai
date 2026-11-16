@@ -159,3 +159,33 @@ def test_discover_returns_unverified_candidates_for_human_review(client, monkeyp
 def test_discover_rejects_invalid_limit(client):
     response = client.post("/api/discover", json={"query": "game rewards", "limit": 99})
     assert response.status_code == 422
+
+
+def test_discover_persists_deduplicated_review_inbox(client, monkeypatch):
+    from app import main
+    from autoearn.opportunities import SearchResult
+
+    class FakeProvider:
+        def search(self, query, limit=10):
+            return [SearchResult(
+                title="Cashback rewards",
+                url="https://example.net/rewards?utm_source=feed",
+                snippet="Read eligibility and terms",
+                provider="test",
+            )]
+
+    monkeypatch.setenv("BRAVE_SEARCH_API_KEY", "test-token")
+    monkeypatch.setattr(main, "BraveSearchProvider", lambda token: FakeProvider())
+    payload = {"query": "cashback programs", "limit": 5}
+
+    first = client.post("/api/discover", json=payload)
+    second = client.post("/api/discover", json=payload)
+    inbox = client.get("/api/discoveries")
+
+    assert first.status_code == second.status_code == 200
+    assert first.json()[0]["is_new"] is True
+    assert second.json()[0]["is_new"] is False
+    assert len(inbox.json()) == 1
+    assert inbox.json()[0]["url"] == "https://example.net/rewards"
+    assert inbox.json()[0]["review_required"] is True
+    assert inbox.json()[0]["verified"] is False
