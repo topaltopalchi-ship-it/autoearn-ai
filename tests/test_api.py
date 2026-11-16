@@ -96,3 +96,58 @@ def test_opportunity_score_is_out_of_100(client):
     })
     assert response.status_code == 201
     assert response.json()["score"] == 100
+
+
+def test_automation_policy_fails_closed_for_unknown_or_captcha():
+    from app.policy import derive_automation_eligibility
+    assert derive_automation_eligibility("unknown", None, "ordinary") == "manual_only"
+    assert derive_automation_eligibility("allowed", True, "ordinary") == "manual_only"
+    assert derive_automation_eligibility("prohibited", False, "ordinary") == "excluded"
+
+
+def test_paid_lottery_and_betting_are_never_auto_eligible():
+    from app.policy import derive_automation_eligibility
+    for category in ("paid_lottery", "betting"):
+        assert derive_automation_eligibility("allowed", False, category) == "manual_only"
+
+
+def test_free_giveaway_and_skill_contest_require_explicit_policy_clearance():
+    from app.policy import derive_automation_eligibility
+    assert derive_automation_eligibility("allowed", False, "giveaway_free") == "auto"
+    assert derive_automation_eligibility("allowed", False, "skill_contest") == "auto"
+    assert derive_automation_eligibility("unknown", False, "giveaway_free") == "manual_only"
+
+
+def test_opportunity_policy_metadata_and_auto_eligible_filter(client):
+    auto = client.post("/api/opportunities", json={
+        "title": "Free skill contest", "platform": "Example",
+        "url": "https://policy-auto.example/contest",
+        "automation_policy": "allowed", "captcha_required": False,
+        "opportunity_category": "skill_contest",
+        "policy_source": "terms", "policy_evidence_url": "https://policy-auto.example/terms",
+    })
+    unknown = client.post("/api/opportunities", json={
+        "title": "Unknown giveaway", "platform": "Example",
+        "url": "https://policy-unknown.example/giveaway",
+        "opportunity_category": "giveaway_free",
+    })
+    blocked = client.post("/api/opportunities", json={
+        "title": "No bots", "platform": "Example",
+        "url": "https://policy-blocked.example/offer",
+        "automation_policy": "prohibited", "captcha_required": False,
+    })
+    assert auto.status_code == unknown.status_code == blocked.status_code == 201
+    assert auto.json()["automation_eligibility"] == "auto"
+    assert unknown.json()["automation_eligibility"] == "manual_only"
+    assert blocked.json()["automation_eligibility"] == "excluded"
+    eligible = client.get("/api/opportunities/automation-eligible").json()
+    assert [item["id"] for item in eligible] == [auto.json()["id"]]
+
+
+def test_policy_evidence_url_must_be_http(client):
+    response = client.post("/api/opportunities", json={
+        "title": "Invalid policy evidence", "platform": "Example",
+        "url": "https://policy-invalid.example",
+        "policy_evidence_url": "javascript:alert(1)",
+    })
+    assert response.status_code == 422
