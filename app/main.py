@@ -235,6 +235,23 @@ class OpportunityIn(BaseModel):
     risk_score: int | None = Field(default=None, ge=0, le=100)
 
 
+class OpportunityUpdateIn(BaseModel):
+    title: str | None = Field(default=None, min_length=2, max_length=160)
+    platform: str | None = Field(default=None, min_length=2, max_length=100)
+    url: HttpUrl | None = None
+    category: str | None = Field(default=None, max_length=40)
+    reward_description: str | None = Field(default=None, max_length=500)
+    eligibility: str | None = Field(default=None, max_length=1000)
+    terms_url: str | None = Field(default=None, max_length=500)
+    notes: str | None = Field(default=None, max_length=1000)
+    estimated_reward: float | None = Field(default=None, gt=0)
+    reward_currency: str | None = Field(default=None, min_length=3, max_length=8)
+    estimated_hours: float | None = Field(default=None, gt=0)
+    eligible_countries: str | None = Field(default=None, max_length=300)
+    payout_method: str | None = Field(default=None, max_length=120)
+    minimum_payout: float | None = Field(default=None, ge=0)
+
+
 class EconomicsEvaluateIn(BaseModel):
     gross_reward: float = Field(ge=0, allow_inf_nan=False)
     estimated_hours: float = Field(gt=0, allow_inf_nan=False)
@@ -815,6 +832,48 @@ def create_opportunity(data: OpportunityIn):
               payload["minimum_payout"], payload["risk_score"], now()))
         row = db.execute("SELECT * FROM opportunities WHERE id = ?", (cur.lastrowid,)).fetchone()
         return row_dict(row)
+
+
+@app.patch("/api/opportunities/{opportunity_id}")
+def update_opportunity(opportunity_id: int, data: OpportunityUpdateIn):
+    """Partially update owner-maintained opportunity details without changing workflow status."""
+    changes = data.model_dump(exclude_unset=True)
+    if not changes:
+        raise HTTPException(422, "At least one opportunity field must be supplied.")
+    if "url" in changes and changes["url"] is not None:
+        changes["url"] = normalize_url(str(changes["url"]))
+        if not safe_url(changes["url"]):
+            raise HTTPException(422, "Only public http/https opportunity URLs are accepted.")
+    if "terms_url" in changes and changes["terms_url"] and not safe_url(changes["terms_url"]):
+        raise HTTPException(422, "Terms URL must be an http/https URL.")
+    if changes.get("reward_currency") is not None:
+        changes["reward_currency"] = changes["reward_currency"].upper()
+
+    with connect() as db:
+        existing = db.execute("SELECT * FROM opportunities WHERE id = ?", (opportunity_id,)).fetchone()
+        if not existing:
+            raise HTTPException(404, "Opportunity not found")
+        if "url" in changes and changes["url"] != existing["url"]:
+            duplicate = db.execute(
+                "SELECT id FROM opportunities WHERE url = ? AND id != ?",
+                (changes["url"], opportunity_id),
+            ).fetchone()
+            if duplicate:
+                raise HTTPException(409, "This opportunity URL is already registered.")
+        merged = {**row_dict(existing), **changes}
+        score = 20
+        score += 25 if merged["terms_url"] else 0
+        score += 20 if merged["eligibility"] else 0
+        score += 15 if merged["reward_description"] else 0
+        score += 20 if merged["notes"] else 0
+        assignments = [f"{key} = ?" for key in changes]
+        values = list(changes.values())
+        assignments.append("score = ?")
+        values.extend([score, opportunity_id])
+        db.execute(f"UPDATE opportunities SET {', '.join(assignments)} WHERE id = ?", values)
+        return row_dict(db.execute(
+            "SELECT * FROM opportunities WHERE id = ?", (opportunity_id,)
+        ).fetchone())
 
 
 @app.patch("/api/opportunities/{opportunity_id}/status")

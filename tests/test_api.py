@@ -725,6 +725,45 @@ def test_opportunity_assessment_endpoints_return_404_for_unknown_id(client):
     assert economics.status_code == 404
 
 
+def test_opportunity_can_be_partially_edited_and_currency_is_normalized(client):
+    created = client.post("/api/opportunities", json={
+        "title": "Editable offer", "platform": "Example",
+        "url": "https://editable-example.org/offer",
+        "reward_currency": "eur", "notes": "Initial note",
+    })
+    assert created.status_code == 201
+    opportunity_id = created.json()["id"]
+    updated = client.patch(f"/api/opportunities/{opportunity_id}", json={
+        "title": "Updated offer", "reward_currency": "gbp",
+        "eligible_countries": "DE,LU",
+    })
+    assert updated.status_code == 200
+    result = updated.json()
+    assert result["title"] == "Updated offer"
+    assert result["reward_currency"] == "GBP"
+    assert result["eligible_countries"] == "DE,LU"
+    assert result["notes"] == "Initial note"
+    assert result["status"] == "discovered"
+
+
+def test_opportunity_edit_rejects_duplicate_url_and_unknown_id(client):
+    first = client.post("/api/opportunities", json={
+        "title": "First offer", "platform": "Example",
+        "url": "https://first-edit.org/offer",
+    })
+    second = client.post("/api/opportunities", json={
+        "title": "Second offer", "platform": "Example",
+        "url": "https://second-edit.org/offer",
+    })
+    duplicate = client.patch(
+        f"/api/opportunities/{second.json()['id']}",
+        json={"url": "https://first-edit.org/offer"},
+    )
+    assert duplicate.status_code == 409
+    assert client.patch("/api/opportunities/999999", json={"title": "Missing"}).status_code == 404
+    assert client.patch(f"/api/opportunities/{first.json()['id']}", json={}).status_code == 422
+
+
 def test_opportunity_economics_rejects_mixed_currencies(client):
     created = client.post("/api/opportunities", json={
         "title": "Mixed currency offer", "platform": "Example",
