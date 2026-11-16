@@ -27,7 +27,8 @@ function renderPlayerStatus(player){
     ? "External gameplay status requires separate platform authorization."
     : "External gameplay and automated payments are disabled. Local solve rate is not a real-world win rate or earnings forecast.";
 }
-\nfunction renderOpportunities(){
+
+function renderOpportunities(){
   const q=$("search").value.toLowerCase(),status=$("filter").value,automation=$("automation-filter").value;
   const rows=opportunities.filter(o=>(!status||o.status===status)&&(!automation||o.automation_eligibility===automation)&&[o.title,o.platform,o.category,o.opportunity_category].some(x=>x.toLowerCase().includes(q)));
   $("opportunity-list").innerHTML=rows.length?rows.map(o=>`<div class="item"><div><h3>${esc(o.title)} <span class="pill">${esc(o.status)}</span></h3><p>${esc(o.platform)} · ${esc(o.category)} · Review score ${o.score}/100<br><span class="pill">Policy: ${esc(o.automation_policy)}</span> <span class="pill">CAPTCHA: ${o.captcha_required===null?'unknown':(o.captcha_required?'yes':'no')}</span> <span class="pill">Automation: ${esc(o.automation_eligibility)}</span><br>Type: ${esc(o.opportunity_category)} · Evidence: ${esc(o.policy_source)}<br><a href="${esc(o.url)}" target="_blank" rel="noopener noreferrer">Open platform ↗</a> ${o.terms_url?'· <a href="'+esc(o.terms_url)+'" target="_blank" rel="noopener noreferrer">Terms ↗</a>':''} ${o.policy_evidence_url?'· <a href="'+esc(o.policy_evidence_url)+'" target="_blank" rel="noopener noreferrer">Policy evidence ↗</a>':''}<br>${esc(o.reward_description||"No reward details entered")}</p></div><div class="item-actions"><button class="secondary" data-task="${o.id}">Create task</button><button class="secondary" data-status="${o.id}" data-next="reviewing">Review</button></div></div>`).join(""):'<div class="empty">No matching opportunities.</div>';
