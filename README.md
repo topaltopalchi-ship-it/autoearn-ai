@@ -24,6 +24,31 @@ pip install -r requirements.txt
 pytest -q
 ```
 
+## Opportunity discovery API
+
+The discovery endpoint uses the Brave Search API. Set an API key in the server
+environment before starting the application:
+
+```bash
+export BRAVE_SEARCH_API_KEY="your-brave-search-api-key"
+uvicorn app.main:app --reload
+```
+
+Submit a search request:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/discover \
+  -H "Content-Type: application/json" \
+  -d '{"query":"legitimate game rewards programs","limit":10}'
+```
+
+The endpoint returns normalized candidates with source domains, discovery
+timestamps, explainable text signals, and a heuristic confidence value. These
+signals are not a legitimacy check. Every result is explicitly marked
+`verified: false` and `review_required: true`; candidates are not saved or
+acted on automatically. Without `BRAVE_SEARCH_API_KEY`, the endpoint returns
+HTTP 503. Search-provider errors return HTTP 502.
+
 ## Scoring notes
 
 The score is a heuristic based only on metadata supplied to the application. It is not proof that a platform is legitimate or that a reward will be paid. Users must verify eligibility, regional restrictions, and platform terms before participating.
