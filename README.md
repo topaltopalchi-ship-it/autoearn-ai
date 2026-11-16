@@ -26,13 +26,18 @@ pytest -q
 
 ## Opportunity discovery API
 
-The discovery endpoint uses the Brave Search API. Set an API key in the server
-environment before starting the application:
+The discovery endpoint uses Mwmbl's anonymous free search tier by default, so
+no API key or payment card is required. Anonymous access is limited to 1,000
+requests per month and 1 request per second. Start the application with:
 
 ```bash
-export BRAVE_SEARCH_API_KEY="your-brave-search-api-key"
 uvicorn app.main:app --reload
 ```
+
+If you later create a Mwmbl developer key, set `MWMBL_API_KEY` in the server
+environment to use the identified free tier (2,000 requests/month, 5 requests
+per second). If `BRAVE_SEARCH_API_KEY` is configured, Brave takes precedence.
+Do not enable pay-as-you-go billing unless you explicitly choose to do so.
 
 Submit a search request:
 
@@ -47,9 +52,9 @@ timestamps, explainable text signals, and a heuristic confidence value. Results
 are stored in a local review inbox and deduplicated by canonical URL; retrieve
 them with `GET /api/discoveries`. These signals are not a legitimacy check.
 Every result is explicitly marked `verified: false` and `review_required: true`;
-nothing is clicked, registered, or acted on automatically. Without
-`BRAVE_SEARCH_API_KEY`, the endpoint returns HTTP 503. Search-provider errors
-return HTTP 502.
+nothing is clicked, registered, or acted on automatically. Search-provider
+errors return HTTP 502. Mwmbl is used for a no-card prototype; confirm the
+applicable data and API terms before any commercial launch.
 
 ## Scoring notes
 
