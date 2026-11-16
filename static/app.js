@@ -1,7 +1,20 @@
 const $ = (id) => document.getElementById(id);
-const api = async (path, options={}) => {
-  const response = await fetch(path, {headers:{"Content-Type":"application/json"}, ...options});
+let authPromptInFlight = null;
+const api = async (path, options={}, retry=true) => {
+  const headers = {"Content-Type":"application/json", ...(options.headers||{})};
+  const response = await fetch(path, {...options, headers});
   const body = await response.json().catch(()=>({detail:"پاسخ غیرمنتظره از سرور"}));
+  if (response.status === 401 && retry && path !== "/api/auth/login") {
+    if (!authPromptInFlight) {
+      authPromptInFlight = (async()=>{
+        const password = prompt("برای ادامه، رمز مالک AutoEarn AI را وارد کنید:");
+        if (!password) throw new Error("ورود لغو شد.");
+        await api("/api/auth/login", {method:"POST", body:JSON.stringify({password})}, false);
+      })().finally(()=>{authPromptInFlight=null;});
+    }
+    await authPromptInFlight;
+    return api(path, options, false);
+  }
   if (!response.ok) throw new Error(body.detail || "درخواست ناموفق بود");
   return body;
 };
