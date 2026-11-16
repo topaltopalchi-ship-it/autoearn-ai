@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, HttpUrl
 
 from app.policy import derive_automation_eligibility
+from app.game_engine import authorize_game_strategy, solve_target_number
 
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.getenv("AUTOEARN_DB", ROOT / "autoearn.db"))
@@ -60,6 +61,14 @@ def init_db() -> None:
             created_at TEXT NOT NULL,
             action_type TEXT NOT NULL DEFAULT 'other',
             requires_approval INTEGER NOT NULL DEFAULT 1
+        );
+        CREATE TABLE IF NOT EXISTS game_runs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            opportunity_id INTEGER NOT NULL REFERENCES opportunities(id) ON DELETE CASCADE,
+            game_type TEXT NOT NULL,
+            solved INTEGER NOT NULL,
+            strategy TEXT NOT NULL,
+            created_at TEXT NOT NULL
         );
         CREATE TABLE IF NOT EXISTS rewards (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -131,6 +140,13 @@ class TaskIn(BaseModel):
     opportunity_id: int
     description: str = Field(min_length=3, max_length=500)
     action_type: Literal["site_participation", "claim_reward", "account_action", "other"] = "other"
+
+
+class GameSolveIn(BaseModel):
+    opportunity_id: int
+    game_type: Literal["target_number"] = "target_number"
+    numbers: list[int] = Field(min_length=2, max_length=7)
+    target: int = Field(ge=-10000, le=10000)
 
 
 class RewardIn(BaseModel):
@@ -318,6 +334,35 @@ def automation_status():
         "automated_gameplay_enabled": False,
     }
 
+
+@app.post("/api/games/solve")
+def solve_skill_game(data: GameSolveIn):
+    """Analyze a skill-game round locally; never plays or submits to a third-party site."""
+    with connect() as db:
+        row = db.execute("SELECT * FROM opportunities WHERE id = ?", (data.opportunity_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "Opportunity not found")
+        try:
+            authorize_game_strategy(row_dict(row))
+            result = solve_target_number(data.numbers, data.target)
+        except PermissionError as exc:
+            raise HTTPException(403, str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        db.execute("INSERT INTO game_runs (opportunity_id, game_type, solved, strategy, created_at) VALUES (?, ?, ?, ?, ?)",
+                   (data.opportunity_id, data.game_type, int(result["solved"]), result["strategy"], now()))
+    return {**result, "mode": "analysis_only", "site_played": False,
+            "note": "Only the supplied puzzle state was analyzed; no external game action was taken."}
+
+
+@app.get("/api/games/stats")
+def skill_game_stats():
+    with connect() as db:
+        row = db.execute("SELECT COUNT(*) AS attempts, COALESCE(SUM(solved), 0) AS solved FROM game_runs").fetchone()
+    attempts, solved = row["attempts"], row["solved"]
+    return {"attempts": attempts, "solved": solved,
+            "solve_rate": round(solved / attempts, 4) if attempts else None,
+            "metric": "local_puzzle_solve_rate_not_platform_win_rate"}
 
 @app.get("/api/tasks")
 def list_tasks():
