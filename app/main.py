@@ -494,9 +494,9 @@ def record_strategy_observation(data: StrategyObservationIn):
 def strategy_learning_stats(game_type: str | None = Query(default=None, max_length=40)):
     with connect() as db:
         if game_type:
-            rows = db.execute("SELECT strategy, COUNT(*) AS trials, AVG(reward) AS mean_reward, AVG(duration_ms) AS mean_duration_ms FROM strategy_observations WHERE game_type = ? GROUP BY strategy ORDER BY mean_reward DESC", (game_type,)).fetchall()
+            rows = db.execute("SELECT game_type, strategy, COUNT(*) AS trials, AVG(reward) AS mean_reward, AVG(duration_ms) AS mean_duration_ms FROM strategy_observations WHERE game_type = ? GROUP BY game_type, strategy ORDER BY mean_reward DESC", (game_type,)).fetchall()
         else:
-            rows = db.execute("SELECT strategy, COUNT(*) AS trials, AVG(reward) AS mean_reward, AVG(duration_ms) AS mean_duration_ms FROM strategy_observations GROUP BY strategy ORDER BY mean_reward DESC").fetchall()
+            rows = db.execute("SELECT game_type, strategy, COUNT(*) AS trials, AVG(reward) AS mean_reward, AVG(duration_ms) AS mean_duration_ms FROM strategy_observations GROUP BY game_type, strategy ORDER BY game_type, mean_reward DESC").fetchall()
         total = db.execute("SELECT COUNT(*) FROM strategy_observations" + (" WHERE game_type = ?" if game_type else ""), (game_type,) if game_type else ()).fetchone()[0]
     return {"observations": total, "strategies": [row_dict(row) for row in rows], "mode": "local_practice_metrics", "real_world_win_rate": None}
 
