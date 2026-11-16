@@ -63,3 +63,22 @@ The score is a heuristic based only on metadata supplied to the application. It 
 ## Safety boundaries
 
 AutoEarn AI is an assisted decision-support tool. Website discovery and analysis must respect site terms, robots policies, privacy, and applicable law. The product will not automate gameplay, clicks, ad views, referrals, spam, or other activity intended to manipulate reward systems.
+
+
+## Manual page-text extraction
+
+A discovered candidate can be enriched with text copied from its public page.
+AutoEarn does not fetch candidate URLs automatically. Submit the copied text
+(maximum 20,000 characters) to:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/discoveries/1/extract \
+  -H "Content-Type: application/json" \
+  -d '{"page_text":"Earn €25 after completing the offer. Only residents of Germany are eligible. Participants must be 18+. Read the official terms and conditions."}'
+```
+
+The response identifies currency amounts, age hints, eligibility evidence,
+and whether terms are mentioned. The extraction is stored with the candidate
+and appears in `GET /api/discoveries`. It is explicitly unverified: users
+must compare the extracted hints with the current official terms before
+accepting an opportunity or taking any action.
