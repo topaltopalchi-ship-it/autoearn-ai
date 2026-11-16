@@ -659,3 +659,76 @@ def test_vault_api_replaces_secret_without_returning_plaintext(client, tmp_path,
     assert updated.status_code == 200
     assert "new-secret-value" not in updated.text
     assert vault.get_secret(created.json()["id"], "a-long-test-vault-passphrase") == "new-secret-value"
+
+
+def test_opportunity_risk_assessment_is_persisted(client):
+    created = client.post("/api/opportunities", json={
+        "title": "Risk test offer", "platform": "Example",
+        "url": "https://risk-example.org/offer",
+    })
+    assert created.status_code == 201
+    opportunity_id = created.json()["id"]
+    response = client.post(f"/api/opportunities/{opportunity_id}/risk-assessment", json={
+        "upfront_payment": True,
+        "deposit_or_top_up": True,
+    })
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["assessment"]["risk_score"] == 45
+    assert payload["opportunity"]["risk_score"] == 45
+    assert payload["opportunity"]["risk_assessment"]["verified"] is False
+    listed = client.get("/api/opportunities").json()
+    saved = next(item for item in listed if item["id"] == opportunity_id)
+    assert saved["risk_score"] == 45
+    assert saved["risk_assessment_json"]
+
+
+def test_opportunity_economics_is_persisted_without_currency_conversion(client):
+    created = client.post("/api/opportunities", json={
+        "title": "Economics test offer", "platform": "Example",
+        "url": "https://economics-example.org/offer",
+    })
+    assert created.status_code == 201
+    opportunity_id = created.json()["id"]
+    response = client.post(f"/api/opportunities/{opportunity_id}/evaluate", json={
+        "gross_reward": 100,
+        "estimated_hours": 4,
+        "estimated_cost": 10,
+        "fee_percent": 5,
+        "flat_fee": 2,
+        "currency": "EUR",
+        "target_hourly_rate": 15,
+    })
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["assessment"]["estimated_net"] == 83
+    assert payload["assessment"]["estimated_net_per_hour"] == 20.75
+    assert payload["opportunity"]["estimated_reward"] == 100
+    assert payload["opportunity"]["reward_currency"] == "EUR"
+    assert payload["opportunity"]["estimated_hours"] == 4
+    listed = client.get("/api/opportunities").json()
+    saved = next(item for item in listed if item["id"] == opportunity_id)
+    assert saved["economics_json"]
+
+
+def test_opportunity_assessment_endpoints_return_404_for_unknown_id(client):
+    risk = client.post("/api/opportunities/999999/risk-assessment", json={})
+    economics = client.post("/api/opportunities/999999/evaluate", json={
+        "gross_reward": 10, "estimated_hours": 1, "currency": "EUR",
+    })
+    assert risk.status_code == 404
+    assert economics.status_code == 404
+
+
+def test_opportunity_economics_rejects_mixed_currencies(client):
+    created = client.post("/api/opportunities", json={
+        "title": "Mixed currency offer", "platform": "Example",
+        "url": "https://mixed-example.org/offer",
+    })
+    opportunity_id = created.json()["id"]
+    response = client.post(f"/api/opportunities/{opportunity_id}/evaluate", json={
+        "gross_reward": 100, "estimated_hours": 2,
+        "currency": "EUR", "cost_currency": "USD",
+        "estimated_cost": 5,
+    })
+    assert response.status_code == 422
