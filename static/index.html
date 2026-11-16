@@ -23,7 +23,7 @@
     </section>
     <section class="panel" id="opportunities">
       <div class="section-head"><div><span class="eyebrow">DISCOVERY & DUE DILIGENCE</span><h2>Opportunities</h2></div><button class="primary" id="add-opportunity">+ Add opportunity</button></div>
-      <div class="toolbar"><input id="search" placeholder="Search platform or opportunity…"><select id="filter"><option value="">All statuses</option><option>discovered</option><option>reviewing</option><option>eligible</option><option>ineligible</option><option>archived</option></select></div>
+      <div class="toolbar"><input id="search" placeholder="Search platform or opportunity…"><select id="filter"><option value="">All statuses</option><option>discovered</option><option>reviewing</option><option>eligible</option><option>ineligible</option><option>archived</option></select><select id="automation-filter"><option value="">All automation states</option><option value="auto">Auto eligible</option><option value="manual_only">Manual only</option><option value="excluded">Excluded</option></select></div>
       <div id="opportunity-list" class="empty">No opportunities yet. Add a platform you want to evaluate.</div>
     </section>
     <section class="panel" id="tasks">
@@ -44,6 +44,12 @@
     <label>Advertised reward<textarea name="reward_description" placeholder="Describe the advertised reward; do not assume it is guaranteed."></textarea></label>
     <label>Eligibility / country restrictions<textarea name="eligibility"></textarea></label>
     <label>Terms URL<input name="terms_url" type="url" placeholder="https://example.com/terms"></label>
+    <label>Opportunity type<select name="opportunity_category"><option value="ordinary">Ordinary opportunity</option><option value="giveaway_free">Free giveaway</option><option value="skill_contest">Skill contest</option><option value="paid_lottery">Paid lottery (manual only)</option><option value="betting">Betting (manual only)</option></select></label>
+    <label>Website automation policy<select name="automation_policy"><option value="unknown">Unknown / not checked</option><option value="allowed">Explicitly allowed</option><option value="prohibited">Prohibited by site</option></select></label>
+    <label>CAPTCHA requirement<select name="captcha_required"><option value="">Unknown / not checked</option><option value="false">No CAPTCHA observed</option><option value="true">CAPTCHA required</option></select></label>
+    <label>Policy evidence source<select name="policy_source"><option value="unknown">Unknown</option><option value="terms">Terms of service</option><option value="robots_txt">robots.txt</option><option value="provider">Provider documentation</option><option value="manual_review">Manual review</option></select></label>
+    <label>Policy evidence URL<input name="policy_evidence_url" type="url" placeholder="https://example.com/terms"></label>
+    <label>Policy evidence note<textarea name="policy_evidence" placeholder="Short excerpt or reviewer note; evidence remains unverified until reviewed."></textarea></label>
     <label>Notes<textarea name="notes"></textarea></label><button class="primary" type="submit">Save opportunity</button>
   </form></dialog>
   <dialog id="reward-dialog"><form id="reward-form" method="dialog"><div class="dialog-head"><h2>Record reward</h2><button type="button" class="icon-btn" data-close>×</button></div>

@@ -96,3 +96,99 @@ def test_opportunity_score_is_out_of_100(client):
     })
     assert response.status_code == 201
     assert response.json()["score"] == 100
+
+
+def test_automation_policy_fails_closed_for_unknown_or_captcha():
+    from app.policy import derive_automation_eligibility
+    evidence = ("terms", "https://example.com/terms", "Automation rules reviewed")
+    assert derive_automation_eligibility("unknown", None, "ordinary", *evidence) == "manual_only"
+    assert derive_automation_eligibility("allowed", True, "ordinary", *evidence) == "manual_only"
+    assert derive_automation_eligibility("prohibited", False, "ordinary", *evidence) == "excluded"
+
+
+def test_paid_lottery_and_betting_are_never_auto_eligible():
+    from app.policy import derive_automation_eligibility
+    evidence = ("terms", "https://example.com/terms", "Reviewed")
+    for category in ("paid_lottery", "betting"):
+        assert derive_automation_eligibility("allowed", False, category, *evidence) == "manual_only"
+
+
+def test_free_giveaway_and_skill_contest_require_explicit_policy_clearance_and_evidence():
+    from app.policy import derive_automation_eligibility
+    evidence = ("terms", "https://example.com/terms", "Automation explicitly permitted")
+    assert derive_automation_eligibility("allowed", False, "giveaway_free", *evidence) == "auto"
+    assert derive_automation_eligibility("allowed", False, "skill_contest", *evidence) == "auto"
+    assert derive_automation_eligibility("unknown", False, "giveaway_free", *evidence) == "manual_only"
+    assert derive_automation_eligibility("allowed", False, "giveaway_free") == "manual_only"
+    assert derive_automation_eligibility("allowed", False, "giveaway_free", "unknown", "", "") == "manual_only"
+
+
+def test_opportunity_policy_metadata_and_auto_eligible_filter(client):
+    auto = client.post("/api/opportunities", json={
+        "title": "Free skill contest", "platform": "Example",
+        "url": "https://policy-auto.example/contest",
+        "automation_policy": "allowed", "captcha_required": False,
+        "opportunity_category": "skill_contest",
+        "policy_source": "terms", "policy_evidence_url": "https://policy-auto.example/terms",
+    })
+    no_evidence = client.post("/api/opportunities", json={
+        "title": "Unsupported policy claim", "platform": "Example",
+        "url": "https://policy-no-evidence.example/contest",
+        "automation_policy": "allowed", "captcha_required": False,
+        "opportunity_category": "giveaway_free",
+    })
+    unknown = client.post("/api/opportunities", json={
+        "title": "Unknown giveaway", "platform": "Example",
+        "url": "https://policy-unknown.example/giveaway",
+        "opportunity_category": "giveaway_free",
+    })
+    blocked = client.post("/api/opportunities", json={
+        "title": "No bots", "platform": "Example",
+        "url": "https://policy-blocked.example/offer",
+        "automation_policy": "prohibited", "captcha_required": False,
+    })
+    assert auto.status_code == no_evidence.status_code == unknown.status_code == blocked.status_code == 201
+    assert auto.json()["automation_eligibility"] == "auto"
+    assert no_evidence.json()["automation_eligibility"] == "manual_only"
+    assert unknown.json()["automation_eligibility"] == "manual_only"
+    assert blocked.json()["automation_eligibility"] == "excluded"
+    eligible = client.get("/api/opportunities/automation-eligible").json()
+    assert [item["id"] for item in eligible] == [auto.json()["id"]]
+
+
+def test_policy_evidence_url_must_be_http(client):
+    response = client.post("/api/opportunities", json={
+        "title": "Invalid policy evidence", "platform": "Example",
+        "url": "https://policy-invalid.example",
+        "policy_evidence_url": "javascript:alert(1)",
+    })
+    assert response.status_code == 422
+
+
+def test_existing_opportunities_receive_safe_policy_defaults(tmp_path, monkeypatch):
+    import sqlite3
+    from app import main
+    db_path = tmp_path / "legacy.db"
+    monkeypatch.setattr(main, "DB_PATH", db_path)
+    with sqlite3.connect(db_path) as db:
+        db.execute("""
+            CREATE TABLE opportunities (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL, platform TEXT NOT NULL, url TEXT NOT NULL,
+                category TEXT NOT NULL DEFAULT 'game', reward_description TEXT NOT NULL DEFAULT '',
+                eligibility TEXT NOT NULL DEFAULT '', terms_url TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'discovered', score INTEGER NOT NULL DEFAULT 0,
+                notes TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL
+            )
+        """)
+        db.execute("""
+            INSERT INTO opportunities (title, platform, url, created_at)
+            VALUES ('Legacy opportunity', 'Example', 'https://legacy.example', 'old')
+        """)
+    main.init_db()
+    with sqlite3.connect(db_path) as db:
+        row = db.execute(
+            "SELECT automation_policy, captcha_required, opportunity_category, automation_eligibility "
+            "FROM opportunities WHERE id = 1"
+        ).fetchone()
+    assert row == ("unknown", None, "ordinary", "manual_only")
