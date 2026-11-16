@@ -22,6 +22,8 @@ class PersianDashboardTests(unittest.TestCase):
         ):
             self.assertIn(expected, translations)
         self.assertIn("MutationObserver", translations)
+        self.assertLess(translations.index('["pending_approval"'), translations.index('["pending"'))
+        self.assertLess(translations.index('["Opportunity saved"'), translations.index('["Opportunity"'))
 
     def test_rtl_styles_include_mobile_layout(self):
         css = (ROOT / "static" / "styles.css").read_text(encoding="utf-8")
