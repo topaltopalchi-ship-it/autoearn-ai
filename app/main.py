@@ -75,6 +75,8 @@ def init_db() -> None:
             payout_method TEXT NOT NULL DEFAULT '',
             minimum_payout REAL,
             risk_score INTEGER,
+            risk_assessment_json TEXT NOT NULL DEFAULT '{}',
+            economics_json TEXT NOT NULL DEFAULT '{}',
             created_at TEXT NOT NULL
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_opportunities_url ON opportunities(url);
@@ -126,6 +128,8 @@ def init_db() -> None:
             "payout_method": "TEXT NOT NULL DEFAULT ''",
             "minimum_payout": "REAL",
             "risk_score": "INTEGER",
+            "risk_assessment_json": "TEXT NOT NULL DEFAULT '{}'",
+            "economics_json": "TEXT NOT NULL DEFAULT '{}'",
         }
         for column, definition in opportunity_migrations.items():
             if column not in opportunity_columns:
@@ -433,6 +437,56 @@ def evaluate_opportunity_economics(data: EconomicsEvaluateIn):
 @app.post("/api/risk-assessments")
 def risk_assessment(data: RiskAssessmentIn):
     return assess_risk(RiskSignals(**data.model_dump()))
+
+
+@app.post("/api/opportunities/{opportunity_id}/risk-assessment")
+def persist_opportunity_risk_assessment(opportunity_id: int, data: RiskAssessmentIn):
+    """Assess and persist transparent risk signals on the selected opportunity."""
+    assessment = assess_risk(RiskSignals(**data.model_dump()))
+    with connect() as db:
+        row = db.execute("SELECT id FROM opportunities WHERE id = ?", (opportunity_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "Opportunity not found")
+        db.execute(
+            "UPDATE opportunities SET risk_score = ?, risk_assessment_json = ? WHERE id = ?",
+            (assessment["risk_score"], json.dumps(assessment), opportunity_id),
+        )
+        saved = db.execute("SELECT * FROM opportunities WHERE id = ?", (opportunity_id,)).fetchone()
+    result = row_dict(saved)
+    result["risk_assessment"] = json.loads(result.pop("risk_assessment_json") or "{}")
+    result["economics"] = json.loads(result.pop("economics_json") or "{}")
+    return {"opportunity": result, "assessment": assessment}
+
+
+@app.post("/api/opportunities/{opportunity_id}/evaluate")
+def persist_opportunity_economics(opportunity_id: int, data: EconomicsEvaluateIn):
+    """Calculate and persist an owner-entered estimate on its opportunity record."""
+    try:
+        assessment = evaluate_economics(EconomicsInput(
+            gross_reward=data.gross_reward,
+            estimated_hours=data.estimated_hours,
+            estimated_cost=data.estimated_cost,
+            fee_percent=data.fee_percent,
+            flat_fee=data.flat_fee,
+            currency=data.currency,
+            cost_currency=data.cost_currency or data.currency,
+            target_hourly_rate=data.target_hourly_rate,
+        ))
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    with connect() as db:
+        row = db.execute("SELECT id FROM opportunities WHERE id = ?", (opportunity_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "Opportunity not found")
+        db.execute(
+            "UPDATE opportunities SET economics_json = ?, estimated_reward = ?, reward_currency = ?, estimated_hours = ? WHERE id = ?",
+            (json.dumps(assessment), data.gross_reward, assessment["currency"], data.estimated_hours, opportunity_id),
+        )
+        saved = db.execute("SELECT * FROM opportunities WHERE id = ?", (opportunity_id,)).fetchone()
+    result = row_dict(saved)
+    result["risk_assessment"] = json.loads(result.pop("risk_assessment_json") or "{}")
+    result["economics"] = json.loads(result.pop("economics_json") or "{}")
+    return {"opportunity": result, "assessment": assessment}
 
 
 @app.get("/api/health")
