@@ -28,7 +28,7 @@ def test_country_mismatch_reduces_fit():
 def test_missing_information_is_unknown_and_warned():
     result = rank_opportunity(RankingInput())
     assert result["data_coverage"] == 0
-    assert len(result["warnings"]) == 5
+    assert len(result["warnings"]) == 6
     assert "تضمین" in result["disclaimer"]
 
 
