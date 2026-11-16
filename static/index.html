@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="محیط مدیریت فرصت‌های درآمدزایی با تأیید کاربر">
+  <title>AutoEarn AI</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark">A</span><div><b>AutoEarn</b><small>AI WORKSPACE</small></div></div>
+    <nav><a class="active" href="#overview">◫ &nbsp; Overview</a><a href="#opportunities">◎ &nbsp; Opportunities</a><a href="#tasks">▣ &nbsp; Assisted tasks</a><a href="#rewards">◇ &nbsp; Rewards</a></nav>
+    <div class="sidebar-note"><b>Human in control</b><p>Review platform rules and approve every task before participating.</p></div>
+  </aside>
+  <main>
+    <header><div><span class="eyebrow">YOUR PLAY-AND-EARN COMMAND CENTER</span><h1>Overview</h1><p>Discover opportunities. Make informed decisions. Track every reward.</p></div><span class="status"><i></i> Local workspace</span></header>
+    <section class="stats" id="overview">
+      <article><span>Opportunities</span><strong id="stat-opps">0</strong><small>Tracked platforms</small></article>
+      <article><span>Tasks created</span><strong id="stat-tasks">0</strong><small>Assisted workflow</small></article>
+      <article><span>Need your approval</span><strong id="stat-approval">0</strong><small>Nothing runs without you</small></article>
+      <article><span>Rewards paid</span><strong id="stat-paid">$0.00</strong><small id="stat-pending">Pending: $0.00</small></article>
+    </section>
+    <section class="panel" id="discovery">
+      <div class="section-head"><div><span class="eyebrow">MULTI-CATEGORY SEARCH</span><h2>Discover earning opportunities</h2></div></div>
+      <form id="discovery-form" class="discovery-form">
+        <input id="discovery-query" maxlength="220" required placeholder="What kind of opportunity are you looking for? e.g. remote work in Europe">
+        <select id="discovery-category" aria-label="Opportunity category">
+          <option value="all">All opportunity types</option>
+          <option value="games">Games and play rewards</option>
+          <option value="surveys">Surveys and market research</option>
+          <option value="user_testing">Website and app testing</option>
+          <option value="microtasks">Microtasks and data labeling</option>
+          <option value="freelance">Freelance work</option>
+          <option value="cashback">Cashback and loyalty</option>
+          <option value="affiliate">Affiliate programs</option>
+          <option value="creator">Creator monetization</option>
+          <option value="tutoring">Tutoring and teaching</option>
+          <option value="digital_products">Digital products</option>
+          <option value="research">Paid research studies</option>
+          <option value="bug_bounty">Responsible bug bounties</option>
+        </select>
+        <button class="primary" id="discover-button" type="submit">Search opportunities</button>
+      </form>
+      <p class="helper">Search leads are unverified. Review official terms and risk before joining.</p>
+      <div id="discovery-results" class="empty">Choose a category and search to find possible opportunities.</div>
+    </section>
+    <section class="panel" id="risk-assessment">
+      <div class="section-head"><div><span class="eyebrow">SAFETY & DUE DILIGENCE</span><h2>ارزیابی ریسک فرصت</h2></div></div>
+      <p class="helper">مواردی را که در شرایط استفاده یا پیشنهاد پلتفرم مشاهده کرده‌اید علامت بزنید. این ارزیابی یک چک‌لیست کمکی است، نه تشخیص قطعی کلاهبرداری.</p>
+      <form id="risk-form" class="risk-form">
+        <label class="risk-option"><input type="checkbox" name="upfront_payment"> درخواست پرداخت هزینه اولیه برای شروع</label>
+        <label class="risk-option"><input type="checkbox" name="deposit_or_top_up"> الزام به واریز وجه یا شارژ حساب</label>
+        <label class="risk-option"><input type="checkbox" name="guaranteed_high_returns"> وعده سود زیاد یا درآمد تضمینی</label>
+        <label class="risk-option"><input type="checkbox" name="referral_required_to_withdraw"> اجبار به دعوت افراد برای برداشت درآمد</label>
+        <label class="risk-option"><input type="checkbox" name="unclear_or_missing_terms"> نامشخص بودن قوانین یا شرایط احراز صلاحیت</label>
+        <label class="risk-option"><input type="checkbox" name="missing_payout_threshold"> مشخص نبودن حداقل مبلغ برداشت</label>
+        <label class="risk-option"><input type="checkbox" name="crypto_only_payout"> پرداخت فقط از طریق رمزارز</label>
+        <label class="risk-option"><input type="checkbox" name="requests_sensitive_data_early"> درخواست زودهنگام اطلاعات حساس شخصی یا مالی</label>
+        <label class="risk-option"><input type="checkbox" name="asks_to_move_off_platform"> هدایت گفتگو یا پرداخت به خارج از پلتفرم</label>
+        <label class="risk-option"><input type="checkbox" name="unrealistic_time_pressure"> ایجاد فشار زمانی غیرمنطقی برای تصمیم‌گیری</label>
+        <button class="primary" type="submit">محاسبه ریسک</button>
+      </form>
+      <div id="risk-result" class="empty" aria-live="polite">برای شروع، نشانه‌هایی را که مشاهده کرده‌اید انتخاب کنید.</div>
+    </section>
+    <section class="panel" id="opportunities">
+      <div class="section-head"><div><span class="eyebrow">DISCOVERY & DUE DILIGENCE</span><h2>Opportunities</h2></div><button class="primary" id="add-opportunity">+ Add opportunity</button></div>
+      <div class="toolbar"><input id="search" placeholder="Search platform or opportunity…"><select id="filter"><option value="">All statuses</option><option>discovered</option><option>reviewing</option><option>eligible</option><option>ineligible</option><option>archived</option></select><input id="ranking-country" maxlength="2" placeholder="Country code e.g. DE" aria-label="Country code for ranking"></div>
+      <p class="helper">Opportunities are sorted by fit score. Add a two-letter country code to check regional eligibility. Scores reflect supplied data only.</p>
+      <div id="opportunity-list" class="empty">No opportunities yet. Add a platform you want to evaluate.</div>
+    </section>
+    <section class="panel" id="tasks">
+      <div class="section-head"><div><span class="eyebrow">ASSISTED EXECUTION</span><h2>Tasks awaiting action</h2></div></div>
+      <div id="task-list" class="empty">No tasks yet. Create a task from an opportunity.</div>
+    </section>
+    <section class="panel" id="rewards">
+      <div class="section-head"><div><span class="eyebrow">TRANSPARENT LEDGER</span><h2>Reward tracking</h2><button class="secondary" id="add-reward">+ Record reward</button></div></div>
+      <div id="reward-list" class="empty">No rewards recorded.</div>
+    </section>
+    <footer>AutoEarn AI · MVP 0.1 · No earnings are guaranteed. Always follow each platform’s terms.</footer>
+  </main>
+  <dialog id="opportunity-dialog"><form id="opportunity-form" method="dialog"><div class="dialog-head"><h2>Add opportunity</h2><button type="button" class="icon-btn" data-close>×</button></div>
+    <label>Opportunity title<input name="title" required minlength="2" placeholder="Daily puzzle challenge"></label>
+    <label>Platform<input name="platform" required placeholder="Platform name"></label>
+    <label>Website URL<input name="url" type="url" required placeholder="https://example.com"></label>
+    <label>Category<select name="category"><option value="game">Game</option><option value="mobile">Mobile app</option><option value="skill">Skill / competition</option><option value="survey">Survey / offer</option><option value="other">Other</option></select></label>
+    <label>Advertised reward<textarea name="reward_description" placeholder="Describe the advertised reward; do not assume it is guaranteed."></textarea></label>
+    <label>Eligibility / country restrictions<textarea name="eligibility"></textarea></label>
+    <label>Estimated reward amount (optional)<input name="estimated_reward" type="number" min="0.01" step="0.01" placeholder="e.g. 15"></label>
+    <label>Reward currency<input name="reward_currency" value="EUR" maxlength="8"></label>
+    <label>Estimated hours per task (optional)<input name="estimated_hours" type="number" min="0.1" step="0.1" placeholder="e.g. 2"></label>
+    <label>Eligible country codes (comma-separated)<input name="eligible_countries" maxlength="300" placeholder="DE, AT, NL or ALL"></label>
+    <label>Payout method<input name="payout_method" maxlength="120" placeholder="Bank transfer, PayPal, etc."></label>
+    <label>Minimum payout amount (optional)<input name="minimum_payout" type="number" min="0" step="0.01"></label>
+    <label>Risk score (0–100, optional)<input name="risk_score" type="number" min="0" max="100" step="1" placeholder="From your risk review"></label>
+    <label>Terms URL<input name="terms_url" type="url" placeholder="https://example.com/terms"></label>
+    <label>Notes<textarea name="notes"></textarea></label><button class="primary" type="submit">Save opportunity</button>
+  </form></dialog>
+  <dialog id="reward-dialog"><form id="reward-form" method="dialog"><div class="dialog-head"><h2>Record reward</h2><button type="button" class="icon-btn" data-close>×</button></div>
+    <label>Opportunity<select name="opportunity_id" id="reward-opportunity"><option value="">Not linked</option></select></label>
+    <label>Amount<input name="amount" type="number" min="0" step="0.01" required></label>
+    <label>Currency<input name="currency" value="USD" maxlength="8" required></label>
+    <label>Status<select name="status"><option value="pending">pending</option><option value="confirmed">confirmed</option><option value="paid">paid</option><option value="rejected">rejected</option></select></label>
+    <label>Reference / note<input name="reference"></label><button class="primary" type="submit">Save reward</button>
+  </form></dialog>
+  <div id="toast" role="status"></div>
+  <script src="/static/app.js"></script>
+  <script src="/static/fa.js"></script>
+</body></html>

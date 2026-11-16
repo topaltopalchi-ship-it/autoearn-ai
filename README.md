@@ -1,7 +1,180 @@
 # AutoEarn AI
 
-A transparent opportunity discovery and reward-tracking workspace. The first release is a local-first MVP: it helps users record opportunities, compare them, and track their own progress. It does not promise income or automate clicks, spam, or platform activity.
+A transparent opportunity discovery and reward-tracking workspace.
 
-## Status
+The first release is a local-first MVP. It helps users record opportunity metadata, compare opportunities with an explainable score, and track their own progress. It does not promise income or automate clicks, gameplay, spam, account creation, or platform activity.
 
-Project initialized. The application scaffold is being built on the `develop` branch.
+## Current implementation
+
+- HTTP(S)-only URL validation and canonicalization for duplicate detection.
+- Removal of common tracking query parameters and URL fragments.
+- Opportunity metadata validation.
+- Explainable 0–100 scoring using reward clarity, terms clarity, source trust, region fit, and effort fit.
+- Unit tests using Python's standard library.
+- GitHub Actions workflow to run unit tests on pushes and pull requests.
+
+## Development
+
+Requires Python 3.10 or newer.
+
+Install dependencies and run the full test suite:
+
+```bash
+pip install -r requirements.txt
+pytest -q
+```
+
+## Opportunity discovery API
+
+The discovery endpoint uses Mwmbl's anonymous free search tier by default, so
+no API key or payment card is required. Anonymous access is limited to 1,000
+requests per month and 1 request per second. Start the application with:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+If you later create a Mwmbl developer key, set `MWMBL_API_KEY` in the server
+environment to use the identified free tier (2,000 requests/month, 5 requests
+per second). If `BRAVE_SEARCH_API_KEY` is configured, Brave takes precedence.
+Do not enable pay-as-you-go billing unless you explicitly choose to do so.
+
+Submit a search request:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/discover \
+  -H "Content-Type: application/json" \
+  -d '{"query":"legitimate game rewards programs","limit":10}'
+```
+
+The endpoint returns normalized candidates with source domains, discovery
+timestamps, explainable text signals, and a heuristic confidence value. Results
+are stored in a local review inbox and deduplicated by canonical URL; retrieve
+them with `GET /api/discoveries`. These signals are not a legitimacy check.
+Every result is explicitly marked `verified: false` and `review_required: true`;
+nothing is clicked, registered, or acted on automatically. Search-provider
+errors return HTTP 502. Mwmbl is used for a no-card prototype; confirm the
+applicable data and API terms before any commercial launch.
+
+
+## Broad opportunity categories
+
+Discovery supports a broad category taxonomy through the `category` field:
+`all`, `games`, `surveys`, `user_testing`, `microtasks`, `freelance`,
+`cashback`, `affiliate`, `creator`, `tutoring`, `digital_products`,
+`research`, and `bug_bounty`. The `all` category expands a search toward
+multiple online-income models; a specific category adds relevant search terms
+while preserving the user's query.
+
+Example requests:
+
+```bash
+# Search across the broad opportunity landscape
+curl -X POST http://127.0.0.1:8000/api/discover \
+  -H "Content-Type: application/json" \
+  -d '{"query":"legitimate remote opportunities in Europe","category":"all","limit":20}'
+
+# Focus on usability testing
+curl -X POST http://127.0.0.1:8000/api/discover \
+  -H "Content-Type: application/json" \
+  -d '{"query":"remote tester opportunities","category":"user_testing","limit":10}'
+```
+
+Category expansion improves search coverage; it does not guarantee exhaustive
+results. Search results remain unverified leads. Compare current official
+terms, country availability, minimum payout, fees, required effort, privacy
+requirements, and withdrawal conditions before deciding whether to join.
+
+
+## Explainable risk checklist
+
+Use `POST /api/risk-assessments` to score user-observed warning signs such
+as upfront payments, deposits, guaranteed high returns, referral gates before
+withdrawal, unclear terms, early requests for sensitive data, and pressure to
+move off-platform. The endpoint returns a capped 0–100 heuristic risk score,
+individual flags, and a human-review requirement. It does not certify a
+platform as safe or fraudulent. The available category IDs and labels are
+returned by `GET /api/discovery-categories`.
+
+Example:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/risk-assessments \
+  -H "Content-Type: application/json" \
+  -d '{"upfront_payment":true,"deposit_or_top_up":true,"unclear_or_missing_terms":true}'
+```
+
+## Scoring notes
+
+The score is a heuristic based only on metadata supplied to the application. It is not proof that a platform is legitimate or that a reward will be paid. Users must verify eligibility, regional restrictions, and platform terms before participating.
+
+## Safety boundaries
+
+AutoEarn AI is an assisted decision-support tool. Website discovery and analysis must respect site terms, robots policies, privacy, and applicable law. The product will not automate gameplay, clicks, ad views, referrals, spam, or other activity intended to manipulate reward systems.
+
+
+## Manual page-text extraction
+
+A discovered candidate can be enriched with text copied from its public page.
+AutoEarn does not fetch candidate URLs automatically. Submit the copied text
+(maximum 20,000 characters) to:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/discoveries/1/extract \
+  -H "Content-Type: application/json" \
+  -d '{"page_text":"Earn €25 after completing the offer. Only residents of Germany are eligible. Participants must be 18+. Read the official terms and conditions."}'
+```
+
+The response identifies currency amounts, age hints, eligibility evidence,
+and whether terms are mentioned. The extraction is stored with the candidate
+and appears in `GET /api/discoveries`. It is explicitly unverified: users
+must compare the extracted hints with the current official terms before
+accepting an opportunity or taking any action.
+
+## Private single-owner setup
+
+This project is intended for one owner only. It is not a public service, SaaS
+product, or multi-user application. The GitHub repository is private; keep it
+private and do not invite other collaborators unless you deliberately choose
+to share the project.
+
+### Run on your own computer
+
+Use the local launcher so the web server listens only on the loopback
+interface (`127.0.0.1`) and is not exposed to your home or public network.
+
+On macOS/Linux:
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+bash scripts/run-local.sh
+```
+
+On Windows PowerShell:
+
+```powershell
+py -m venv .venv
+.venv\\Scripts\\Activate.ps1
+pip install -r requirements.txt
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Open `http://127.0.0.1:8000` on the same computer. Do not change the host to
+`0.0.0.0`, publish this service to the internet, or expose it through a
+public tunnel. The app currently has no login system; loopback-only access is
+therefore an important security boundary, not a substitute for authentication.
+
+### Personal data and backups
+
+- Keep API keys in local environment variables or an ignored `.env` file;
+  never commit them.
+- The SQLite database is local and ignored by Git. Back it up privately and
+  encrypt backup storage if it contains personal records.
+- Do not store account passwords, payment card details, identity documents,
+  or recovery codes in opportunity notes.
+- Search-provider requests leave the device and are subject to that provider's
+  privacy policy and limits. Use discovery only when you choose to.
+- This project does not need public registration, user accounts, subscription
+  billing, or multi-tenant infrastructure for its intended personal use.

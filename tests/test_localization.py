@@ -1,0 +1,49 @@
+import unittest
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class PersianDashboardTests(unittest.TestCase):
+    def test_document_declares_persian_rtl(self):
+        html = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
+        self.assertIn('<html lang="fa" dir="rtl">', html)
+        self.assertIn('/static/fa.js', html)
+
+    def test_translation_layer_covers_dynamic_dashboard_states(self):
+        translations = (ROOT / "static" / "fa.js").read_text(encoding="utf-8")
+        for expected in (
+            "در انتظار تأیید",
+            "فرصت ذخیره شد",
+            "پاداش ثبت شد",
+            "نیازمند بررسی انسانی",
+            "نتیجه‌ای پیدا نشد",
+        ):
+            self.assertIn(expected, translations)
+        self.assertIn("MutationObserver", translations)
+        app = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
+        self.assertIn('<option data-no-translate value=', app)
+        self.assertNotIn("\\n", translations, "JavaScript source must not contain escaped newline tokens")
+        self.assertIn("if (translated !== node.nodeValue)", translations)
+        self.assertIn("if (translated !== current)", translations)
+        self.assertLess(translations.index('["pending_approval"'), translations.index('["pending"'))
+        self.assertLess(translations.index('["Opportunity saved"'), translations.index('["Opportunity"'))
+        self.assertIn('["user_testing","آزمایش کاربری"]', translations)
+        self.assertIn('["pending_approval","در انتظار تأیید"]', translations)
+
+    def test_rtl_styles_include_mobile_layout(self):
+        css = (ROOT / "static" / "styles.css").read_text(encoding="utf-8")
+        self.assertIn('html[dir="rtl"] .sidebar', css)
+        self.assertIn('html[dir="rtl"] main', css)
+        self.assertIn("@media(max-width:850px)", css)
+
+    def test_currency_uses_persian_locale(self):
+        app = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
+        self.assertIn('Intl.NumberFormat("fa-IR"', app)
+        self.assertIn("فعالیتی را که قصد انجامش را دارید شرح دهید", app)
+        self.assertIn("رعایت قوانین پلتفرم همچنان بر عهده شماست", app)
+
+
+if __name__ == "__main__":
+    unittest.main()
