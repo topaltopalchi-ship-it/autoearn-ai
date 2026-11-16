@@ -9,7 +9,7 @@ from app.deduction_games import (
 
 
 def test_wordle_feedback_handles_duplicate_letters():
-    assert wordle_feedback("apple", "allee") == "G.Y.G"
+    assert wordle_feedback("apple", "allee") == "G..YG"
 
 
 def test_word_filter_respects_duplicate_letter_feedback():
