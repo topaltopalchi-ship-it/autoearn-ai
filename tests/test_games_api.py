@@ -130,28 +130,44 @@ def test_strategy_recommendation_api_rejects_invalid_observations():
         assert response.status_code == 422
 
 
-def test_strategy_observations_persist_and_feed_recommendations(tmp_path, monkeypatch):
+def test_strategy_observations_persist_and_feed_game_specific_recommendations(tmp_path, monkeypatch):
     from app import main
     monkeypatch.setattr(main, "DB_PATH", tmp_path / "strategy-memory.db")
     main.init_db()
     with TestClient(app) as client:
-        for _ in range(4):
-            response = client.post("/api/games/strategy/observe", json={
-                "game_type": "number", "strategy": "careful", "reward": 0.9,
-                "duration_ms": 1200,
-            })
-            assert response.status_code == 201
-            assert response.json()["external_actions"] == 0
-        response = client.post("/api/games/strategy/recommend", json={
-            "candidates": ["careful", "risky"], "exploration": 0,
+        for strategy, reward in [("careful", 0.9), ("risky", 0.1)]:
+            for _ in range(4):
+                response = client.post("/api/games/strategy/observe", json={
+                    "game_type": "number", "strategy": strategy, "reward": reward,
+                    "duration_ms": 1200,
+                })
+                assert response.status_code == 201
+                assert response.json()["external_actions"] == 0
+
+        # A separate game type must not inherit the number-game observations.
+        recommendation = client.post("/api/games/strategy/recommend", json={
+            "game_type": "number", "candidates": ["careful", "risky"],
+            "exploration": 0,
         })
-        assert response.status_code == 200
-        assert response.json()["selected_strategy"] == "risky" or response.json()["observations"] == 4
+        assert recommendation.status_code == 200
+        assert recommendation.json()["selected_strategy"] == "careful"
+        assert recommendation.json()["observations"] == 8
+        assert recommendation.json()["history_source"] == "persisted_local_practice"
+        assert recommendation.json()["external_actions"] == 0
+
         stats = client.get("/api/games/strategy/stats?game_type=number")
         assert stats.status_code == 200
-        assert stats.json()["observations"] == 4
+        assert stats.json()["observations"] == 8
         assert stats.json()["strategies"][0]["strategy"] == "careful"
         assert stats.json()["real_world_win_rate"] is None
+
+        word_recommendation = client.post("/api/games/strategy/recommend", json={
+            "game_type": "word", "candidates": ["careful", "risky"],
+            "exploration": 0,
+        })
+        assert word_recommendation.status_code == 200
+        assert word_recommendation.json()["observations"] == 0
+        assert word_recommendation.json()["history_source"] == "persisted_local_practice"
 
 
 def test_strategy_observation_rejects_out_of_range_reward():
