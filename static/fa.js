@@ -40,6 +40,9 @@
     ["Searching…","در حال جست‌وجو…"],["Searching public discovery sources…","در حال جست‌وجو در منابع عمومی…"],
     ["No matching leads returned. Try a broader query or another category.","نتیجه‌ای پیدا نشد. عبارت گسترده‌تر یا دسته دیگری را امتحان کنید."],
     ["Not verified","تأییدنشده"],["Human review required","نیازمند بررسی انسانی"],["possible leads found","فرصت احتمالی پیدا شد"],
+    ["pending_approval","در انتظار تأیید"],["approved","تأییدشده"],["completed","تکمیل‌شده"],["cancelled","لغوشده"],
+    ["Opportunity saved","فرصت ذخیره شد"],["Reward recorded","پاداش ثبت شد"],["No matching opportunities.","فرصتی با این مشخصات پیدا نشد."],
+    ["Discovery signal: ","شاخص کشف: "],[" possible leads found"," فرصت احتمالی پیدا شد"],
     ["Unexpected server response","پاسخ غیرمنتظره از سرور"],["Request failed","درخواست ناموفق بود"],
     ["AutoEarn AI · MVP 0.1 · No earnings are guaranteed. Always follow each platform’s terms.","AutoEarn AI · نسخه اولیه ۰.۱ · هیچ درآمدی تضمین‌شده نیست. همواره قوانین هر پلتفرم را رعایت کنید."]
   ];
