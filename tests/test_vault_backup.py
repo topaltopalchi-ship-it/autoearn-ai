@@ -28,6 +28,17 @@ def test_backup_is_encrypted_and_restore_recovers_credentials(tmp_path, monkeypa
     assert vault.get_secret(saved["id"], PASSPHRASE) == "test-secret-never-plaintext"
 
 
+def test_create_backup_refuses_overwrite_by_default(tmp_path, monkeypatch):
+    source = tmp_path / "source.db"
+    monkeypatch.setattr(vault, "VAULT_DB", source)
+    make_vault(source)
+    destination = tmp_path / "backup.aev"
+    destination.write_bytes(b"preserve-existing")
+    with pytest.raises(FileExistsError):
+        create_backup(source, destination, PASSPHRASE)
+    assert destination.read_bytes() == b"preserve-existing"
+
+
 def test_restore_rejects_wrong_passphrase_without_creating_destination(tmp_path, monkeypatch):
     source = tmp_path / "source.db"
     monkeypatch.setattr(vault, "VAULT_DB", source)
@@ -62,3 +73,11 @@ def test_restore_rejects_tampered_backup(tmp_path, monkeypatch):
     damaged.write_bytes(raw)
     with pytest.raises(InvalidBackup):
         restore_backup(damaged, tmp_path / "restored.db", PASSPHRASE)
+
+
+def test_restore_rejects_oversized_file_before_reading(tmp_path):
+    from app.vault_backup import MAGIC, MAX_BACKUP_BYTES
+    oversized = tmp_path / "oversized.aev"
+    oversized.write_bytes(b"x" * (MAX_BACKUP_BYTES + len(MAGIC) + 64))
+    with pytest.raises(InvalidBackup):
+        restore_backup(oversized, tmp_path / "restored.db", PASSPHRASE)
