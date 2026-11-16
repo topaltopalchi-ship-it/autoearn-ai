@@ -57,7 +57,7 @@ class MwmblSearchProvider:
             headers["X-API-Key"] = self.api_key
 
         request = Request(
-            ENDPOINT + "?" + urlencode({"q": query.strip(), "limit": limit}),
+            ENDPOINT + "?" + urlencode({"q": query.strip()}),
             headers=headers,
         )
         try:
