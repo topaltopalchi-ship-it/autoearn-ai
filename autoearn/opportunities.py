@@ -215,3 +215,47 @@ def discover_opportunities(
         if len(output) == limit:
             break
     return output
+
+
+class BraveSearchProvider:
+    """Brave Search API adapter. Requires an API token; calls only Brave's fixed endpoint."""
+
+    endpoint = "https://api.search.brave.com/res/v1/web/search"
+
+    def __init__(self, api_key: str, timeout: float = 8.0):
+        if not api_key or not api_key.strip():
+            raise ValueError("Brave Search API key is required")
+        self.api_key = api_key.strip()
+        self.timeout = timeout
+
+    def search(self, query: str, limit: int = 10) -> list[SearchResult]:
+        import json
+        from urllib.error import HTTPError, URLError
+        from urllib.parse import urlencode
+        from urllib.request import Request, urlopen
+
+        request = Request(
+            self.endpoint + "?" + urlencode({"q": query, "count": limit}),
+            headers={
+                "Accept": "application/json",
+                "X-Subscription-Token": self.api_key,
+                "User-Agent": "AutoEarnAI/0.1",
+            },
+        )
+        try:
+            with urlopen(request, timeout=self.timeout) as response:
+                payload = json.loads(response.read(2_000_000).decode("utf-8"))
+        except (HTTPError, URLError, TimeoutError, ValueError) as exc:
+            raise RuntimeError("Search provider request failed") from exc
+
+        rows = payload.get("web", {}).get("results", [])
+        return [
+            SearchResult(
+                title=str(row.get("title", "")),
+                url=str(row.get("url", "")),
+                snippet=str(row.get("description", ""))[:2000],
+                provider="brave",
+            )
+            for row in rows[:limit]
+            if isinstance(row, dict)
+        ]
