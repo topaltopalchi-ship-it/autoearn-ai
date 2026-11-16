@@ -24,6 +24,8 @@ class PersianDashboardTests(unittest.TestCase):
         self.assertIn("MutationObserver", translations)
         self.assertLess(translations.index('["pending_approval"'), translations.index('["pending"'))
         self.assertLess(translations.index('["Opportunity saved"'), translations.index('["Opportunity"'))
+        self.assertIn('["user_testing","آزمایش کاربری"]', translations)
+        self.assertIn('["pending_approval","در انتظار تأیید"]', translations)
 
     def test_rtl_styles_include_mobile_layout(self):
         css = (ROOT / "static" / "styles.css").read_text(encoding="utf-8")
@@ -34,6 +36,8 @@ class PersianDashboardTests(unittest.TestCase):
     def test_currency_uses_persian_locale(self):
         app = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
         self.assertIn('Intl.NumberFormat("fa-IR"', app)
+        self.assertIn("فعالیتی را که قصد انجامش را دارید شرح دهید", app)
+        self.assertIn("رعایت قوانین پلتفرم همچنان بر عهده شماست", app)
 
 
 if __name__ == "__main__":
