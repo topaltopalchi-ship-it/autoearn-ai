@@ -21,7 +21,7 @@ class PersianDashboardTests(unittest.TestCase):
             "نتیجه‌ای پیدا نشد",
         ):
             self.assertIn(expected, translations)
-        self.assertIn("MutationObserver", translations)
+        self.assertIn("MutationObserver", translations)\n        self.assertIn("if (translated !== node.nodeValue)", translations)\n        self.assertIn("if (translated !== current)", translations)
         self.assertLess(translations.index('["pending_approval"'), translations.index('["pending"'))
         self.assertLess(translations.index('["Opportunity saved"'), translations.index('["Opportunity"'))
         self.assertIn('["user_testing","آزمایش کاربری"]', translations)
