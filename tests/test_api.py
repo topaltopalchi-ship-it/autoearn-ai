@@ -886,3 +886,29 @@ def test_opportunity_economics_rejects_mixed_currencies(client):
         "estimated_cost": 5,
     })
     assert response.status_code == 422
+
+def test_owner_preferences_migrate_legacy_columns(tmp_path, monkeypatch):
+    import sqlite3
+    from app import main
+    db_path = tmp_path / "legacy-owner-preferences.db"
+    monkeypatch.setattr(main, "DB_PATH", db_path)
+    with sqlite3.connect(db_path) as db:
+        db.execute("""
+            CREATE TABLE owner_preferences (
+                id INTEGER PRIMARY KEY CHECK(id = 1),
+                residence_country TEXT NOT NULL DEFAULT '',
+                country_source TEXT NOT NULL DEFAULT 'self_declared',
+                payout_asset TEXT NOT NULL DEFAULT 'USD',
+                payout_method TEXT NOT NULL DEFAULT 'none',
+                wallet_address TEXT NOT NULL DEFAULT '',
+                wallet_network TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL
+            )
+        """)
+        db.execute("INSERT INTO owner_preferences (id, updated_at) VALUES (1, 'legacy')")
+    main.init_db()
+    with sqlite3.connect(db_path) as db:
+        columns = {row[1] for row in db.execute("PRAGMA table_info(owner_preferences)")}
+        row = db.execute("SELECT card_network, bank_country, bank_currency FROM owner_preferences WHERE id = 1").fetchone()
+    assert {"card_network", "bank_country", "bank_currency"} <= columns
+    assert row == ("", "", "")
