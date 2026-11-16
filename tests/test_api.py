@@ -53,6 +53,21 @@ def test_rejects_non_http_url(client):
     assert response.status_code == 422
 
 
+def test_terms_url_rejects_credentials_and_local_hosts(client):
+    base = {
+        "title": "Terms safety", "platform": "Example",
+        "url": "https://example.com/reward",
+    }
+    for terms_url in (
+        "https://user:password@example.com/terms",
+        "http://127.0.0.1/terms",
+        "http://localhost/terms",
+        "javascript:alert(1)",
+    ):
+        response = client.post("/api/opportunities", json={**base, "terms_url": terms_url})
+        assert response.status_code == 422
+
+
 def test_reward_ledger(client):
     opp = opportunity(client)
     response = client.post("/api/rewards", json={
