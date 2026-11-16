@@ -237,6 +237,44 @@ class PersianDashboardBrowserTests(unittest.TestCase):
         page.close()
 
 
+    def test_discovery_text_extraction_is_manual_and_shows_unverified_evidence(self):
+        page = self.authenticated_page(viewport={"width": 390, "height": 844})
+        page_errors = []
+        page.on("pageerror", lambda error: page_errors.append(str(error)))
+        page.route(
+            "**/api/discover",
+            lambda route: route.fulfill(
+                status=200, content_type="application/json",
+                body='[{"id":19,"title":"Manual terms review","url":"https://example.org/terms","snippet":"Review official terms","provider":"fixture","domain":"example.org","category":"surveys","confidence":70,"review_status":"pending","review_priority":{"review_priority_score":30},"verified":false}]',
+            ),
+        )
+        page.route(
+            "**/api/discoveries/19/extract",
+            lambda route: route.fulfill(
+                status=200, content_type="application/json",
+                body='{"candidate_id":19,"extraction":{"reward_amounts":[{"currency":"EUR","amount_text":"15"}],"minimum_age_hints":[18],"eligibility_evidence":["Eligible residents of Germany."],"terms_mentioned":true,"verified":false,"disclaimer":"Extracted from supplied text only; unverified."},"review_priority":{"review_priority_score":65},"verified":false}',
+            ),
+        )
+        page.goto(self.base_url + "/", wait_until="networkidle")
+        page.locator("#discovery-query").fill("paid surveys")
+        page.locator("#discovery-form button[type='submit']").click()
+        page.wait_for_function(
+            "() => document.querySelector('#discovery-results')?.textContent.includes('Manual terms review')"
+        )
+        page.once("dialog", lambda dialog: dialog.accept(
+            "Terms and conditions. Eligible residents of Germany receive EUR 15. Minimum age 18."
+        ))
+        page.get_by_role("button", name="تحلیل متن شرایط").click()
+        page.wait_for_function(
+            "() => document.querySelector('#discovery-results')?.textContent.includes('EUR 15')"
+        )
+        result = page.locator("#discovery-results").text_content()
+        self.assertIn("Eligible residents of Germany", result)
+        self.assertIn("18", result)
+        self.assertIn("تأییدنشده", result)
+        self.assertEqual(page_errors, [])
+        page.close()
+
     def test_risk_assessment_form_shows_explainable_high_and_low_results(self):
         page = self.authenticated_page(viewport={"width": 390, "height": 844})
         page_errors = []
