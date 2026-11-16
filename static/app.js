@@ -53,6 +53,53 @@ $("opportunity-form").onsubmit=async e=>{e.preventDefault();const data=Object.fr
 $("reward-form").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));data.opportunity_id=data.opportunity_id?Number(data.opportunity_id):null;data.amount=Number(data.amount);try{await api("/api/rewards",{method:"POST",body:JSON.stringify(data)});e.target.closest("dialog").close();e.target.reset();toast("پاداش ثبت شد");refresh()}catch(err){toast(err.message)}};
 $("search").oninput=renderOpportunities;$("filter").onchange=renderOpportunities;
 
+const riskForm=$("risk-form");
+if(riskForm){
+  riskForm.onsubmit=async e=>{
+    e.preventDefault();
+    const button=riskForm.querySelector('button[type="submit"]');
+    const result=$("risk-result");
+    const signals=Object.fromEntries(
+      [...riskForm.querySelectorAll('input[type="checkbox"]')].map(input=>[input.name,input.checked])
+    );
+    button.disabled=true;
+    result.className="empty";
+    result.textContent="در حال ارزیابی نشانه‌ها…";
+    try{
+      const assessment=await api("/api/risk-assessments",{
+        method:"POST",
+        body:JSON.stringify(signals)
+      });
+      const level=assessment.risk_level==="high"?"ریسک بالا":
+        assessment.risk_level==="medium"?"ریسک متوسط":"ریسک پایین";
+      const riskLabels={
+        upfront_payment:"درخواست پرداخت هزینه اولیه",
+        deposit_or_top_up:"الزام به واریز وجه یا شارژ حساب",
+        guaranteed_high_returns:"وعده سود غیرواقعی یا درآمد تضمینی",
+        referral_required_to_withdraw:"اجبار به دعوت افراد برای برداشت",
+        unclear_or_missing_terms:"نامشخص بودن قوانین و شرایط",
+        missing_payout_threshold:"نامشخص بودن حداقل مبلغ برداشت",
+        crypto_only_payout:"پرداخت صرفاً از طریق رمزارز",
+        requests_sensitive_data_early:"درخواست زودهنگام اطلاعات حساس",
+        asks_to_move_off_platform:"هدایت پرداخت یا گفتگو به خارج از پلتفرم",
+        unrealistic_time_pressure:"فشار زمانی غیرمنطقی برای تصمیم‌گیری"
+      };
+      const flags=assessment.flags.length
+        ? assessment.flags.map(flag=>'<li>'+esc(riskLabels[flag.code]||flag.reason)+' (+'+flag.weight+')</li>').join("")
+        : "<li>هیچ‌یک از نشانه‌های انتخاب‌شده شناسایی نشد.</li>";
+      result.className="risk-result";
+      result.innerHTML='<div class="risk-score"><strong>'+assessment.risk_score+'/100</strong><span>'+level+'</span></div>'+
+        '<p>این چک‌لیست فقط راهنمای اولیه است؛ امتیاز پایین، معتبر بودن یا بی‌خطر بودن پلتفرم را ثابت نمی‌کند.</p><ul>'+flags+'</ul>'+
+        '<p class="risk-warning">این نتیجه اعتبار پلتفرم را تأیید نمی‌کند. پیش از ثبت‌نام، قوانین رسمی و هویت گرداننده را مستقل بررسی کنید.</p>';
+    }catch(error){
+      result.className="empty";
+      result.textContent=error.message;
+    }finally{
+      button.disabled=false;
+    }
+  };
+}
+
 const discoveryForm=$("discovery-form");
 if(discoveryForm){
   discoveryForm.onsubmit=async e=>{

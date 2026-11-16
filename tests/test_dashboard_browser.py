@@ -212,5 +212,41 @@ class PersianDashboardBrowserTests(unittest.TestCase):
         page.close()
 
 
+    def test_risk_assessment_form_shows_explainable_high_and_low_results(self):
+        page = self.browser.new_page(viewport={"width": 390, "height": 844})
+        page_errors = []
+        page.on("pageerror", lambda error: page_errors.append(str(error)))
+        page.goto(self.base_url + "/", wait_until="networkidle")
+
+        for name in (
+            "upfront_payment",
+            "deposit_or_top_up",
+            "guaranteed_high_returns",
+            "requests_sensitive_data_early",
+        ):
+            page.locator(f'#risk-form input[name="{name}"]').check()
+        page.locator('#risk-form button[type="submit"]').click()
+        page.wait_for_function(
+            "() => document.querySelector('#risk-result')?.textContent.includes('80/100')"
+        )
+        high_result = page.locator("#risk-result").text_content()
+        self.assertIn("ریسک بالا", high_result)
+        self.assertIn("درخواست پرداخت هزینه اولیه", high_result)
+        self.assertIn("الزام به واریز وجه یا شارژ حساب", high_result)
+        self.assertIn("اعتبار پلتفرم را تأیید نمی‌کند", high_result)
+
+        for checkbox in page.locator("#risk-form").locator('input[type="checkbox"]').all():
+            checkbox.uncheck()
+        page.locator('#risk-form button[type="submit"]').click()
+        page.wait_for_function(
+            "() => document.querySelector('#risk-result')?.textContent.includes('0/100')"
+        )
+        low_result = page.locator("#risk-result").text_content()
+        self.assertIn("ریسک پایین", low_result)
+        self.assertIn("امتیاز پایین، معتبر بودن یا بی‌خطر بودن پلتفرم را ثابت نمی‌کند", low_result)
+        self.assertEqual(page_errors, [])
+        page.close()
+
+
 if __name__ == "__main__":
     unittest.main()
