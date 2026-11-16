@@ -19,7 +19,7 @@ from autoearn.mwmbl import MwmblSearchProvider
 from autoearn.extraction import extract_opportunity_details
 from autoearn.catalog import CATEGORY_LABELS, expand_discovery_query
 from autoearn.risk import RiskSignals, assess_risk
-from autoearn.ranking import RankingInput, rank_opportunity
+from autoearn.ranking import RankingInput, rank_opportunity, rank_discovery_candidate
 from pydantic import BaseModel, Field, HttpUrl
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -293,6 +293,10 @@ def discover(data: DiscoverIn):
                 "confidence": row["confidence"],
                 "signals": json.loads(row["signals_json"]),
                 "review_required": bool(row["review_required"]),
+                "review_status": row["review_status"],
+                "review_priority": rank_discovery_candidate(
+                    row["confidence"], json.loads(row["extraction_json"]), row["review_status"]
+                ),
                 "verified": False,
                 "is_new": cursor.rowcount == 1,
             })
@@ -328,6 +332,42 @@ def list_discoveries():
     ]
 
 
+@app.get("/api/discoveries/ranked")
+def ranked_discoveries(
+    review_status: Literal["pending", "accepted", "rejected"] | None = None,
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    """Return discovery leads ordered by evidence-based human-review priority."""
+    sql = "SELECT * FROM discovered_candidates"
+    params = []
+    if review_status:
+        sql += " WHERE review_status = ?"
+        params.append(review_status)
+    with connect() as db:
+        rows = db.execute(sql, params).fetchall()
+    ranked = []
+    for row in rows:
+        extraction = json.loads(row["extraction_json"])
+        priority = rank_discovery_candidate(row["confidence"], extraction, row["review_status"])
+        ranked.append({
+            "id": row["id"],
+            "title": row["title"],
+            "url": row["canonical_url"],
+            "domain": row["domain"],
+            "category": row["category"],
+            "confidence": row["confidence"],
+            "review_status": row["review_status"],
+            "extraction": extraction,
+            "review_priority": priority,
+            "verified": False,
+        })
+    ranked.sort(
+        key=lambda item: (item["review_priority"]["review_priority_score"], item["confidence"]),
+        reverse=True,
+    )
+    return ranked[:limit]
+
+
 @app.post("/api/discoveries/{candidate_id}/extract")
 def extract_discovery(candidate_id: int, data: CandidateExtractIn):
     """Analyze user-supplied page text; this endpoint never fetches the URL."""
@@ -342,7 +382,16 @@ def extract_discovery(candidate_id: int, data: CandidateExtractIn):
             "UPDATE discovered_candidates SET extraction_json = ? WHERE id = ?",
             (json.dumps(extracted), candidate_id),
         )
-    return {"candidate_id": candidate_id, "extraction": extracted}
+    with connect() as db:
+        row = db.execute(
+            "SELECT confidence, review_status FROM discovered_candidates WHERE id = ?", (candidate_id,)
+        ).fetchone()
+    return {
+        "candidate_id": candidate_id,
+        "extraction": extracted,
+        "review_priority": rank_discovery_candidate(row["confidence"], extracted, row["review_status"]),
+        "verified": False,
+    }
 
 
 @app.patch("/api/discoveries/{candidate_id}/review")
