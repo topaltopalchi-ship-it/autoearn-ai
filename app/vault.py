@@ -17,7 +17,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 
 ROOT = Path(__file__).resolve().parent.parent
-VAULT_DB = Path(os.getenv("AUTOEARN_VAULT_DB", ROOT / "autoearn-vault.db"))
+VAULT_DB = Path(os.getenv("AUTOEARN_VAULT_DB", ROOT / "data" / "autoearn-vault.db"))
 SALT_BYTES = 16
 NONCE_BYTES = 12
 KEY_BYTES = 32
