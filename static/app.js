@@ -72,12 +72,24 @@ if(riskForm){
       });
       const level=assessment.risk_level==="high"?"ریسک بالا":
         assessment.risk_level==="medium"?"ریسک متوسط":"ریسک پایین";
+      const riskLabels={
+        upfront_payment:"درخواست پرداخت هزینه اولیه",
+        deposit_or_top_up:"الزام به واریز وجه یا شارژ حساب",
+        guaranteed_high_returns:"وعده سود غیرواقعی یا درآمد تضمینی",
+        referral_required_to_withdraw:"اجبار به دعوت افراد برای برداشت",
+        unclear_or_missing_terms:"نامشخص بودن قوانین و شرایط",
+        missing_payout_threshold:"نامشخص بودن حداقل مبلغ برداشت",
+        crypto_only_payout:"پرداخت صرفاً از طریق رمزارز",
+        requests_sensitive_data_early:"درخواست زودهنگام اطلاعات حساس",
+        asks_to_move_off_platform:"هدایت پرداخت یا گفتگو به خارج از پلتفرم",
+        unrealistic_time_pressure:"فشار زمانی غیرمنطقی برای تصمیم‌گیری"
+      };
       const flags=assessment.flags.length
-        ? assessment.flags.map(flag=>'<li>'+esc(flag.reason)+' (+'+flag.weight+')</li>').join("")
+        ? assessment.flags.map(flag=>'<li>'+esc(riskLabels[flag.code]||flag.reason)+' (+'+flag.weight+')</li>').join("")
         : "<li>هیچ‌یک از نشانه‌های انتخاب‌شده شناسایی نشد.</li>";
       result.className="risk-result";
       result.innerHTML='<div class="risk-score"><strong>'+assessment.risk_score+'/100</strong><span>'+level+'</span></div>'+
-        '<p>'+esc(assessment.disclaimer)+'</p><ul>'+flags+'</ul>'+
+        '<p>این چک‌لیست فقط راهنمای اولیه است؛ امتیاز پایین، معتبر بودن یا بی‌خطر بودن پلتفرم را ثابت نمی‌کند.</p><ul>'+flags+'</ul>'+
         '<p class="risk-warning">این نتیجه اعتبار پلتفرم را تأیید نمی‌کند. پیش از ثبت‌نام، قوانین رسمی و هویت گرداننده را مستقل بررسی کنید.</p>';
     }catch(error){
       result.className="empty";
