@@ -5,7 +5,7 @@ connects to a game site or performs gameplay, account, payment, or prize actions
 """
 from __future__ import annotations
 
-from math import log, sqrt
+from math import isfinite, log, sqrt
 from typing import Any
 
 
@@ -14,27 +14,42 @@ def recommend_strategy(
     history: list[dict[str, Any]],
     exploration: float = 2.0,
 ) -> dict[str, Any]:
-    if not 1 <= len(candidates) <= 20:
+    """Choose a local-practice strategy, rejecting malformed input predictably."""
+    if not isinstance(candidates, list) or not 1 <= len(candidates) <= 20:
         raise ValueError("Provide between 1 and 20 strategy candidates.")
-    if len(set(candidates)) != len(candidates) or any(
+    if any(
         not isinstance(name, str) or not name.strip() or len(name) > 80
         for name in candidates
     ):
-        raise ValueError("Strategy names must be unique, non-empty strings up to 80 characters.")
-    if len(history) > 5000:
-        raise ValueError("History is limited to 5000 observations.")
-    if isinstance(exploration, bool) or not isinstance(exploration, (int, float)) or not 0 <= exploration <= 5:
-        raise ValueError("Exploration must be between 0 and 5.")
+        raise ValueError("Strategy names must be non-empty strings up to 80 characters.")
+    if len(set(candidates)) != len(candidates):
+        raise ValueError("Strategy names must be unique.")
+    if not isinstance(history, list) or len(history) > 5000:
+        raise ValueError("History must be a list limited to 5000 observations.")
+    if (
+        isinstance(exploration, bool)
+        or not isinstance(exploration, (int, float))
+        or not isfinite(exploration)
+        or not 0 <= exploration <= 5
+    ):
+        raise ValueError("Exploration must be a finite number between 0 and 5.")
 
     counts = {name: 0 for name in candidates}
     rewards = {name: 0.0 for name in candidates}
     for item in history:
-        if not isinstance(item, dict) or item.get("strategy") not in counts:
+        if not isinstance(item, dict):
+            raise ValueError("Each observation must be an object.")
+        name = item.get("strategy")
+        if not isinstance(name, str) or name not in counts:
             raise ValueError("Each observation must reference a supplied strategy.")
         reward = item.get("reward")
-        if isinstance(reward, bool) or not isinstance(reward, (int, float)) or not 0 <= reward <= 1:
-            raise ValueError("Observation rewards must be numeric values from 0 to 1.")
-        name = item["strategy"]
+        if (
+            isinstance(reward, bool)
+            or not isinstance(reward, (int, float))
+            or not isfinite(reward)
+            or not 0 <= reward <= 1
+        ):
+            raise ValueError("Observation rewards must be finite numeric values from 0 to 1.")
         counts[name] += 1
         rewards[name] += float(reward)
 
@@ -43,11 +58,16 @@ def recommend_strategy(
     if untried:
         selected = untried[0]
         scores = [
-            {"strategy": name, "trials": counts[name],
-             "mean_reward": round(rewards[name] / counts[name], 4) if counts[name] else None,
-             "ucb_score": None if counts[name] == 0 else round(
-                 rewards[name] / counts[name] + sqrt(exploration * log(max(total, 1)) / counts[name]), 6
-             )}
+            {
+                "strategy": name,
+                "trials": counts[name],
+                "mean_reward": round(rewards[name] / counts[name], 4) if counts[name] else None,
+                "ucb_score": None if counts[name] == 0 else round(
+                    rewards[name] / counts[name]
+                    + sqrt(exploration * log(max(total, 1)) / counts[name]),
+                    6,
+                ),
+            }
             for name in candidates
         ]
         reason = "explore_untried_strategy"
@@ -56,9 +76,12 @@ def recommend_strategy(
         for name in candidates:
             mean = rewards[name] / counts[name]
             bonus = sqrt(exploration * log(max(total, 1)) / counts[name])
-            scores.append({"strategy": name, "trials": counts[name],
-                           "mean_reward": round(mean, 4),
-                           "ucb_score": round(mean + bonus, 6)})
+            scores.append({
+                "strategy": name,
+                "trials": counts[name],
+                "mean_reward": round(mean, 4),
+                "ucb_score": round(mean + bonus, 6),
+            })
         selected = max(scores, key=lambda row: row["ucb_score"])["strategy"]
         reason = "highest_ucb_score"
 
