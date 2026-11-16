@@ -117,6 +117,38 @@ def test_owner_can_select_turkish_bank_transfer(client):
     assert response.json()["bank_currency"] == "USD"
 
 
+
+def test_turkish_bank_accepts_try_usd_and_eur(client):
+    for currency in ("TRY", "USD", "EUR"):
+        response = client.put("/api/owner/preferences", json={
+            "residence_country": "LU",
+            "payout_asset": currency,
+            "payout_method": "turkish_bank",
+            "bank_country": "TR",
+            "bank_currency": currency,
+        })
+        assert response.status_code == 200
+        assert response.json()["bank_country"] == "TR"
+        assert response.json()["bank_currency"] == currency
+
+
+def test_turkish_bank_rejects_other_country_or_unsupported_currency(client):
+    wrong_country = client.put("/api/owner/preferences", json={
+        "residence_country": "LU",
+        "payout_method": "turkish_bank",
+        "bank_country": "DE",
+        "bank_currency": "EUR",
+    })
+    unsupported_currency = client.put("/api/owner/preferences", json={
+        "residence_country": "LU",
+        "payout_method": "turkish_bank",
+        "bank_country": "TR",
+        "bank_currency": "GBP",
+    })
+    assert wrong_country.status_code == 422
+    assert unsupported_currency.status_code == 422
+
+
 def test_card_payout_requires_matching_card_network(client):
     response = client.put("/api/owner/preferences", json={
         "residence_country": "TR",
