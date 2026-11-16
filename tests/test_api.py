@@ -147,7 +147,8 @@ def test_discover_uses_free_mwmbl_when_no_keys_are_configured(client, monkeypatc
 
     class FakeProvider:
         def search(self, query, limit=10):
-            assert query == "game rewards"
+            assert query.startswith("game rewards ")
+            assert "surveys" in query and "freelance" in query
             return [SearchResult(
                 title="Game rewards terms",
                 url="https://example.com/rewards",
