@@ -69,10 +69,10 @@
   const translateNode = node => {
     if (node.nodeType === Node.ELEMENT_NODE && (node.closest("[data-no-translate]") || ["SCRIPT","STYLE"].includes(node.tagName))) return;
     if (node.nodeType === Node.TEXT_NODE && node.parentElement?.closest("[data-no-translate]")) return;
-    if (node.nodeType === Node.TEXT_NODE && node.nodeValue.trim()) node.nodeValue = translate(node.nodeValue);
+    if (node.nodeType === Node.TEXT_NODE && node.nodeValue.trim()) {\n      const translated = translate(node.nodeValue);\n      if (translated !== node.nodeValue) node.nodeValue = translated;\n    }
     else if (node.nodeType === Node.ELEMENT_NODE) {
       for (const attr of ["placeholder","aria-label","title"]) {
-        if (node.hasAttribute(attr)) node.setAttribute(attr, translate(node.getAttribute(attr)));
+        if (node.hasAttribute(attr)) {\n          const current = node.getAttribute(attr);\n          const translated = translate(current);\n          if (translated !== current) node.setAttribute(attr, translated);\n        }
       }
       node.childNodes.forEach(translateNode);
     }
