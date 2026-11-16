@@ -116,6 +116,9 @@ def init_db() -> None:
             payout_method TEXT NOT NULL DEFAULT 'none',
             wallet_address TEXT NOT NULL DEFAULT '',
             wallet_network TEXT NOT NULL DEFAULT '',
+            card_network TEXT NOT NULL DEFAULT '',
+            bank_country TEXT NOT NULL DEFAULT '',
+            bank_currency TEXT NOT NULL DEFAULT '',
             updated_at TEXT NOT NULL
         );
         CREATE TABLE IF NOT EXISTS rewards (
@@ -281,7 +284,10 @@ class TaskIn(BaseModel):
 class OwnerPreferencesIn(BaseModel):
     residence_country: str = Field(default="", max_length=2, pattern=r"^[A-Za-z]{0,2}$")
     payout_asset: Literal["USD", "BTC", "ETH", "USDT", "USDC"] = "USD"
-    payout_method: Literal["none", "bank", "paypal", "crypto"] = "none"
+    payout_method: Literal["none", "bank", "paypal", "crypto", "visa", "mastercard", "turkish_bank"] = "none"
+    card_network: Literal["", "visa", "mastercard"] = ""
+    bank_country: str = Field(default="", max_length=2, pattern=r"^[A-Za-z]{0,2}$")
+    bank_currency: Literal["", "TRY", "USD", "EUR", "GBP"] = ""
     wallet_address: str = Field(default="", max_length=128)
     wallet_network: str = Field(default="", max_length=32)
 
@@ -558,12 +564,20 @@ def update_owner_preferences(data: OwnerPreferencesIn):
             raise HTTPException(422, "Select the blockchain network for this wallet.")
     elif address or network:
         raise HTTPException(422, "Wallet address and network are only used with crypto payouts.")
+    if method in {"visa", "mastercard"} and data.card_network != method:
+        raise HTTPException(422, "Card network must match the selected payout method.")
+    if method == "turkish_bank" and not data.bank_country:
+        raise HTTPException(422, "Specify the bank account country.")
+    if method not in {"visa", "mastercard"} and data.card_network:
+        raise HTTPException(422, "Card network is only used for card payouts.")
+    if method != "turkish_bank" and (data.bank_country or data.bank_currency):
+        raise HTTPException(422, "Bank details are only used for bank payouts.")
     with connect() as db:
         db.execute(
             """INSERT INTO owner_preferences
             (id, residence_country, country_source, payout_asset, payout_method,
-             wallet_address, wallet_network, updated_at)
-            VALUES (1, ?, 'self_declared', ?, ?, ?, ?, ?)
+             wallet_address, wallet_network, card_network, bank_country, bank_currency, updated_at)
+            VALUES (1, ?, 'self_declared', ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
               residence_country=excluded.residence_country,
               country_source='self_declared',
@@ -571,8 +585,11 @@ def update_owner_preferences(data: OwnerPreferencesIn):
               payout_method=excluded.payout_method,
               wallet_address=excluded.wallet_address,
               wallet_network=excluded.wallet_network,
+              card_network=excluded.card_network,
+              bank_country=excluded.bank_country,
+              bank_currency=excluded.bank_currency,
               updated_at=excluded.updated_at""",
-            (country, asset, method, address, network, now()),
+            (country, asset, method, address, network, data.card_network, data.bank_country.upper(), data.bank_currency, now()),
         )
         return row_dict(db.execute(
             "SELECT * FROM owner_preferences WHERE id = 1"
