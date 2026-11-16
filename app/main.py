@@ -131,6 +131,24 @@ def init_db() -> None:
             created_at TEXT NOT NULL
         );
         """)
+        # Additive migration for owner payout preferences created by earlier builds.
+        owner_preference_columns = {row["name"] for row in db.execute("PRAGMA table_info(owner_preferences)")}
+        owner_preference_migrations = {
+            "residence_country": "TEXT NOT NULL DEFAULT ''",
+            "country_source": "TEXT NOT NULL DEFAULT 'self_declared'",
+            "payout_asset": "TEXT NOT NULL DEFAULT 'USD'",
+            "payout_method": "TEXT NOT NULL DEFAULT 'none'",
+            "wallet_address": "TEXT NOT NULL DEFAULT ''",
+            "wallet_network": "TEXT NOT NULL DEFAULT ''",
+            "card_network": "TEXT NOT NULL DEFAULT ''",
+            "bank_country": "TEXT NOT NULL DEFAULT ''",
+            "bank_currency": "TEXT NOT NULL DEFAULT ''",
+            "updated_at": "TEXT NOT NULL DEFAULT ''",
+        }
+        for column, definition in owner_preference_migrations.items():
+            if column not in owner_preference_columns:
+                db.execute(f"ALTER TABLE owner_preferences ADD COLUMN {column} {definition}")
+
         # Additive migration for databases created by earlier discovery builds.
         opportunity_columns = {row["name"] for row in db.execute("PRAGMA table_info(opportunities)")}
         opportunity_migrations = {
