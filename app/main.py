@@ -12,7 +12,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from autoearn.opportunities import normalize_url
+from autoearn.opportunities import BraveSearchProvider, discover_opportunities, normalize_url
 from pydantic import BaseModel, Field, HttpUrl
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -86,6 +86,11 @@ app = FastAPI(
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
+class DiscoverIn(BaseModel):
+    query: str = Field(min_length=1, max_length=300)
+    limit: int = Field(default=10, ge=1, le=20)
+
+
 class OpportunityIn(BaseModel):
     title: str = Field(min_length=2, max_length=160)
     platform: str = Field(min_length=2, max_length=100)
@@ -127,6 +132,39 @@ def home():
 @app.get("/api/health")
 def health():
     return {"status": "ok", "service": "AutoEarn AI", "version": app.version}
+
+
+@app.post("/api/discover")
+def discover(data: DiscoverIn):
+    api_key = os.getenv("BRAVE_SEARCH_API_KEY", "").strip()
+    if not api_key:
+        raise HTTPException(503, "Discovery provider is not configured. Set BRAVE_SEARCH_API_KEY.")
+    try:
+        results = discover_opportunities(
+            data.query,
+            BraveSearchProvider(api_key),
+            limit=data.limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(502, "The search provider is temporarily unavailable.") from exc
+
+    return [
+        {
+            "title": item.title,
+            "url": item.url,
+            "snippet": item.snippet,
+            "provider": item.provider,
+            "domain": item.domain,
+            "discovered_at": item.discovered_at,
+            "confidence": item.confidence,
+            "signals": list(item.signals),
+            "review_required": True,
+            "verified": False,
+        }
+        for item in results
+    ]
 
 
 @app.get("/api/opportunities")
