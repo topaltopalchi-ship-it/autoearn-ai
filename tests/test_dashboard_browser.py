@@ -201,7 +201,7 @@ class PersianDashboardBrowserTests(unittest.TestCase):
         page.close()
 
     def test_reward_ledger_can_record_and_display_paid_reward(self):
-        page = self.browser.new_page(viewport={"width": 390, "height": 844})
+        page = self.authenticated_page(viewport={"width": 390, "height": 844})
         page.goto(self.base_url + "/", wait_until="networkidle")
         created = page.request.post(
             self.base_url + "/api/opportunities",
