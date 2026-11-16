@@ -17,7 +17,8 @@ from fastapi.staticfiles import StaticFiles
 from autoearn.opportunities import BraveSearchProvider, discover_opportunities, normalize_url
 from autoearn.mwmbl import MwmblSearchProvider
 from autoearn.extraction import extract_opportunity_details
-from autoearn.catalog import expand_discovery_query
+from autoearn.catalog import CATEGORY_LABELS, expand_discovery_query
+from autoearn.risk import RiskSignals, assess_risk
 from pydantic import BaseModel, Field, HttpUrl
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -127,6 +128,19 @@ class DiscoverIn(BaseModel):
     limit: int = Field(default=10, ge=1, le=20)
 
 
+class RiskAssessmentIn(BaseModel):
+    upfront_payment: bool = False
+    deposit_or_top_up: bool = False
+    guaranteed_high_returns: bool = False
+    referral_required_to_withdraw: bool = False
+    unclear_or_missing_terms: bool = False
+    missing_payout_threshold: bool = False
+    crypto_only_payout: bool = False
+    requests_sensitive_data_early: bool = False
+    asks_to_move_off_platform: bool = False
+    unrealistic_time_pressure: bool = False
+
+
 class CandidateReviewIn(BaseModel):
     status: Literal["accepted", "rejected"]
     note: str = Field(default="", max_length=1000)
@@ -184,6 +198,16 @@ def safe_url(value: str) -> bool:
 @app.get("/", include_in_schema=False)
 def home():
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/api/discovery-categories")
+def discovery_categories():
+    return [{"id": key, "label": label} for key, label in CATEGORY_LABELS.items()]
+
+
+@app.post("/api/risk-assessments")
+def risk_assessment(data: RiskAssessmentIn):
+    return assess_risk(RiskSignals(**data.model_dump()))
 
 
 @app.get("/api/health")
