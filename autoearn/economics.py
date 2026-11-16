@@ -52,11 +52,14 @@ def evaluate_economics(item: EconomicsInput) -> dict:
     net = gross - total_cost
     hourly = net / hours
     roi = (net / total_cost * 100) if total_cost > 0 else None
+    break_even_reward = None
     minimum_reward = None
     target_met = None
     if fee_percent < 100:
-        minimum_reward = (cost + flat_fee + (target or 0) * hours) / (1 - fee_percent / 100)
+        fee_factor = 1 - fee_percent / 100
+        break_even_reward = (cost + flat_fee) / fee_factor
         if target is not None:
+            minimum_reward = (cost + flat_fee + target * hours) / fee_factor
             target_met = hourly >= target
 
     return {
@@ -72,6 +75,7 @@ def evaluate_economics(item: EconomicsInput) -> dict:
         "roi_percent": None if roi is None else round(roi, 2),
         "target_hourly_rate": target,
         "target_met": target_met,
+        "break_even_gross_reward": None if break_even_reward is None else round(break_even_reward, 2),
         "minimum_gross_reward_for_target": None if minimum_reward is None else round(minimum_reward, 2),
         "assessment": "positive" if net > 0 else "break_even" if net == 0 else "negative",
         "verified": False,
