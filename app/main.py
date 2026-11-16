@@ -22,6 +22,8 @@ from autoearn.risk import RiskSignals, assess_risk
 from autoearn.ranking import RankingInput, rank_opportunity, rank_discovery_candidate
 from pydantic import BaseModel, Field, HttpUrl
 
+from app.auth import COOKIE_NAME, configured as auth_configured, issue_session, valid_session, verify_password
+
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.getenv("AUTOEARN_DB", ROOT / "autoearn.db"))
 STATIC_DIR = ROOT / "static"
@@ -148,7 +150,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 @app.middleware("http")
 async def enforce_loopback_only(request: Request, call_next):
-    """Reject requests whose TCP peer is not a loopback IP address."""
+    """Reject non-loopback traffic and unauthenticated API access."""
     peer = request.client.host if request.client else ""
     try:
         is_loopback = ipaddress.ip_address(peer).is_loopback
@@ -159,6 +161,14 @@ async def enforce_loopback_only(request: Request, call_next):
             status_code=403,
             content={"detail": "This personal app only accepts loopback connections."},
         )
+    if request.url.path.startswith("/api/") and request.url.path not in {"/api/auth/status", "/api/auth/login"}:
+        if not auth_configured():
+            return JSONResponse(
+                status_code=503,
+                content={"detail": "Owner authentication is not configured. Set AUTOEARN_MASTER_PASSWORD and AUTOEARN_AUTH_SECRET."},
+            )
+        if not valid_session(request.cookies.get(COOKIE_NAME)):
+            return JSONResponse(status_code=401, content={"detail": "ورود مالک لازم است."})
     return await call_next(request)
 
 
@@ -246,6 +256,39 @@ def safe_url(value: str) -> bool:
 @app.get("/", include_in_schema=False)
 def home():
     return HTMLResponse((STATIC_DIR / "index.html").read_text(encoding="utf-8"))
+
+
+class LoginIn(BaseModel):
+    password: str = Field(min_length=1, max_length=200)
+
+
+@app.get("/api/auth/status")
+def auth_status(request: Request):
+    return {"configured": auth_configured(), "authenticated": valid_session(request.cookies.get(COOKIE_NAME))}
+
+
+@app.post("/api/auth/login")
+def auth_login(data: LoginIn, response: Response):
+    if not auth_configured():
+        raise HTTPException(503, "Owner authentication is not configured.")
+    if not verify_password(data.password):
+        raise HTTPException(401, "رمز ورود نادرست است.")
+    response.set_cookie(
+        COOKIE_NAME,
+        issue_session(),
+        max_age=12 * 60 * 60,
+        httponly=True,
+        samesite="strict",
+        secure=False,
+        path="/",
+    )
+    return {"authenticated": True}
+
+
+@app.post("/api/auth/logout")
+def auth_logout(response: Response):
+    response.delete_cookie(COOKIE_NAME, path="/")
+    return {"authenticated": False}
 
 
 @app.get("/api/discovery-categories")
