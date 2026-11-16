@@ -47,6 +47,7 @@ def init_db() -> None:
             notes TEXT NOT NULL DEFAULT '',
             created_at TEXT NOT NULL
         );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_opportunities_url ON opportunities(url);
         CREATE TABLE IF NOT EXISTS tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             opportunity_id INTEGER NOT NULL REFERENCES opportunities(id) ON DELETE CASCADE,
@@ -156,6 +157,9 @@ def create_opportunity(data: OpportunityIn):
     score += 20 if payload["eligibility"] else 0
     score += 15 if payload["reward_description"] else 0
     with connect() as db:
+        existing = db.execute("SELECT id FROM opportunities WHERE url = ?", (payload["url"],)).fetchone()
+        if existing:
+            raise HTTPException(409, "This opportunity URL is already registered.")
         cur = db.execute("""
             INSERT INTO opportunities
             (title, platform, url, category, reward_description, eligibility, terms_url, notes, score, created_at)
