@@ -96,3 +96,28 @@ def test_opportunity_score_is_out_of_100(client):
     })
     assert response.status_code == 201
     assert response.json()["score"] == 100
+
+
+def test_opportunity_score_is_bounded_and_reflects_missing_optional_details(client):
+    response = client.post("/api/opportunities", json={
+        "title": "Partially documented", "platform": "Example",
+        "url": "https://example.com/partial",
+    })
+    assert response.status_code == 201
+    assert 0 <= response.json()["score"] <= 100
+    assert response.json()["score"] == 20
+
+
+def test_api_canonicalizes_case_tracking_and_trailing_slash(client):
+    first = client.post("/api/opportunities", json={
+        "title": "Canonical URL", "platform": "Example",
+        "url": "HTTPS://EXAMPLE.COM/rewards/?utm_source=mail&gclid=abc",
+    })
+    assert first.status_code == 201
+    assert first.json()["url"] == "https://example.com/rewards"
+
+    duplicate = client.post("/api/opportunities", json={
+        "title": "Duplicate URL", "platform": "Example",
+        "url": "https://example.com/rewards/",
+    })
+    assert duplicate.status_code == 409

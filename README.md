@@ -17,10 +17,11 @@ The first release is a local-first MVP. It helps users record opportunity metada
 
 Requires Python 3.10 or newer.
 
-Run the tests:
+Install dependencies and run the full test suite:
 
 ```bash
-python -m unittest discover -s tests -v
+pip install -r requirements.txt
+pytest -q
 ```
 
 ## Scoring notes
