@@ -38,4 +38,26 @@ document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>b.closest("di
 $("opportunity-form").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));try{await api("/api/opportunities",{method:"POST",body:JSON.stringify(data)});e.target.closest("dialog").close();e.target.reset();toast("Opportunity saved");refresh()}catch(err){toast(err.message)}};
 $("reward-form").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));data.opportunity_id=data.opportunity_id?Number(data.opportunity_id):null;data.amount=Number(data.amount);try{await api("/api/rewards",{method:"POST",body:JSON.stringify(data)});e.target.closest("dialog").close();e.target.reset();toast("Reward recorded");refresh()}catch(err){toast(err.message)}};
 $("search").oninput=renderOpportunities;$("filter").onchange=renderOpportunities;
+
+const discoveryForm=$("discovery-form");
+if(discoveryForm){
+  discoveryForm.onsubmit=async e=>{
+    e.preventDefault();
+    const button=$("discover-button"), results=$("discovery-results");
+    button.disabled=true;button.textContent="Searching…";
+    results.className="empty";results.textContent="Searching public discovery sources…";
+    try{
+      const found=await api("/api/discover",{method:"POST",body:JSON.stringify({
+        query:$("discovery-query").value,
+        category:$("discovery-category").value,
+        limit:20
+      })});
+      results.className="";
+      results.innerHTML=found.length?found.map(item=>`<div class="item"><div><h3>${esc(item.title)} <span class="pill">${esc(item.category||"all")}</span></h3><p>${esc(item.domain)} · Discovery signal: ${item.confidence}/100 · Not verified<br>${esc(item.snippet||"No search summary supplied")}<br><a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">Review source ↗</a></p></div><span class="pill">Human review required</span></div>`).join(""):'<div class="empty">No matching leads returned. Try a broader query or another category.</div>';
+      toast(found.length+" possible leads found");
+    }catch(err){results.className="empty";results.textContent=err.message;toast(err.message)}
+    finally{button.disabled=false;button.textContent="Search opportunities"}
+  };
+}
+
 refresh().catch(e=>toast(e.message));
