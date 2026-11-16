@@ -912,3 +912,27 @@ def test_owner_preferences_migrate_legacy_columns(tmp_path, monkeypatch):
         row = db.execute("SELECT card_network, bank_country, bank_currency FROM owner_preferences WHERE id = 1").fetchone()
     assert {"card_network", "bank_country", "bank_currency"} <= columns
     assert row == ("", "", "")
+
+def test_ranked_opportunities_use_saved_country_and_payout_preference(client):
+    saved = client.put("/api/owner/preferences", json={
+        "residence_country": "TR",
+        "payout_method": "turkish_bank",
+        "bank_country": "TR",
+        "bank_currency": "EUR",
+    })
+    assert saved.status_code == 200
+    match = client.post("/api/opportunities", json={
+        "title": "Turkish bank offer", "platform": "Example",
+        "url": "https://rank-bank-match.example/offer",
+        "eligible_countries": "TR", "payout_method": "Turkish bank transfer",
+    })
+    mismatch = client.post("/api/opportunities", json={
+        "title": "PayPal offer", "platform": "Example",
+        "url": "https://rank-bank-mismatch.example/offer",
+        "eligible_countries": "TR", "payout_method": "PayPal",
+    })
+    assert match.status_code == mismatch.status_code == 201
+    ranked = client.get("/api/opportunities/ranked").json()
+    assert ranked[0]["id"] == match.json()["id"]
+    fit = next(part for part in ranked[0]["ranking"]["components"] if part["code"] == "payout_preference_fit")
+    assert fit["score"] == 100
