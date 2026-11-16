@@ -281,6 +281,10 @@ class VaultCredentialDeleteIn(BaseModel):
     passphrase: str = Field(min_length=14, max_length=1024)
 
 
+class VaultConnectionCheckIn(BaseModel):
+    passphrase: str = Field(min_length=14, max_length=1024)
+
+
 @app.get("/api/auth/status")
 def auth_status(request: Request):
     return {"configured": auth_configured(), "authenticated": valid_session(request.cookies.get(COOKIE_NAME))}
@@ -345,6 +349,27 @@ def vault_delete_credential(credential_id: int, data: VaultCredentialDeleteIn):
     try:
         credential_vault.delete_credential(credential_id, data.passphrase)
         return {"deleted": True}
+    except KeyError as exc:
+        raise HTTPException(404, "کلید موردنظر پیدا نشد.") from exc
+    except VaultError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@app.post("/api/vault/credentials/{credential_id}/test-connection")
+def vault_test_connection(credential_id: int, data: VaultConnectionCheckIn):
+    """Test a saved provider key only after an explicit owner request."""
+    try:
+        metadata = next(
+            (item for item in credential_vault.list_credentials() if item["id"] == credential_id),
+            None,
+        )
+        if metadata is None:
+            raise HTTPException(404, "کلید موردنظر پیدا نشد.")
+        if metadata["provider"].strip().lower() != "openai" or metadata["credential_type"] != "api_key":
+            raise HTTPException(422, "آزمایش اتصال فعلاً فقط برای کلید API سرویس OpenAI فعال است.")
+        secret = credential_vault.get_secret(credential_id, data.passphrase)
+        from app.provider_checks import check_openai_api_key
+        return check_openai_api_key(secret)
     except KeyError as exc:
         raise HTTPException(404, "کلید موردنظر پیدا نشد.") from exc
     except VaultError as exc:
