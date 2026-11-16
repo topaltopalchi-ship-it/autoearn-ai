@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 import sqlite3
@@ -151,8 +152,20 @@ def row_dict(row: sqlite3.Row) -> dict:
 
 
 def safe_url(value: str) -> bool:
-    parsed = urlparse(value)
-    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+    """Accept canonical public HTTP(S) URLs; reject credentials and local IP hosts."""
+    try:
+        canonical = normalize_url(value)
+    except (TypeError, ValueError):
+        return False
+    host = (urlparse(canonical).hostname or "").lower().rstrip(".")
+    if not host or host == "localhost" or host.endswith(".localhost"):
+        return False
+    try:
+        return ipaddress.ip_address(host).is_global
+    except ValueError:
+        # Opportunity metadata is never fetched server-side; domain names are
+        # retained as links for manual review, not used as network destinations.
+        return True
 
 
 @app.get("/", include_in_schema=False)
