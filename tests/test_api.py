@@ -90,6 +90,43 @@ def test_non_crypto_payout_rejects_wallet_fields(client):
     assert response.status_code == 422
 
 
+
+def test_owner_can_select_visa_or_mastercard_payout(client):
+    for method in ("visa", "mastercard"):
+        response = client.put("/api/owner/preferences", json={
+            "residence_country": "TR",
+            "payout_asset": "USD",
+            "payout_method": method,
+            "card_network": method,
+        })
+        assert response.status_code == 200
+        assert response.json()["payout_method"] == method
+        assert response.json()["card_network"] == method
+
+
+def test_owner_can_select_turkish_bank_transfer(client):
+    response = client.put("/api/owner/preferences", json={
+        "residence_country": "TR",
+        "payout_asset": "USD",
+        "payout_method": "turkish_bank",
+        "bank_country": "TR",
+        "bank_currency": "USD",
+    })
+    assert response.status_code == 200
+    assert response.json()["bank_country"] == "TR"
+    assert response.json()["bank_currency"] == "USD"
+
+
+def test_card_payout_requires_matching_card_network(client):
+    response = client.put("/api/owner/preferences", json={
+        "residence_country": "TR",
+        "payout_asset": "USD",
+        "payout_method": "visa",
+        "card_network": "mastercard",
+    })
+    assert response.status_code == 422
+
+
 def test_health(client):
     assert client.get("/api/health").json()["status"] == "ok"
 
