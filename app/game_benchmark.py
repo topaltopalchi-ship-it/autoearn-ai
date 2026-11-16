@@ -22,7 +22,7 @@ _ROUNDS: tuple[tuple[tuple[int, ...], int, bool], ...] = (
     ((4, 4, 4), 12, True),
     ((7, 8), 15, True),
     ((6, 6), 5, False),
-    ((3, 3, 8), 24, True),
+    ((3, 3, 8), 24, False),
     ((9, 2, 2), 5, True),
 )
 
