@@ -54,4 +54,27 @@ document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>b.closest("di
 $("opportunity-form").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));data.captcha_required=data.captcha_required===""?null:data.captcha_required==="true";try{await api("/api/opportunities",{method:"POST",body:JSON.stringify(data)});e.target.closest("dialog").close();e.target.reset();toast("Opportunity saved");refresh()}catch(err){toast(err.message)}};
 $("reward-form").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));data.opportunity_id=data.opportunity_id?Number(data.opportunity_id):null;data.amount=Number(data.amount);try{await api("/api/rewards",{method:"POST",body:JSON.stringify(data)});e.target.closest("dialog").close();e.target.reset();toast("Reward recorded");refresh()}catch(err){toast(err.message)}};
 $("search").oninput=renderOpportunities;$("filter").onchange=renderOpportunities;$("automation-filter").onchange=renderOpportunities;
+$("word-form").onsubmit=async e=>{
+  e.preventDefault();
+  try{
+    const candidates=$("word-candidates").value.split(",").map(v=>v.trim()).filter(Boolean);
+    const guesses=$("word-guesses").value.trim()?JSON.parse($("word-guesses").value):[];
+    const result=await api("/api/games/word/filter",{method:"POST",body:JSON.stringify({
+      opportunity_id:Number($("game-opportunity").value),candidates,guesses
+    })});
+    $("word-result").textContent=JSON.stringify(result,null,2);
+  }catch(err){toast(err.message)}
+};
+$("logic-form").onsubmit=async e=>{
+  e.preventDefault();
+  try{
+    const colors=$("logic-colors").value.split(",").map(v=>v.trim()).filter(Boolean);
+    const history=$("logic-history").value.trim()?JSON.parse($("logic-history").value):[];
+    const result=await api("/api/games/logic/mastermind",{method:"POST",body:JSON.stringify({
+      opportunity_id:Number($("game-opportunity").value),colors,
+      length:Number($("logic-length").value),history
+    })});
+    $("logic-result").textContent=JSON.stringify(result,null,2);
+  }catch(err){toast(err.message)}
+};
 refresh().catch(e=>toast(e.message));
