@@ -395,3 +395,84 @@ def test_discoveries_ranked_endpoint_prioritizes_evidence_and_keeps_unverified(c
     assert items[0]["id"] == first_id
     assert items[0]["review_priority"]["review_priority_score"] > items[1]["review_priority"]["review_priority_score"]
     assert all(item["verified"] is False for item in items)
+
+
+def _insert_discovery_candidate(client, *, status="accepted", extraction=None, url="https://example.org/offer"):
+    import json
+    from app import main
+    with main.connect() as db:
+        cursor = db.execute(
+            """
+            INSERT INTO discovered_candidates
+            (title, canonical_url, snippet, provider, domain, category, discovered_at,
+             confidence, review_status, extraction_json, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            ("Personal survey offer", url, "Public description", "test", "example.org",
+             "surveys", "2026-11-16T10:00:00+00:00", 70, status,
+             json.dumps(extraction or {}), "2026-11-16T10:00:00+00:00"),
+        )
+        return cursor.lastrowid
+
+
+@pytest.mark.parametrize("status", ["pending", "rejected"])
+def test_promotion_requires_explicit_acceptance(client, status):
+    candidate_id = _insert_discovery_candidate(client, status=status)
+    response = client.post(f"/api/discoveries/{candidate_id}/promote")
+    assert response.status_code == 409
+    assert client.get("/api/opportunities").json() == []
+
+
+def test_accepted_candidate_promotes_without_guessing_numeric_reward(client):
+    candidate_id = _insert_discovery_candidate(
+        client,
+        extraction={
+            "reward_amounts": [{"currency": "EUR", "amount_text": "10"}],
+            "eligibility_evidence": ["Eligible residents of Germany."],
+            "terms_mentioned": True,
+            "verified": False,
+            "disclaimer": "Extracted from supplied text only.",
+        },
+    )
+    response = client.post(f"/api/discoveries/{candidate_id}/promote")
+    assert response.status_code == 200
+    result = response.json()
+    opportunity = result["opportunity"]
+    assert result["already_promoted"] is False
+    assert opportunity["title"] == "Personal survey offer"
+    assert opportunity["platform"] == "example.org"
+    assert opportunity["category"] == "surveys"
+    assert opportunity["url"] == "https://example.org/offer"
+    assert "EUR 10" in opportunity["reward_description"]
+    assert opportunity["estimated_reward"] is None
+    assert opportunity["estimated_hours"] is None
+    assert opportunity["eligible_countries"] == ""
+    assert opportunity["payout_method"] == ""
+    assert opportunity["minimum_payout"] is None
+    assert opportunity["risk_score"] is None
+    candidate = client.get("/api/discoveries").json()[0]
+    assert candidate["review_status"] == "accepted"
+    assert candidate["promoted_opportunity_id"] == opportunity["id"]
+
+
+def test_promotion_is_idempotent_and_does_not_create_duplicates(client):
+    candidate_id = _insert_discovery_candidate(client, status="accepted")
+    first = client.post(f"/api/discoveries/{candidate_id}/promote")
+    second = client.post(f"/api/discoveries/{candidate_id}/promote")
+    assert first.status_code == second.status_code == 200
+    assert second.json()["already_promoted"] is True
+    assert first.json()["opportunity"]["id"] == second.json()["opportunity"]["id"]
+    assert len(client.get("/api/opportunities").json()) == 1
+
+
+def test_promotion_reuses_existing_opportunity_for_same_url(client):
+    opportunity_response = client.post("/api/opportunities", json={
+        "title": "Already tracked", "platform": "Example",
+        "url": "https://example.org/offer",
+    })
+    candidate_id = _insert_discovery_candidate(client, status="accepted")
+    response = client.post(f"/api/discoveries/{candidate_id}/promote")
+    assert response.status_code == 200
+    assert response.json()["already_exists"] is True
+    assert response.json()["opportunity"]["id"] == opportunity_response.json()["id"]
+    assert len(client.get("/api/opportunities").json()) == 1

@@ -9,6 +9,7 @@ const money = (n,c="USD") => new Intl.NumberFormat("fa-IR",{style:"currency",cur
 function toast(message){const el=$("toast");el.textContent=message;el.classList.add("show");setTimeout(()=>el.classList.remove("show"),2600)}
 function esc(s=""){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 let opportunities=[];
+let discoveryItems=[];
 const faStatus = value => ({
   pending_approval:"در انتظار تأیید",approved:"تأییدشده",completed:"تکمیل‌شده",
   discovered:"کشف‌شده",reviewing:"در حال بررسی",eligible:"واجد شرایط",
@@ -116,12 +117,60 @@ if(discoveryForm){
         category:$("discovery-category").value,
         limit:20
       })});
-      results.className="";
-      results.innerHTML=found.length?found.map(item=>`<div class="item"><div><h3><span data-no-translate>${esc(item.title)}</span> <span class="pill">${esc(faCategory(item.category||"all"))}</span></h3><p><span data-no-translate>${esc(item.domain)}</span> · شاخص کشف: ${item.confidence}/100 · اولویت بررسی انسانی: ${item.review_priority?.review_priority_score ?? "—"}/100 · تأییدنشده<br><span data-no-translate>${esc(item.snippet||"خلاصه‌ای از منبع ارائه نشده است")}</span><br><a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">مشاهده منبع ↗</a></p></div><span class="pill">نیازمند بررسی انسانی</span></div>`).join(""):'<div class="empty">نتیجه‌ای پیدا نشد. عبارت گسترده‌تر یا دسته دیگری را امتحان کنید.</div>';
+      discoveryItems=found;
+      renderDiscoveryResults();
       toast(found.length+" فرصت احتمالی پیدا شد");
     }catch(err){results.className="empty";results.textContent=err.message;toast(err.message)}
     finally{button.disabled=false;button.textContent="جست‌وجوی فرصت‌ها"}
   };
 }
+
+function renderDiscoveryResults(){
+  const results=$("discovery-results");
+  results.className="";
+  results.innerHTML=discoveryItems.length?discoveryItems.map(item=>{
+    const status=item.review_status||"pending";
+    let actions="";
+    if(item.promoted_opportunity_id){
+      actions='<span class="pill">به فرصت‌های من افزوده شد</span>';
+    }else if(status==="accepted"){
+      actions='<button class="primary" data-promote="'+item.id+'">افزودن به فرصت‌های من</button>';
+    }else if(status==="rejected"){
+      actions='<span class="pill">ردشده</span>';
+    }else{
+      actions='<span class="pill">نیازمند بررسی انسانی</span><button class="secondary" data-accept="'+item.id+'">تأیید برای بررسی</button><button class="secondary" data-reject="'+item.id+'">رد فرصت</button>';
+    }
+    return '<div class="item"><div><h3><span data-no-translate>'+esc(item.title)+'</span> <span class="pill">'+esc(faCategory(item.category||"all"))+'</span></h3><p><span data-no-translate>'+esc(item.domain)+'</span> · شاخص کشف: '+item.confidence+'/100 · اولویت بررسی انسانی: '+(item.review_priority?.review_priority_score??"—")+'/100 · <strong>تأییدنشده</strong><br><span data-no-translate>'+esc(item.snippet||"خلاصه‌ای از منبع ارائه نشده است")+'</span><br><a href="'+esc(item.url)+'" target="_blank" rel="noopener noreferrer">مشاهده منبع ↗</a></p></div><div class="item-actions">'+actions+'</div></div>';
+  }).join(""):'<div class="empty">نتیجه‌ای پیدا نشد. عبارت گسترده‌تر یا دسته دیگری را امتحان کنید.</div>';
+  results.querySelectorAll("[data-accept]").forEach(button=>button.onclick=()=>updateCandidateReview(Number(button.dataset.accept),"accepted"));
+  results.querySelectorAll("[data-reject]").forEach(button=>button.onclick=()=>updateCandidateReview(Number(button.dataset.reject),"rejected"));
+  results.querySelectorAll("[data-promote]").forEach(button=>button.onclick=()=>promoteCandidate(Number(button.dataset.promote)));
+}
+
+async function updateCandidateReview(id,status){
+  try{
+    const updated=await api("/api/discoveries/"+id+"/review",{
+      method:"PATCH",
+      body:JSON.stringify({status,note:status==="accepted"?"انتخاب دستی کاربر برای افزودن به فهرست شخصی؛ بررسی اعتبار همچنان لازم است.":"ردشده توسط کاربر"})
+    });
+    const item=discoveryItems.find(candidate=>candidate.id===id);
+    if(item)item.review_status=updated.review_status;
+    renderDiscoveryResults();
+    toast(status==="accepted"?"برای انتقال انتخاب شد؛ هنوز تأیید اعتبار نشده است.":"فرصت رد شد.");
+  }catch(error){toast(error.message)}
+}
+
+async function promoteCandidate(id){
+  if(!confirm("این فرصت به فهرست شخصی اضافه شود؟ مبلغ و شرایط نامشخص خالی می‌مانند و این کار اعتبار پلتفرم را تأیید نمی‌کند."))return;
+  try{
+    const result=await api("/api/discoveries/"+id+"/promote",{method:"POST"});
+    const item=discoveryItems.find(candidate=>candidate.id===id);
+    if(item)item.promoted_opportunity_id=result.opportunity.id;
+    renderDiscoveryResults();
+    toast(result.already_exists?"این نشانی از قبل ثبت شده بود و به آن پیوند خورد.":"فرصت به فهرست شخصی اضافه شد.");
+    await refresh();
+  }catch(error){toast(error.message)}
+}
+
 
 refresh().catch(e=>toast(e.message));

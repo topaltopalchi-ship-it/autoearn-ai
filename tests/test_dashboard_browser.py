@@ -172,6 +172,22 @@ class PersianDashboardBrowserTests(unittest.TestCase):
             results.locator("a").first.get_attribute("href"),
             "https://example.org/survey",
         )
+
+        page.route("**/api/discoveries/7/review", lambda route: route.fulfill(
+            status=200, content_type="application/json",
+            body='{"id":7,"review_status":"accepted","promoted_opportunity_id":null,"verified":false}'
+        ))
+        page.route("**/api/discoveries/7/promote", lambda route: route.fulfill(
+            status=200, content_type="application/json",
+            body='{"opportunity":{"id":42,"title":"Demo Survey Reward"},"already_promoted":false,"already_exists":false}'
+        ))
+        results.get_by_role("button", name="تأیید برای بررسی").click()
+        self.assertTrue(results.get_by_role("button", name="افزودن به فرصت‌های من").is_visible())
+        page.once("dialog", lambda dialog: dialog.accept())
+        results.get_by_role("button", name="افزودن به فرصت‌های من").click()
+        page.wait_for_function(
+            "() => document.querySelector('#discovery-results')?.textContent.includes('به فرصت‌های من افزوده شد')"
+        )
         self.assertEqual(page_errors, [])
         page.close()
 

@@ -80,6 +80,7 @@ def init_db() -> None:
             reviewed_at TEXT,
             review_note TEXT NOT NULL DEFAULT '',
             extraction_json TEXT NOT NULL DEFAULT '{}',
+            promoted_opportunity_id INTEGER REFERENCES opportunities(id),
             created_at TEXT NOT NULL
         );
         CREATE TABLE IF NOT EXISTS tasks (
@@ -126,6 +127,8 @@ def init_db() -> None:
             db.execute("ALTER TABLE discovered_candidates ADD COLUMN extraction_json TEXT NOT NULL DEFAULT '{}'")
         if "category" not in candidate_columns:
             db.execute("ALTER TABLE discovered_candidates ADD COLUMN category TEXT NOT NULL DEFAULT 'all'")
+        if "promoted_opportunity_id" not in candidate_columns:
+            db.execute("ALTER TABLE discovered_candidates ADD COLUMN promoted_opportunity_id INTEGER REFERENCES opportunities(id)")
 
 
 @asynccontextmanager
@@ -294,6 +297,7 @@ def discover(data: DiscoverIn):
                 "signals": json.loads(row["signals_json"]),
                 "review_required": bool(row["review_required"]),
                 "review_status": row["review_status"],
+                "promoted_opportunity_id": row["promoted_opportunity_id"],
                 "review_priority": rank_discovery_candidate(
                     row["confidence"], json.loads(row["extraction_json"]), row["review_status"]
                 ),
@@ -326,6 +330,7 @@ def list_discoveries():
             "reviewed_at": row["reviewed_at"],
             "review_note": row["review_note"],
             "extraction": json.loads(row["extraction_json"]),
+            "promoted_opportunity_id": row["promoted_opportunity_id"],
             "verified": False,
         }
         for row in rows
@@ -410,6 +415,77 @@ def review_discovery(candidate_id: int, data: CandidateReviewIn):
     result["review_required"] = bool(result["review_required"])
     result["verified"] = False
     return result
+
+
+@app.post("/api/discoveries/{candidate_id}/promote")
+def promote_discovery(candidate_id: int):
+    """Create a tracked opportunity only after explicit human acceptance."""
+    with connect() as db:
+        candidate = db.execute(
+            "SELECT * FROM discovered_candidates WHERE id = ?", (candidate_id,)
+        ).fetchone()
+        if not candidate:
+            raise HTTPException(404, "Discovered candidate not found")
+        if candidate["review_status"] != "accepted":
+            raise HTTPException(409, "Only candidates explicitly accepted by the owner can be added.")
+        if candidate["promoted_opportunity_id"] is not None:
+            existing = db.execute(
+                "SELECT * FROM opportunities WHERE id = ?",
+                (candidate["promoted_opportunity_id"],),
+            ).fetchone()
+            if existing:
+                return {"opportunity": row_dict(existing), "already_promoted": True}
+
+        existing = db.execute(
+            "SELECT * FROM opportunities WHERE url = ?", (candidate["canonical_url"],)
+        ).fetchone()
+        if existing:
+            db.execute(
+                "UPDATE discovered_candidates SET promoted_opportunity_id = ? WHERE id = ?",
+                (existing["id"], candidate_id),
+            )
+            return {"opportunity": row_dict(existing), "already_promoted": True, "already_exists": True}
+
+        extraction = json.loads(candidate["extraction_json"] or "{}")
+        amount_hints = extraction.get("reward_amounts") or []
+        reward_parts = [
+            f'{item.get("currency", "")} {item.get("amount_text", "")}'.strip()
+            for item in amount_hints
+            if isinstance(item, dict) and item.get("amount_text")
+        ]
+        reward_description = (
+            "مبالغ ذکرشده در متن ارسالی (تأییدنشده): " + "، ".join(reward_parts[:5])
+            if reward_parts else ""
+        )
+        eligibility = "؛ ".join(extraction.get("eligibility_evidence") or [])[:1000]
+        notes_parts = [
+            "افزوده‌شده از صندوق کشف؛ هنوز تأیید اعتبار یا پرداخت نیست.",
+            (candidate["snippet"] or "")[:400],
+            (candidate["review_note"] or "")[:500],
+            extraction.get("disclaimer", ""),
+        ]
+        notes = " ".join(part for part in notes_parts if part).strip()[:1000]
+        title = (candidate["title"] or candidate["domain"] or "Discovered opportunity")[:160]
+        platform = (candidate["domain"] or urlparse(candidate["canonical_url"]).hostname or "Unknown")[:100]
+        category = (candidate["category"] or "other")[:40]
+        score = 20 + (15 if reward_description else 0) + (20 if eligibility else 0)
+        cursor = db.execute(
+            """
+            INSERT INTO opportunities
+            (title, platform, url, category, reward_description, eligibility, notes, score, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (title, platform, candidate["canonical_url"], category,
+             reward_description, eligibility, notes, score, now()),
+        )
+        opportunity = db.execute(
+            "SELECT * FROM opportunities WHERE id = ?", (cursor.lastrowid,)
+        ).fetchone()
+        db.execute(
+            "UPDATE discovered_candidates SET promoted_opportunity_id = ? WHERE id = ?",
+            (cursor.lastrowid, candidate_id),
+        )
+        return {"opportunity": row_dict(opportunity), "already_promoted": False, "already_exists": False}
 
 
 @app.get("/api/opportunities")
