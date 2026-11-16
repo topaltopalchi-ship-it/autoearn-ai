@@ -568,6 +568,50 @@ def create_reward(data: RewardIn):
         return row_dict(db.execute("SELECT * FROM rewards WHERE id = ?", (cur.lastrowid,)).fetchone())
 
 
+
+@app.get("/api/player/status")
+def player_status():
+    """Summarize local player readiness without implying external contest capability."""
+    with connect() as db:
+        game_row = db.execute(
+            "SELECT COUNT(*) AS attempts, COALESCE(SUM(solved), 0) AS solved FROM game_runs"
+        ).fetchone()
+        strategy_count = db.execute(
+            "SELECT COUNT(*) FROM strategy_observations"
+        ).fetchone()[0]
+        strategy_types = db.execute(
+            "SELECT COUNT(DISTINCT game_type) FROM strategy_observations"
+        ).fetchone()[0]
+        auto_eligible = db.execute(
+            "SELECT COUNT(*) FROM opportunities WHERE automation_eligibility = 'auto'"
+        ).fetchone()[0]
+        pending_review = db.execute(
+            "SELECT COUNT(*) FROM opportunities WHERE automation_eligibility = 'manual_only'"
+        ).fetchone()[0]
+        excluded = db.execute(
+            "SELECT COUNT(*) FROM opportunities WHERE automation_eligibility = 'excluded'"
+        ).fetchone()[0]
+        paid_rewards = db.execute(
+            "SELECT COALESCE(SUM(amount), 0) FROM rewards WHERE status = 'paid'"
+        ).fetchone()[0]
+    attempts, solved = game_row["attempts"], game_row["solved"]
+    return {
+        "mode": "local_practice_and_readiness",
+        "game_attempts": attempts,
+        "game_solved": solved,
+        "local_solve_rate": round(solved / attempts, 4) if attempts else None,
+        "strategy_observations": strategy_count,
+        "strategy_game_types": strategy_types,
+        "automation_eligible_opportunities": auto_eligible,
+        "opportunities_requiring_review": pending_review,
+        "excluded_opportunities": excluded,
+        "recorded_paid_rewards": round(paid_rewards, 2),
+        "external_gameplay_enabled": False,
+        "automated_payment_enabled": False,
+        "real_world_win_rate": None,
+        "note": "Readiness metrics only. Local puzzle solve rate is not a platform win rate or earnings forecast."
+    }
+
 @app.get("/api/dashboard")
 def dashboard():
     with connect() as db:
