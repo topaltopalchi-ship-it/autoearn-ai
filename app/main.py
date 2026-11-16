@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 
 from autoearn.opportunities import BraveSearchProvider, discover_opportunities, normalize_url
 from autoearn.mwmbl import MwmblSearchProvider
+from autoearn.extraction import extract_opportunity_details
 from pydantic import BaseModel, Field, HttpUrl
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -67,6 +68,7 @@ def init_db() -> None:
             review_status TEXT NOT NULL DEFAULT 'pending' CHECK(review_status IN ('pending', 'accepted', 'rejected')),
             reviewed_at TEXT,
             review_note TEXT NOT NULL DEFAULT '',
+            extraction_json TEXT NOT NULL DEFAULT '{}',
             created_at TEXT NOT NULL
         );
         CREATE TABLE IF NOT EXISTS tasks (
@@ -96,6 +98,8 @@ def init_db() -> None:
             db.execute("ALTER TABLE discovered_candidates ADD COLUMN reviewed_at TEXT")
         if "review_note" not in candidate_columns:
             db.execute("ALTER TABLE discovered_candidates ADD COLUMN review_note TEXT NOT NULL DEFAULT ''")
+        if "extraction_json" not in candidate_columns:
+            db.execute("ALTER TABLE discovered_candidates ADD COLUMN extraction_json TEXT NOT NULL DEFAULT '{}'")
 
 
 @asynccontextmanager
@@ -121,6 +125,10 @@ class DiscoverIn(BaseModel):
 class CandidateReviewIn(BaseModel):
     status: Literal["accepted", "rejected"]
     note: str = Field(default="", max_length=1000)
+
+
+class CandidateExtractIn(BaseModel):
+    page_text: str = Field(min_length=1, max_length=20000)
 
 
 class OpportunityIn(BaseModel):
@@ -252,10 +260,28 @@ def list_discoveries():
             "review_status": row["review_status"],
             "reviewed_at": row["reviewed_at"],
             "review_note": row["review_note"],
+            "extraction": json.loads(row["extraction_json"]),
             "verified": False,
         }
         for row in rows
     ]
+
+
+@app.post("/api/discoveries/{candidate_id}/extract")
+def extract_discovery(candidate_id: int, data: CandidateExtractIn):
+    """Analyze user-supplied page text; this endpoint never fetches the URL."""
+    try:
+        extracted = extract_opportunity_details(data.page_text)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    with connect() as db:
+        if not db.execute("SELECT id FROM discovered_candidates WHERE id = ?", (candidate_id,)).fetchone():
+            raise HTTPException(404, "Discovered candidate not found")
+        db.execute(
+            "UPDATE discovered_candidates SET extraction_json = ? WHERE id = ?",
+            (json.dumps(extracted), candidate_id),
+        )
+    return {"candidate_id": candidate_id, "extraction": extracted}
 
 
 @app.patch("/api/discoveries/{candidate_id}/review")
