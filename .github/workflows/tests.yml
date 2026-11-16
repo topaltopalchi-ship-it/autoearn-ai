@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, develop, "feat/compliant-autonomy-orchestrator"]
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, "feat/compliant-autonomy-orchestrator"]
 
 permissions:
   contents: read
