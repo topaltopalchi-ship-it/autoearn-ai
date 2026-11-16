@@ -8,17 +8,17 @@ from __future__ import annotations
 import re
 
 _AMOUNT_RE = re.compile(
-    r"(?<![\\w])(?P<currency>USD|EUR|GBP|CAD|AUD|\\$|€|£)\\s*"
-    r"(?P<amount>\\d{1,3}(?:[,. ]\\d{3})*(?:[.,]\\d{1,2})?|\\d+(?:[.,]\\d{1,2})?)",
+    r"(?<![\w])(?P<currency>USD|EUR|GBP|CAD|AUD|\$|€|£)\s*"
+    r"(?P<amount>\d{1,3}(?:[,. ]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)",
     re.IGNORECASE,
 )
 _AGE_PATTERNS = (
-    re.compile(r"\\b(?:18|19|21)\\s*\\+\\b", re.IGNORECASE),
-    re.compile(r"\\b(?:at least|minimum age(?: of)?)\\s*(18|19|21)\\s*(?:years? old)?\\b", re.IGNORECASE),
+    re.compile(r"\b(?:18|19|21)\s*\+(?!\d)", re.IGNORECASE),
+    re.compile(r"\b(?:at least|minimum age(?: of)?)\s*(18|19|21)\s*(?:years? old)?\b", re.IGNORECASE),
 )
-_TERMS_RE = re.compile(r"\\b(terms(?: and conditions)?|conditions|official rules|eligibility rules)\\b", re.I)
+_TERMS_RE = re.compile(r"\b(terms(?: and conditions)?|conditions|official rules|eligibility rules)\b", re.I)
 _ELIGIBILITY_RE = re.compile(
-    r"\\b(eligible|eligibility|residents? of|available in|only in|restricted to|must be located in|age requirement)\\b",
+    r"\b(eligible|eligibility|residents? of|available in|only in|restricted to|must be located in|age requirement)\b",
     re.I,
 )
 
@@ -50,7 +50,7 @@ def extract_opportunity_details(page_text: str) -> dict:
     })
 
     evidence = []
-    for sentence in re.split(r"(?<=[.!?])\\s+", text):
+    for sentence in re.split(r"(?<=[.!?])\s+", text):
         if _ELIGIBILITY_RE.search(sentence):
             clipped = sentence[:400]
             if clipped not in evidence:
