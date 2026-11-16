@@ -11,7 +11,7 @@ from typing import Literal
 from urllib.parse import urlparse, urlunparse
 
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from autoearn.opportunities import BraveSearchProvider, discover_opportunities, normalize_url
@@ -197,7 +197,7 @@ def safe_url(value: str) -> bool:
 
 @app.get("/", include_in_schema=False)
 def home():
-    return FileResponse(STATIC_DIR / "index.html")
+    return HTMLResponse((STATIC_DIR / "index.html").read_text(encoding="utf-8"))
 
 
 @app.get("/api/discovery-categories")
@@ -220,8 +220,9 @@ def discover(data: DiscoverIn):
     brave_key = os.getenv("BRAVE_SEARCH_API_KEY", "").strip()
     mwmbl_key = os.getenv("MWMBL_API_KEY", "").strip()
     try:
-        # Prefer Brave when explicitly configured; otherwise use Mwmbl's
-        # anonymous free tier (1,000 requests/month, 1 request/second).
+        # Prefer Brave when explicitly configured; otherwise use the Mwmbl
+        # adapter. Availability, authentication requirements, and usage limits
+        # must be verified against the provider's current documentation.
         provider = BraveSearchProvider(brave_key) if brave_key else MwmblSearchProvider(api_key=mwmbl_key or None)
         expanded_query = expand_discovery_query(data.query, data.category)
         results = discover_opportunities(

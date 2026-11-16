@@ -4,3 +4,19 @@
 .helper{font-size:11px;color:#93a1ba;margin:10px 0 15px}
 #discover-button:disabled{opacity:.65;cursor:wait}
 @media(max-width:700px){.discovery-form{grid-template-columns:1fr}.discovery-form button{width:100%}}
+
+
+/* Persian / RTL presentation */
+html[dir="rtl"]{direction:rtl}
+html[dir="rtl"] body{direction:rtl}
+html[dir="rtl"] .sidebar{inset:0 0 0 auto;border-right:0;border-left:1px solid #202a40}
+html[dir="rtl"] main{margin-left:0;margin-right:238px}
+html[dir="rtl"] .brand{flex-direction:row}
+html[dir="rtl"] .status i{margin-right:0;margin-left:6px}
+html[dir="rtl"] .item{direction:rtl}
+html[dir="rtl"] .item-actions{justify-content:flex-start}
+html[dir="rtl"] .toolbar,html[dir="rtl"] .discovery-form{direction:rtl}
+html[dir="rtl"] dialog,html[dir="rtl"] input,html[dir="rtl"] select,html[dir="rtl"] textarea{ text-align:right}
+html[dir="rtl"] #toast{right:auto;left:22px}
+html[dir="rtl"] footer{text-align:center}
+@media(max-width:850px){html[dir="rtl"] .sidebar{position:static;width:auto;height:auto;border-left:0}html[dir="rtl"] main{margin:0}}
