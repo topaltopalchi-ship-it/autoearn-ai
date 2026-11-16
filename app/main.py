@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from autoearn.opportunities import BraveSearchProvider, discover_opportunities, normalize_url
 from autoearn.mwmbl import MwmblSearchProvider
 from autoearn.extraction import extract_opportunity_details
+from autoearn.catalog import expand_discovery_query
 from pydantic import BaseModel, Field, HttpUrl
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -61,6 +62,7 @@ def init_db() -> None:
             snippet TEXT NOT NULL DEFAULT '',
             provider TEXT NOT NULL,
             domain TEXT NOT NULL,
+            category TEXT NOT NULL DEFAULT 'all',
             discovered_at TEXT NOT NULL,
             confidence INTEGER NOT NULL CHECK(confidence BETWEEN 0 AND 100),
             signals_json TEXT NOT NULL DEFAULT '[]',
@@ -100,6 +102,8 @@ def init_db() -> None:
             db.execute("ALTER TABLE discovered_candidates ADD COLUMN review_note TEXT NOT NULL DEFAULT ''")
         if "extraction_json" not in candidate_columns:
             db.execute("ALTER TABLE discovered_candidates ADD COLUMN extraction_json TEXT NOT NULL DEFAULT '{}'")
+        if "category" not in candidate_columns:
+            db.execute("ALTER TABLE discovered_candidates ADD COLUMN category TEXT NOT NULL DEFAULT 'all'")
 
 
 @asynccontextmanager
@@ -118,7 +122,8 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 class DiscoverIn(BaseModel):
-    query: str = Field(min_length=1, max_length=300)
+    query: str = Field(min_length=1, max_length=220)
+    category: Literal["all", "games", "surveys", "user_testing", "microtasks", "freelance", "cashback", "affiliate", "creator", "tutoring", "digital_products", "research", "bug_bounty"] = "all"
     limit: int = Field(default=10, ge=1, le=20)
 
 
@@ -194,8 +199,9 @@ def discover(data: DiscoverIn):
         # Prefer Brave when explicitly configured; otherwise use Mwmbl's
         # anonymous free tier (1,000 requests/month, 1 request/second).
         provider = BraveSearchProvider(brave_key) if brave_key else MwmblSearchProvider(api_key=mwmbl_key or None)
+        expanded_query = expand_discovery_query(data.query, data.category)
         results = discover_opportunities(
-            data.query,
+            expanded_query,
             provider,
             limit=data.limit,
         )
@@ -210,12 +216,12 @@ def discover(data: DiscoverIn):
             cursor = db.execute(
                 """
                 INSERT OR IGNORE INTO discovered_candidates
-                (title, canonical_url, snippet, provider, domain, discovered_at,
+                (title, canonical_url, snippet, provider, domain, category, discovered_at,
                  confidence, signals_json, review_required, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
                 """,
                 (
-                    item.title, item.url, item.snippet, item.provider, item.domain,
+                    item.title, item.url, item.snippet, item.provider, item.domain, data.category,
                     item.discovered_at, item.confidence, json.dumps(list(item.signals)), now(),
                 ),
             )
@@ -229,6 +235,7 @@ def discover(data: DiscoverIn):
                 "snippet": row["snippet"],
                 "provider": row["provider"],
                 "domain": row["domain"],
+                "category": row["category"],
                 "discovered_at": row["discovered_at"],
                 "confidence": row["confidence"],
                 "signals": json.loads(row["signals_json"]),
@@ -253,6 +260,7 @@ def list_discoveries():
             "snippet": row["snippet"],
             "provider": row["provider"],
             "domain": row["domain"],
+            "category": row["category"],
             "discovered_at": row["discovered_at"],
             "confidence": row["confidence"],
             "signals": json.loads(row["signals_json"]),
