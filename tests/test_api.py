@@ -121,3 +121,41 @@ def test_api_canonicalizes_case_tracking_and_trailing_slash(client):
         "url": "https://example.com/rewards/",
     })
     assert duplicate.status_code == 409
+
+
+def test_discover_requires_search_provider_configuration(client, monkeypatch):
+    monkeypatch.delenv("BRAVE_SEARCH_API_KEY", raising=False)
+    response = client.post("/api/discover", json={"query": "game rewards"})
+    assert response.status_code == 503
+
+
+def test_discover_returns_unverified_candidates_for_human_review(client, monkeypatch):
+    from app import main
+    from autoearn.opportunities import SearchResult
+
+    class FakeProvider:
+        def search(self, query, limit=10):
+            assert query == "game rewards"
+            assert limit == 3
+            return [SearchResult(
+                title="Rewards program terms",
+                url="https://example.com/rewards",
+                snippet="Eligibility and points details",
+                provider="test",
+            )]
+
+    monkeypatch.setenv("BRAVE_SEARCH_API_KEY", "test-token")
+    monkeypatch.setattr(main, "BraveSearchProvider", lambda token: FakeProvider())
+    response = client.post("/api/discover", json={"query": "game rewards", "limit": 3})
+
+    assert response.status_code == 200
+    candidate = response.json()[0]
+    assert candidate["domain"] == "example.com"
+    assert candidate["verified"] is False
+    assert candidate["review_required"] is True
+    assert "reward_language_found" in candidate["signals"]
+
+
+def test_discover_rejects_invalid_limit(client):
+    response = client.post("/api/discover", json={"query": "game rewards", "limit": 99})
+    assert response.status_code == 422
