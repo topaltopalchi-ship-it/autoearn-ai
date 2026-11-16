@@ -192,3 +192,49 @@ def test_existing_opportunities_receive_safe_policy_defaults(tmp_path, monkeypat
             "FROM opportunities WHERE id = 1"
         ).fetchone()
     assert row == ("unknown", None, "ordinary", "manual_only")
+
+
+def test_guarded_automation_plan_runs_only_local_assessment_and_requires_handoff_approval(client):
+    created = client.post("/api/opportunities", json={
+        "title": "Free skill contest", "platform": "Example",
+        "url": "https://automation-plan.example/contest",
+        "automation_policy": "allowed", "captcha_required": False,
+        "opportunity_category": "skill_contest", "policy_source": "terms",
+        "policy_evidence_url": "https://automation-plan.example/terms",
+    })
+    assert created.status_code == 201
+    plan = client.post(f"/api/automation/opportunities/{created.json()['id']}/plan")
+    assert plan.status_code == 201
+    payload = plan.json()
+    assert payload["mode"] == "guarded_autonomy"
+    assert payload["status"] == "awaiting_approval"
+    assert payload["actions"][0]["action_type"] == "refresh_local_assessment"
+    assert payload["actions"][0]["status"] == "completed"
+    assert payload["actions"][0]["result"]["external_site_touched"] is False
+    handoff = payload["actions"][1]
+    assert handoff["status"] == "pending_approval"
+    approved = client.post(f"/api/automation/actions/{handoff['id']}/approve")
+    assert approved.status_code == 200
+    assert approved.json()["status"] == "ready_for_user"
+    assert "does not operate" in payload["safety_note"]
+    assert client.post(f"/api/automation/actions/{handoff['id']}/approve").status_code == 409
+
+
+def test_guarded_automation_blocks_excluded_opportunities(client):
+    created = client.post("/api/opportunities", json={
+        "title": "Prohibited automation", "platform": "Example",
+        "url": "https://automation-blocked.example/offer",
+        "automation_policy": "prohibited", "captcha_required": False,
+    })
+    assert created.status_code == 201
+    plan = client.post(f"/api/automation/opportunities/{created.json()['id']}/plan")
+    assert plan.status_code == 201
+    payload = plan.json()
+    assert payload["status"] == "blocked"
+    assert payload["actions"][0]["status"] == "blocked"
+    assert client.get("/api/automation/actions?status=blocked").json()[0]["action_type"] == "prepare_human_review"
+
+
+def test_guarded_automation_rejects_unknown_opportunity_and_action(client):
+    assert client.post("/api/automation/opportunities/999/plan").status_code == 404
+    assert client.post("/api/automation/actions/999/approve").status_code == 404
