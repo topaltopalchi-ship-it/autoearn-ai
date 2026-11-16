@@ -57,3 +57,24 @@ def test_login_endpoint_returns_429_and_retry_after_header(tmp_path, monkeypatch
         blocked = client.post("/api/auth/login", json={"password": "test-owner-password"})
         assert blocked.status_code == 429
         assert int(blocked.headers["Retry-After"]) > 0
+
+def test_successful_login_endpoint_clears_lockout_history(tmp_path, monkeypatch):
+    from app import main
+
+    monkeypatch.setenv("AUTOEARN_MASTER_PASSWORD", "test-owner-password")
+    monkeypatch.setenv("AUTOEARN_AUTH_SECRET", "test-auth-secret")
+    monkeypatch.setattr(main, "DB_PATH", tmp_path / "login-success.db")
+    monkeypatch.setattr(auth, "_login_failures", {})
+    with TestClient(app, client=("127.0.0.1", 12346)) as client:
+        for _ in range(2):
+            response = client.post("/api/auth/login", json={"password": "wrong"})
+            assert response.status_code == 401
+
+        success = client.post("/api/auth/login", json={"password": "test-owner-password"})
+        assert success.status_code == 200
+        assert success.json()["authenticated"] is True
+
+        client.post("/api/auth/logout")
+        next_failure = client.post("/api/auth/login", json={"password": "wrong"})
+        assert next_failure.status_code == 401
+        assert auth.login_retry_after("127.0.0.1") == 0
