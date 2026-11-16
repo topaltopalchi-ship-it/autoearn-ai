@@ -57,7 +57,9 @@ def init_db() -> None:
             status TEXT NOT NULL DEFAULT 'pending_approval',
             approved_at TEXT,
             completed_at TEXT,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            action_type TEXT NOT NULL DEFAULT 'other',
+            requires_approval INTEGER NOT NULL DEFAULT 1
         );
         CREATE TABLE IF NOT EXISTS rewards (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -83,6 +85,14 @@ def init_db() -> None:
         for column, declaration in additions.items():
             if column not in existing_columns:
                 db.execute(f"ALTER TABLE opportunities ADD COLUMN {column} {declaration}")
+        task_columns = {row[1] for row in db.execute("PRAGMA table_info(tasks)")}
+        task_additions = {
+            "action_type": "TEXT NOT NULL DEFAULT 'other'",
+            "requires_approval": "INTEGER NOT NULL DEFAULT 1",
+        }
+        for column, declaration in task_additions.items():
+            if column not in task_columns:
+                db.execute(f"ALTER TABLE tasks ADD COLUMN {column} {declaration}")
 
 
 @asynccontextmanager
@@ -120,6 +130,7 @@ class OpportunityIn(BaseModel):
 class TaskIn(BaseModel):
     opportunity_id: int
     description: str = Field(min_length=3, max_length=500)
+    action_type: Literal["internal_review", "site_participation", "claim_reward", "account_action", "other"] = "other"
 
 
 class RewardIn(BaseModel):
@@ -231,12 +242,82 @@ def update_opportunity_status(opportunity_id: int, status: Literal["discovered",
 
 @app.post("/api/tasks", status_code=201)
 def create_task(data: TaskIn):
+    # Internal-only review preparation can be queued without approval. Any external
+    # interaction remains human-approved, even when an opportunity is policy-cleared.
+    requires_approval = data.action_type != "internal_review"
+    status = "pending_approval" if requires_approval else "auto_queued"
     with connect() as db:
         if not db.execute("SELECT id FROM opportunities WHERE id = ?", (data.opportunity_id,)).fetchone():
             raise HTTPException(404, "Opportunity not found")
-        cur = db.execute("INSERT INTO tasks (opportunity_id, description, created_at) VALUES (?, ?, ?)",
-                         (data.opportunity_id, data.description, now()))
+        cur = db.execute(
+            """INSERT INTO tasks
+            (opportunity_id, description, status, created_at, action_type, requires_approval)
+            VALUES (?, ?, ?, ?, ?, ?)""",
+            (data.opportunity_id, data.description, status, now(), data.action_type, int(requires_approval)),
+        )
         return row_dict(db.execute("SELECT * FROM tasks WHERE id = ?", (cur.lastrowid,)).fetchone())
+
+
+@app.post("/api/automation/prepare")
+def prepare_automation_queue():
+    """Automatically prepare internal review tasks for policy-cleared opportunities only."""
+    created = []
+    with connect() as db:
+        opportunities = db.execute(
+            """SELECT id, title FROM opportunities
+            WHERE automation_eligibility = 'auto'
+            ORDER BY score DESC, created_at DESC"""
+        ).fetchall()
+        for opportunity in opportunities:
+            exists = db.execute(
+                """SELECT id FROM tasks
+                WHERE opportunity_id = ? AND action_type = 'internal_review'
+                AND status IN ('auto_queued', 'approved', 'completed')""",
+                (opportunity["id"],),
+            ).fetchone()
+            if exists:
+                continue
+            cur = db.execute(
+                """INSERT INTO tasks
+                (opportunity_id, description, status, created_at, action_type, requires_approval)
+                VALUES (?, ?, 'auto_queued', ?, 'internal_review', 0)""",
+                (opportunity["id"], f"Prepare internal review for {opportunity['title']}", now()),
+            )
+            created.append(cur.lastrowid)
+        rows = [row_dict(db.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone())
+                for task_id in created]
+    return {"created_count": len(created), "tasks": rows,
+            "note": "Only internal preparation is queued; no third-party site is opened or actioned."}
+
+
+@app.get("/api/automation/status")
+def automation_status():
+    with connect() as db:
+        counts = {
+            row["status"]: row["count"]
+            for row in db.execute("SELECT status, COUNT(*) AS count FROM tasks GROUP BY status")
+        }
+        eligible = db.execute(
+            "SELECT COUNT(*) FROM opportunities WHERE automation_eligibility = 'auto'"
+        ).fetchone()[0]
+        manual = db.execute(
+            "SELECT COUNT(*) FROM opportunities WHERE automation_eligibility = 'manual_only'"
+        ).fetchone()[0]
+        excluded = db.execute(
+            "SELECT COUNT(*) FROM opportunities WHERE automation_eligibility = 'excluded'"
+        ).fetchone()[0]
+    return {
+        "mode": "maximum_compliant",
+        "policy_gate": "fail_closed",
+        "auto_eligible_opportunities": eligible,
+        "manual_only_opportunities": manual,
+        "excluded_opportunities": excluded,
+        "task_counts": counts,
+        "external_actions_require_approval": True,
+        "captcha_bypass_enabled": False,
+        "automated_ad_views_enabled": False,
+        "automated_gameplay_enabled": False,
+    }
 
 
 @app.get("/api/tasks")
@@ -267,8 +348,8 @@ def complete_task(task_id: int):
         row = db.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
         if not row:
             raise HTTPException(404, "Task not found")
-        if row["status"] != "approved":
-            raise HTTPException(409, "A task must be approved before it can be marked complete")
+        if row["status"] not in {"approved", "auto_queued"}:
+            raise HTTPException(409, "A task must be approved or internally auto-queued before it can be marked complete")
         db.execute("UPDATE tasks SET status = 'completed', completed_at = ? WHERE id = ?", (now(), task_id))
         return row_dict(db.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone())
 
