@@ -15,7 +15,7 @@ async function refresh(){
   $("stat-opps").textContent=dash.opportunities;$("stat-tasks").textContent=dash.tasks;
   $("stat-approval").textContent=dash.awaiting_approval;$("stat-paid").textContent=money(dash.paid_total);
   $("stat-pending").textContent="Pending: "+money(dash.pending_total);
-  renderOpportunities();renderTasks(tasks);renderRewards(rewards);fillRewardOptions();
+  renderOpportunities();renderTasks(tasks);renderRewards(rewards);fillRewardOptions();fillGameOptions();refreshGameStats();
 }
 function renderOpportunities(){
   const q=$("search").value.toLowerCase(),status=$("filter").value,automation=$("automation-filter").value;
@@ -31,7 +31,22 @@ function renderTasks(tasks){$("task-list").innerHTML=tasks.length?tasks.map(t=>`
   $("task-list").querySelectorAll("[data-complete]").forEach(b=>b.onclick=async()=>{try{await api(`/api/tasks/${b.dataset.complete}/complete`,{method:"POST"});toast("Task marked completed")}catch(e){toast(e.message)}refresh()});
 }
 function renderRewards(rows){$("reward-list").innerHTML=rows.length?rows.map(r=>`<div class="item"><div><h3>${money(r.amount,r.currency)} <span class="pill">${esc(r.status)}</span></h3><p>${esc(r.opportunity_title||"Unlinked reward")} · ${esc(r.reference)}</p></div></div>`).join(""):'<div class="empty">No rewards recorded.</div>'}
+function fillGameOptions(){
+  const eligible=opportunities.filter(o=>o.opportunity_category==="skill_contest"&&o.automation_eligibility==="auto");
+  $("game-opportunity").innerHTML='<option value="">Select a policy-cleared skill contest</option>'+eligible.map(o=>`<option value="${o.id}">${esc(o.title)} — ${esc(o.platform)}</option>`).join("");
+}
+async function refreshGameStats(){try{const s=await api("/api/games/stats");$("game-stats").textContent=s.attempts?`${s.solved}/${s.attempts} locally solved (${Math.round(s.solve_rate*100)}%)`:"No rounds analyzed";}catch(e){$("game-stats").textContent="Stats unavailable";}}
 function fillRewardOptions(){$("reward-opportunity").innerHTML='<option value="">Not linked</option>'+opportunities.map(o=>'<option value="'+o.id+'">'+esc(o.title)+'</option>').join("")}
+$("game-form").onsubmit=async e=>{
+  e.preventDefault();
+  try{
+    const numbers=$("game-numbers").value.split(",").map(v=>Number(v.trim()));
+    if(numbers.some(v=>!Number.isInteger(v)))throw new Error("Enter comma-separated whole numbers.");
+    const result=await api("/api/games/solve",{method:"POST",body:JSON.stringify({opportunity_id:Number($("game-opportunity").value),numbers,target:Number($("game-target").value)})});
+    $("game-result").textContent=result.solved?`${result.expression} = ${result.target}`:"No exact solution found for these tiles.";
+    refreshGameStats();
+  }catch(err){toast(err.message)}
+};
 $("add-opportunity").onclick=()=>$("opportunity-dialog").showModal();
 $("prepare-automation").onclick=async()=>{try{const result=await api("/api/automation/prepare",{method:"POST"});toast(`${result.created_count} internal review task(s) prepared`);refresh()}catch(e){toast(e.message)}};
 $("add-reward").onclick=()=>$("reward-dialog").showModal();
