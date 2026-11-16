@@ -130,7 +130,7 @@ class OpportunityIn(BaseModel):
 class TaskIn(BaseModel):
     opportunity_id: int
     description: str = Field(min_length=3, max_length=500)
-    action_type: Literal["internal_review", "site_participation", "claim_reward", "account_action", "other"] = "other"
+    action_type: Literal["site_participation", "claim_reward", "account_action", "other"] = "other"
 
 
 class RewardIn(BaseModel):
@@ -242,10 +242,9 @@ def update_opportunity_status(opportunity_id: int, status: Literal["discovered",
 
 @app.post("/api/tasks", status_code=201)
 def create_task(data: TaskIn):
-    # Internal-only review preparation can be queued without approval. Any external
-    # interaction remains human-approved, even when an opportunity is policy-cleared.
-    requires_approval = data.action_type != "internal_review"
-    status = "pending_approval" if requires_approval else "auto_queued"
+    # User-submitted tasks are always external or unspecified and require approval.
+    requires_approval = True
+    status = "pending_approval"
     with connect() as db:
         if not db.execute("SELECT id FROM opportunities WHERE id = ?", (data.opportunity_id,)).fetchone():
             raise HTTPException(404, "Opportunity not found")
