@@ -130,3 +130,51 @@ and whether terms are mentioned. The extraction is stored with the candidate
 and appears in `GET /api/discoveries`. It is explicitly unverified: users
 must compare the extracted hints with the current official terms before
 accepting an opportunity or taking any action.
+
+## Private single-owner setup
+
+This project is intended for one owner only. It is not a public service, SaaS
+product, or multi-user application. The GitHub repository is private; keep it
+private and do not invite other collaborators unless you deliberately choose
+to share the project.
+
+### Run on your own computer
+
+Use the local launcher so the web server listens only on the loopback
+interface (`127.0.0.1`) and is not exposed to your home or public network.
+
+On macOS/Linux:
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+bash scripts/run-local.sh
+```
+
+On Windows PowerShell:
+
+```powershell
+py -m venv .venv
+.venv\\Scripts\\Activate.ps1
+pip install -r requirements.txt
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Open `http://127.0.0.1:8000` on the same computer. Do not change the host to
+`0.0.0.0`, publish this service to the internet, or expose it through a
+public tunnel. The app currently has no login system; loopback-only access is
+therefore an important security boundary, not a substitute for authentication.
+
+### Personal data and backups
+
+- Keep API keys in local environment variables or an ignored `.env` file;
+  never commit them.
+- The SQLite database is local and ignored by Git. Back it up privately and
+  encrypt backup storage if it contains personal records.
+- Do not store account passwords, payment card details, identity documents,
+  or recovery codes in opportunity notes.
+- Search-provider requests leave the device and are subject to that provider's
+  privacy policy and limits. Use discovery only when you choose to.
+- This project does not need public registration, user accounts, subscription
+  billing, or multi-tenant infrastructure for its intended personal use.

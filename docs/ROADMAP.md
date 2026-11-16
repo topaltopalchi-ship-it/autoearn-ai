@@ -2,7 +2,7 @@
 
 ## Product direction
 
-AutoEarn AI is an assisted, human-in-the-loop workspace for finding and evaluating legitimate reward-bearing games and offers across web, mobile, and skill-based platforms.
+AutoEarn AI is a private, single-owner, human-in-the-loop assistant for one person's discovery and evaluation of online opportunities. It is not intended to be offered to other users.
 
 ## MVP 0.1 (this branch)
 
@@ -21,7 +21,7 @@ AutoEarn AI is an assisted, human-in-the-loop workspace for finding and evaluati
 3. **Game assistance:** game-specific permitted helpers, strategy hints, accessibility support, and manual play guidance. No botting, fake engagement, anti-cheat evasion, multi-account abuse, or unattended reward farming.
 4. **User approvals:** configurable confirmation for account linking, purchases, personal data, submissions, and reward claims.
 5. **Reward reconciliation:** proof/reference uploads, pending/confirmed/paid/rejected states, and exportable history.
-6. **Deployment and security:** authentication, encrypted secrets, audit log, rate limits, backups, and hosted database before multi-user operation.
+6. **Private single-owner security:** loopback-only local access, private secret storage, encrypted personal backups, and optional local authentication if the app is ever exposed beyond the owner's device. No public hosting or multi-user infrastructure is planned.
 
 ## Important limitations
 
@@ -31,3 +31,5 @@ AutoEarn AI is an assisted, human-in-the-loop workspace for finding and evaluati
 - Do not enter passwords, payment details, identity documents, or API secrets into opportunity notes.
 
 - [x] Evidence-based discovery review-priority queue (separate from income ranking; candidates remain unverified)
+
+- [x] Document private single-owner operation and add loopback-only local launcher
