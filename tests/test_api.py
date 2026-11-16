@@ -138,7 +138,7 @@ def test_api_canonicalizes_case_tracking_and_trailing_slash(client):
     assert duplicate.status_code == 409
 
 
-def test_discover_uses_free_mwmbl_when_no_keys_are_configured(client, monkeypatch):
+def test_discover_uses_mwmbl_adapter_when_no_keys_are_configured(client, monkeypatch):
     from app import main
     from autoearn.opportunities import SearchResult
 
@@ -289,6 +289,9 @@ def test_discovery_candidate_human_review_is_persisted_but_not_verified(client, 
     assert response.json()["verified"] is False
     assert response.json()["review_required"] is True
     assert client.get("/api/discoveries").json()[0]["review_status"] == "accepted"
+    # Accepting a candidate is a triage decision only; it must not silently
+    # activate the candidate as a vetted opportunity.
+    assert client.get("/api/opportunities").json() == []
 
 
 def test_discovery_review_validates_status_and_candidate_id(client):
