@@ -62,6 +62,9 @@ def init_db() -> None:
             confidence INTEGER NOT NULL CHECK(confidence BETWEEN 0 AND 100),
             signals_json TEXT NOT NULL DEFAULT '[]',
             review_required INTEGER NOT NULL DEFAULT 1,
+            review_status TEXT NOT NULL DEFAULT 'pending' CHECK(review_status IN ('pending', 'accepted', 'rejected')),
+            reviewed_at TEXT,
+            review_note TEXT NOT NULL DEFAULT '',
             created_at TEXT NOT NULL
         );
         CREATE TABLE IF NOT EXISTS tasks (
@@ -83,6 +86,14 @@ def init_db() -> None:
             created_at TEXT NOT NULL
         );
         """)
+        # Additive migration for databases created by earlier discovery builds.
+        candidate_columns = {row["name"] for row in db.execute("PRAGMA table_info(discovered_candidates)")}
+        if "review_status" not in candidate_columns:
+            db.execute("ALTER TABLE discovered_candidates ADD COLUMN review_status TEXT NOT NULL DEFAULT 'pending'")
+        if "reviewed_at" not in candidate_columns:
+            db.execute("ALTER TABLE discovered_candidates ADD COLUMN reviewed_at TEXT")
+        if "review_note" not in candidate_columns:
+            db.execute("ALTER TABLE discovered_candidates ADD COLUMN review_note TEXT NOT NULL DEFAULT ''")
 
 
 @asynccontextmanager
@@ -103,6 +114,11 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 class DiscoverIn(BaseModel):
     query: str = Field(min_length=1, max_length=300)
     limit: int = Field(default=10, ge=1, le=20)
+
+
+class CandidateReviewIn(BaseModel):
+    status: Literal["accepted", "rejected"]
+    note: str = Field(default="", max_length=1000)
 
 
 class OpportunityIn(BaseModel):
@@ -217,10 +233,31 @@ def list_discoveries():
             "confidence": row["confidence"],
             "signals": json.loads(row["signals_json"]),
             "review_required": bool(row["review_required"]),
+            "review_status": row["review_status"],
+            "reviewed_at": row["reviewed_at"],
+            "review_note": row["review_note"],
             "verified": False,
         }
         for row in rows
     ]
+
+
+@app.patch("/api/discoveries/{candidate_id}/review")
+def review_discovery(candidate_id: int, data: CandidateReviewIn):
+    """Record a human triage decision without verifying or activating a candidate."""
+    with connect() as db:
+        if not db.execute("SELECT id FROM discovered_candidates WHERE id = ?", (candidate_id,)).fetchone():
+            raise HTTPException(404, "Discovered candidate not found")
+        db.execute(
+            "UPDATE discovered_candidates SET review_status = ?, reviewed_at = ?, review_note = ? WHERE id = ?",
+            (data.status, now(), data.note.strip(), candidate_id),
+        )
+        row = db.execute("SELECT * FROM discovered_candidates WHERE id = ?", (candidate_id,)).fetchone()
+    result = row_dict(row)
+    result["signals"] = json.loads(result.pop("signals_json"))
+    result["review_required"] = bool(result["review_required"])
+    result["verified"] = False
+    return result
 
 
 @app.get("/api/opportunities")
