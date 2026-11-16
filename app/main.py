@@ -134,6 +134,12 @@ def row_dict(row: sqlite3.Row) -> dict:
     return dict(row)
 
 
+def normalize_url(value: str) -> str:
+    parsed = urlparse(value.strip())
+    path = parsed.path.rstrip("/") or "/"
+    return urlunparse((parsed.scheme.lower(), parsed.netloc.lower(), path, "", parsed.query, ""))
+
+
 def safe_url(value: str) -> bool:
     parsed = urlparse(value)
     return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
@@ -179,10 +185,11 @@ def create_opportunity(data: OpportunityIn):
     payload["automation_eligibility"] = derive_automation_eligibility(
         payload["automation_policy"], payload["captcha_required"], payload["opportunity_category"]
     )
-    score = 0
+    score = 20
     score += 25 if payload["terms_url"] else 0
     score += 20 if payload["eligibility"] else 0
     score += 15 if payload["reward_description"] else 0
+    score += 20 if payload["notes"] else 0
     with connect() as db:
         existing = db.execute("SELECT id FROM opportunities WHERE url = ?", (payload["url"],)).fetchone()
         if existing:
