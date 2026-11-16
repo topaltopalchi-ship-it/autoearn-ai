@@ -22,7 +22,16 @@ from autoearn.risk import RiskSignals, assess_risk
 from autoearn.ranking import RankingInput, rank_opportunity, rank_discovery_candidate
 from pydantic import BaseModel, Field, HttpUrl
 
-from app.auth import COOKIE_NAME, configured as auth_configured, issue_session, valid_session, verify_password
+from app.auth import (
+    COOKIE_NAME,
+    clear_login_failures,
+    configured as auth_configured,
+    issue_session,
+    login_retry_after,
+    record_login_failure,
+    valid_session,
+    verify_password,
+)
 from app import vault as credential_vault
 from app.vault import VaultError
 
@@ -291,11 +300,21 @@ def auth_status(request: Request):
 
 
 @app.post("/api/auth/login")
-def auth_login(data: LoginIn, response: Response):
+def auth_login(data: LoginIn, request: Request, response: Response):
     if not auth_configured():
         raise HTTPException(503, "Owner authentication is not configured.")
+    client_key = request.client.host if request.client else "unknown"
+    retry_after = login_retry_after(client_key)
+    if retry_after:
+        raise HTTPException(
+            429,
+            "تعداد تلاش‌های ورود بیش از حد مجاز است. کمی بعد دوباره تلاش کنید.",
+            headers={"Retry-After": str(retry_after)},
+        )
     if not verify_password(data.password):
+        record_login_failure(client_key)
         raise HTTPException(401, "رمز ورود نادرست است.")
+    clear_login_failures(client_key)
     response.set_cookie(
         COOKIE_NAME,
         issue_session(),
