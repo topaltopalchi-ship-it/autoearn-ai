@@ -220,8 +220,9 @@ def discover(data: DiscoverIn):
     brave_key = os.getenv("BRAVE_SEARCH_API_KEY", "").strip()
     mwmbl_key = os.getenv("MWMBL_API_KEY", "").strip()
     try:
-        # Prefer Brave when explicitly configured; otherwise use Mwmbl's
-        # anonymous free tier (1,000 requests/month, 1 request/second).
+        # Prefer Brave when explicitly configured; otherwise use the Mwmbl
+        # adapter. Availability, authentication requirements, and usage limits
+        # must be verified against the provider's current documentation.
         provider = BraveSearchProvider(brave_key) if brave_key else MwmblSearchProvider(api_key=mwmbl_key or None)
         expanded_query = expand_discovery_query(data.query, data.category)
         results = discover_opportunities(
