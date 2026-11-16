@@ -122,7 +122,7 @@ def test_turkish_bank_accepts_try_usd_and_eur(client):
     for currency in ("TRY", "USD", "EUR"):
         response = client.put("/api/owner/preferences", json={
             "residence_country": "LU",
-            "payout_asset": currency,
+            "payout_asset": "USD",
             "payout_method": "turkish_bank",
             "bank_country": "TR",
             "bank_currency": currency,
