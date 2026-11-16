@@ -13,7 +13,7 @@ _AMOUNT_RE = re.compile(
     re.IGNORECASE,
 )
 _AGE_PATTERNS = (
-    re.compile(r"\b(?:18|19|21)\s*\+(?!\d)", re.IGNORECASE),
+    re.compile(r"\b(18|19|21)\s*\+(?!\d)", re.IGNORECASE),
     re.compile(r"\b(?:at least|minimum age(?: of)?)\s*(18|19|21)\s*(?:years? old)?\b", re.IGNORECASE),
 )
 _TERMS_RE = re.compile(r"\b(terms(?: and conditions)?|conditions|official rules|eligibility rules)\b", re.I)
