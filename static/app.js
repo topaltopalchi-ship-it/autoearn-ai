@@ -192,7 +192,17 @@ async function loadVault(){
   try{
     const rows=await api("/api/vault/credentials");
     root.className="";
-    root.innerHTML=rows.length?rows.map(row=>'<div class="item"><div><h3>'+esc(row.label)+' <span class="pill">'+esc(row.credential_type)+'</span></h3><p>'+esc(row.provider)+' · ذخیره‌شده به‌صورت رمزگذاری‌شده · '+esc(row.updated_at)+'</p></div><div class="item-actions"><button class="secondary" data-vault-delete="'+row.id+'">حذف</button></div></div>').join(""):'<div class="empty">هنوز کلیدی ذخیره نشده است.</div>';
+    root.innerHTML=rows.length?rows.map(row=>'<div class="item"><div><h3>'+esc(row.label)+' <span class="pill">'+esc(row.credential_type)+'</span></h3><p>'+esc(row.provider)+' · ذخیره‌شده به‌صورت رمزگذاری‌شده · '+esc(row.updated_at)+'</p></div><div class="item-actions"><button class="secondary" data-vault-update="'+row.id+'">جایگزینی کلید</button><button class="secondary" data-vault-delete="'+row.id+'">حذف</button></div></div>').join(""):'<div class="empty">هنوز کلیدی ذخیره نشده است.</div>';
+    root.querySelectorAll("[data-vault-update]").forEach(button=>button.onclick=async()=>{
+      const secret=prompt("مقدار جدید را وارد کنید. مقدار قبلی قابل بازیابی از داشبورد نیست:");
+      if(!secret)return;
+      const passphrase=prompt("عبارت اصلی خزانه را وارد کنید:");
+      if(!passphrase)return;
+      try{
+        await api("/api/vault/credentials/"+button.dataset.vaultUpdate,{method:"PUT",body:JSON.stringify({secret,passphrase})});
+        toast("کلید جایگزین شد.");await loadVault();
+      }catch(error){toast(error.message)}
+    });
     root.querySelectorAll("[data-vault-delete]").forEach(button=>button.onclick=async()=>{
       const passphrase=prompt("برای حذف، عبارت اصلی خزانه را وارد کنید:");
       if(!passphrase)return;
