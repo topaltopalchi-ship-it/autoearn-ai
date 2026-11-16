@@ -85,3 +85,177 @@ def score_opportunity(opportunity: Opportunity) -> dict[str, object]:
         "reasons": reasons,
         "disclaimer": "Estimate based only on supplied metadata; verify platform terms and eligibility yourself.",
     }
+
+
+# Provider-agnostic discovery primitives. Search adapters supply metadata; this
+# module never fetches arbitrary destination URLs or performs platform activity.
+import ipaddress
+import re
+from datetime import datetime, timezone
+from typing import Iterable, Protocol
+from urllib.parse import urlsplit
+
+
+@dataclass(frozen=True)
+class SearchResult:
+    title: str
+    url: str
+    snippet: str = ""
+    provider: str = "unspecified"
+
+
+class SearchProvider(Protocol):
+    def search(self, query: str, limit: int = 10) -> Iterable[SearchResult | dict]:
+        """Return search results without visiting their destination pages."""
+        ...
+
+
+@dataclass(frozen=True)
+class DiscoveredOpportunity:
+    title: str
+    url: str
+    snippet: str
+    provider: str
+    domain: str
+    discovered_at: str
+    confidence: int
+    signals: tuple[str, ...]
+    review_required: bool = True
+
+
+_REWARD_TERMS = re.compile(
+    r"\b(rewards?|earn|cashback|points|prize|payout|gift card|bounty|incentive)\b", re.I
+)
+_TERMS_TERMS = re.compile(r"\b(terms|conditions|eligibility|rules|policy)\b", re.I)
+_ELIGIBILITY_TERMS = re.compile(
+    r"\b(eligible|eligibility|region|country|residents|age\s+\d+)\b", re.I
+)
+
+
+def _is_public_host(host: str) -> bool:
+    host = host.strip("[]").lower().rstrip(".")
+    if host == "localhost" or host.endswith(".localhost"):
+        return False
+    try:
+        return ipaddress.ip_address(host).is_global
+    except ValueError:
+        return True
+
+
+def _coerce_search_result(value: SearchResult | dict) -> SearchResult:
+    if isinstance(value, SearchResult):
+        item = value
+    elif isinstance(value, dict):
+        item = SearchResult(
+            title=str(value.get("title", "")).strip(),
+            url=str(value.get("url", "")).strip(),
+            snippet=str(value.get("snippet", "")).strip(),
+            provider=str(value.get("provider", "unspecified")).strip() or "unspecified",
+        )
+    else:
+        raise ValueError("unsupported search result")
+    if not item.title or len(item.title) > 300:
+        raise ValueError("search result title must contain 1 to 300 characters")
+    if len(item.snippet) > 2000 or len(item.provider) > 100:
+        raise ValueError("search result metadata is too long")
+    canonical = normalize_url(item.url)
+    host = urlsplit(canonical).hostname or ""
+    if not _is_public_host(host):
+        raise ValueError("local and private network URLs are not accepted")
+    return SearchResult(item.title, canonical, item.snippet, item.provider)
+
+
+def analyze_search_result(item: SearchResult) -> DiscoveredOpportunity:
+    """Extract weak textual signals; they are not proof of legitimacy."""
+    parsed = urlsplit(item.url)
+    text = item.title + " " + item.snippet
+    signals = []
+    if parsed.scheme == "https":
+        signals.append("https_transport")
+    if _TERMS_TERMS.search(text):
+        signals.append("terms_or_rules_mentioned")
+    if _REWARD_TERMS.search(text):
+        signals.append("reward_language_found")
+    if _ELIGIBILITY_TERMS.search(text):
+        signals.append("eligibility_language_found")
+    return DiscoveredOpportunity(
+        title=item.title,
+        url=item.url,
+        snippet=item.snippet,
+        provider=item.provider,
+        domain=(parsed.hostname or "").lower(),
+        discovered_at=datetime.now(timezone.utc).isoformat(),
+        confidence=min(100, 15 + 15 * len(signals)),
+        signals=tuple(signals),
+    )
+
+
+def discover_opportunities(
+    query: str, provider: SearchProvider, limit: int = 10
+) -> list[DiscoveredOpportunity]:
+    """Validate, canonicalize, deduplicate and triage a provider result batch."""
+    cleaned = " ".join(query.split()) if isinstance(query, str) else ""
+    if not cleaned or len(cleaned) > 300:
+        raise ValueError("query must contain 1 to 300 characters")
+    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 50:
+        raise ValueError("limit must be an integer from 1 to 50")
+
+    output = []
+    seen = set()
+    for raw in provider.search(cleaned, limit=limit):
+        try:
+            item = _coerce_search_result(raw)
+        except (TypeError, ValueError):
+            # Isolate malformed rows; retain valid results from the same batch.
+            continue
+        if item.url in seen:
+            continue
+        seen.add(item.url)
+        output.append(analyze_search_result(item))
+        if len(output) == limit:
+            break
+    return output
+
+
+class BraveSearchProvider:
+    """Brave Search API adapter. Requires an API token; calls only Brave's fixed endpoint."""
+
+    endpoint = "https://api.search.brave.com/res/v1/web/search"
+
+    def __init__(self, api_key: str, timeout: float = 8.0):
+        if not api_key or not api_key.strip():
+            raise ValueError("Brave Search API key is required")
+        self.api_key = api_key.strip()
+        self.timeout = timeout
+
+    def search(self, query: str, limit: int = 10) -> list[SearchResult]:
+        import json
+        from urllib.error import HTTPError, URLError
+        from urllib.parse import urlencode
+        from urllib.request import Request, urlopen
+
+        request = Request(
+            self.endpoint + "?" + urlencode({"q": query, "count": limit}),
+            headers={
+                "Accept": "application/json",
+                "X-Subscription-Token": self.api_key,
+                "User-Agent": "AutoEarnAI/0.1",
+            },
+        )
+        try:
+            with urlopen(request, timeout=self.timeout) as response:
+                payload = json.loads(response.read(2_000_000).decode("utf-8"))
+        except (HTTPError, URLError, TimeoutError, ValueError) as exc:
+            raise RuntimeError("Search provider request failed") from exc
+
+        rows = payload.get("web", {}).get("results", [])
+        return [
+            SearchResult(
+                title=str(row.get("title", "")),
+                url=str(row.get("url", "")),
+                snippet=str(row.get("description", ""))[:2000],
+                provider="brave",
+            )
+            for row in rows[:limit]
+            if isinstance(row, dict)
+        ]

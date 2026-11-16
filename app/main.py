@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import ipaddress
+import json
 import os
 import sqlite3
 from contextlib import asynccontextmanager
@@ -11,6 +13,12 @@ from urllib.parse import urlparse, urlunparse
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+
+from autoearn.opportunities import BraveSearchProvider, discover_opportunities, normalize_url
+from autoearn.mwmbl import MwmblSearchProvider
+from autoearn.extraction import extract_opportunity_details
+from autoearn.catalog import CATEGORY_LABELS, expand_discovery_query
+from autoearn.risk import RiskSignals, assess_risk
 from pydantic import BaseModel, Field, HttpUrl
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -48,6 +56,24 @@ def init_db() -> None:
             created_at TEXT NOT NULL
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_opportunities_url ON opportunities(url);
+        CREATE TABLE IF NOT EXISTS discovered_candidates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            canonical_url TEXT NOT NULL UNIQUE,
+            snippet TEXT NOT NULL DEFAULT '',
+            provider TEXT NOT NULL,
+            domain TEXT NOT NULL,
+            category TEXT NOT NULL DEFAULT 'all',
+            discovered_at TEXT NOT NULL,
+            confidence INTEGER NOT NULL CHECK(confidence BETWEEN 0 AND 100),
+            signals_json TEXT NOT NULL DEFAULT '[]',
+            review_required INTEGER NOT NULL DEFAULT 1,
+            review_status TEXT NOT NULL DEFAULT 'pending' CHECK(review_status IN ('pending', 'accepted', 'rejected')),
+            reviewed_at TEXT,
+            review_note TEXT NOT NULL DEFAULT '',
+            extraction_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             opportunity_id INTEGER NOT NULL REFERENCES opportunities(id) ON DELETE CASCADE,
@@ -67,6 +93,18 @@ def init_db() -> None:
             created_at TEXT NOT NULL
         );
         """)
+        # Additive migration for databases created by earlier discovery builds.
+        candidate_columns = {row["name"] for row in db.execute("PRAGMA table_info(discovered_candidates)")}
+        if "review_status" not in candidate_columns:
+            db.execute("ALTER TABLE discovered_candidates ADD COLUMN review_status TEXT NOT NULL DEFAULT 'pending'")
+        if "reviewed_at" not in candidate_columns:
+            db.execute("ALTER TABLE discovered_candidates ADD COLUMN reviewed_at TEXT")
+        if "review_note" not in candidate_columns:
+            db.execute("ALTER TABLE discovered_candidates ADD COLUMN review_note TEXT NOT NULL DEFAULT ''")
+        if "extraction_json" not in candidate_columns:
+            db.execute("ALTER TABLE discovered_candidates ADD COLUMN extraction_json TEXT NOT NULL DEFAULT '{}'")
+        if "category" not in candidate_columns:
+            db.execute("ALTER TABLE discovered_candidates ADD COLUMN category TEXT NOT NULL DEFAULT 'all'")
 
 
 @asynccontextmanager
@@ -82,6 +120,34 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+class DiscoverIn(BaseModel):
+    query: str = Field(min_length=1, max_length=220)
+    category: Literal["all", "games", "surveys", "user_testing", "microtasks", "freelance", "cashback", "affiliate", "creator", "tutoring", "digital_products", "research", "bug_bounty"] = "all"
+    limit: int = Field(default=10, ge=1, le=20)
+
+
+class RiskAssessmentIn(BaseModel):
+    upfront_payment: bool = False
+    deposit_or_top_up: bool = False
+    guaranteed_high_returns: bool = False
+    referral_required_to_withdraw: bool = False
+    unclear_or_missing_terms: bool = False
+    missing_payout_threshold: bool = False
+    crypto_only_payout: bool = False
+    requests_sensitive_data_early: bool = False
+    asks_to_move_off_platform: bool = False
+    unrealistic_time_pressure: bool = False
+
+
+class CandidateReviewIn(BaseModel):
+    status: Literal["accepted", "rejected"]
+    note: str = Field(default="", max_length=1000)
+
+
+class CandidateExtractIn(BaseModel):
+    page_text: str = Field(min_length=1, max_length=20000)
 
 
 class OpportunityIn(BaseModel):
@@ -113,8 +179,20 @@ def row_dict(row: sqlite3.Row) -> dict:
 
 
 def safe_url(value: str) -> bool:
-    parsed = urlparse(value)
-    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+    """Accept canonical public HTTP(S) URLs; reject credentials and local IP hosts."""
+    try:
+        canonical = normalize_url(value)
+    except (TypeError, ValueError):
+        return False
+    host = (urlparse(canonical).hostname or "").lower().rstrip(".")
+    if not host or host == "localhost" or host.endswith(".localhost"):
+        return False
+    try:
+        return ipaddress.ip_address(host).is_global
+    except ValueError:
+        # Opportunity metadata is never fetched server-side; domain names are
+        # retained as links for manual review, not used as network destinations.
+        return True
 
 
 @app.get("/", include_in_schema=False)
@@ -122,9 +200,138 @@ def home():
     return FileResponse(STATIC_DIR / "index.html")
 
 
+@app.get("/api/discovery-categories")
+def discovery_categories():
+    return [{"id": key, "label": label} for key, label in CATEGORY_LABELS.items()]
+
+
+@app.post("/api/risk-assessments")
+def risk_assessment(data: RiskAssessmentIn):
+    return assess_risk(RiskSignals(**data.model_dump()))
+
+
 @app.get("/api/health")
 def health():
     return {"status": "ok", "service": "AutoEarn AI", "version": app.version}
+
+
+@app.post("/api/discover")
+def discover(data: DiscoverIn):
+    brave_key = os.getenv("BRAVE_SEARCH_API_KEY", "").strip()
+    mwmbl_key = os.getenv("MWMBL_API_KEY", "").strip()
+    try:
+        # Prefer Brave when explicitly configured; otherwise use Mwmbl's
+        # anonymous free tier (1,000 requests/month, 1 request/second).
+        provider = BraveSearchProvider(brave_key) if brave_key else MwmblSearchProvider(api_key=mwmbl_key or None)
+        expanded_query = expand_discovery_query(data.query, data.category)
+        results = discover_opportunities(
+            expanded_query,
+            provider,
+            limit=data.limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(502, "The search provider is temporarily unavailable.") from exc
+
+    saved = []
+    with connect() as db:
+        for item in results:
+            cursor = db.execute(
+                """
+                INSERT OR IGNORE INTO discovered_candidates
+                (title, canonical_url, snippet, provider, domain, category, discovered_at,
+                 confidence, signals_json, review_required, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+                """,
+                (
+                    item.title, item.url, item.snippet, item.provider, item.domain, data.category,
+                    item.discovered_at, item.confidence, json.dumps(list(item.signals)), now(),
+                ),
+            )
+            row = db.execute(
+                "SELECT * FROM discovered_candidates WHERE canonical_url = ?", (item.url,)
+            ).fetchone()
+            saved.append({
+                "id": row["id"],
+                "title": row["title"],
+                "url": row["canonical_url"],
+                "snippet": row["snippet"],
+                "provider": row["provider"],
+                "domain": row["domain"],
+                "category": row["category"],
+                "discovered_at": row["discovered_at"],
+                "confidence": row["confidence"],
+                "signals": json.loads(row["signals_json"]),
+                "review_required": bool(row["review_required"]),
+                "verified": False,
+                "is_new": cursor.rowcount == 1,
+            })
+    return saved
+
+
+@app.get("/api/discoveries")
+def list_discoveries():
+    with connect() as db:
+        rows = db.execute(
+            "SELECT * FROM discovered_candidates ORDER BY created_at DESC, id DESC"
+        ).fetchall()
+    return [
+        {
+            "id": row["id"],
+            "title": row["title"],
+            "url": row["canonical_url"],
+            "snippet": row["snippet"],
+            "provider": row["provider"],
+            "domain": row["domain"],
+            "category": row["category"],
+            "discovered_at": row["discovered_at"],
+            "confidence": row["confidence"],
+            "signals": json.loads(row["signals_json"]),
+            "review_required": bool(row["review_required"]),
+            "review_status": row["review_status"],
+            "reviewed_at": row["reviewed_at"],
+            "review_note": row["review_note"],
+            "extraction": json.loads(row["extraction_json"]),
+            "verified": False,
+        }
+        for row in rows
+    ]
+
+
+@app.post("/api/discoveries/{candidate_id}/extract")
+def extract_discovery(candidate_id: int, data: CandidateExtractIn):
+    """Analyze user-supplied page text; this endpoint never fetches the URL."""
+    try:
+        extracted = extract_opportunity_details(data.page_text)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    with connect() as db:
+        if not db.execute("SELECT id FROM discovered_candidates WHERE id = ?", (candidate_id,)).fetchone():
+            raise HTTPException(404, "Discovered candidate not found")
+        db.execute(
+            "UPDATE discovered_candidates SET extraction_json = ? WHERE id = ?",
+            (json.dumps(extracted), candidate_id),
+        )
+    return {"candidate_id": candidate_id, "extraction": extracted}
+
+
+@app.patch("/api/discoveries/{candidate_id}/review")
+def review_discovery(candidate_id: int, data: CandidateReviewIn):
+    """Record a human triage decision without verifying or activating a candidate."""
+    with connect() as db:
+        if not db.execute("SELECT id FROM discovered_candidates WHERE id = ?", (candidate_id,)).fetchone():
+            raise HTTPException(404, "Discovered candidate not found")
+        db.execute(
+            "UPDATE discovered_candidates SET review_status = ?, reviewed_at = ?, review_note = ? WHERE id = ?",
+            (data.status, now(), data.note.strip(), candidate_id),
+        )
+        row = db.execute("SELECT * FROM discovered_candidates WHERE id = ?", (candidate_id,)).fetchone()
+    result = row_dict(row)
+    result["signals"] = json.loads(result.pop("signals_json"))
+    result["review_required"] = bool(result["review_required"])
+    result["verified"] = False
+    return result
 
 
 @app.get("/api/opportunities")
@@ -152,10 +359,12 @@ def create_opportunity(data: OpportunityIn):
         raise HTTPException(422, "Only public http/https opportunity URLs are accepted.")
     if payload["terms_url"] and not safe_url(payload["terms_url"]):
         raise HTTPException(422, "Terms URL must be an http/https URL.")
-    score = 0
+    # Completeness score for the API record (0-100), not a legitimacy guarantee.
+    score = 20  # Required title and platform fields are present.
     score += 25 if payload["terms_url"] else 0
     score += 20 if payload["eligibility"] else 0
     score += 15 if payload["reward_description"] else 0
+    score += 20 if payload["notes"] else 0
     with connect() as db:
         existing = db.execute("SELECT id FROM opportunities WHERE url = ?", (payload["url"],)).fetchone()
         if existing:
