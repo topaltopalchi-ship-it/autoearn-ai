@@ -47,7 +47,21 @@
     ["Unexpected server response","پاسخ غیرمنتظره از سرور"],["Request failed","درخواست ناموفق بود"],
     ["AutoEarn AI · MVP 0.1 · No earnings are guaranteed. Always follow each platform’s terms.","AutoEarn AI · نسخه اولیه ۰.۱ · هیچ درآمدی تضمین‌شده نیست. همواره قوانین هر پلتفرم را رعایت کنید."]
   ];
+  const exactTranslations = new Map([
+    ["all","همه"],["games","بازی‌ها"],["surveys","نظرسنجی‌ها"],
+    ["user_testing","آزمایش کاربری"],["microtasks","کارهای خرد"],
+    ["freelance","آزادکاری"],["cashback","بازگشت وجه"],["affiliate","همکاری در فروش"],
+    ["creator","تولید محتوا"],["tutoring","تدریس"],["digital_products","محصولات دیجیتال"],
+    ["research","پژوهش"],["bug_bounty","پاداش کشف آسیب‌پذیری"],
+    ["pending_approval","در انتظار تأیید"],["approved","تأییدشده"],["completed","تکمیل‌شده"],
+    ["cancelled","لغوشده"],["discovered","کشف‌شده"],["reviewing","در حال بررسی"],
+    ["eligible","واجد شرایط"],["ineligible","فاقد شرایط"],["archived","بایگانی‌شده"],
+    ["pending","در انتظار"],["confirmed","تأییدشده"],["paid","پرداخت‌شده"],["rejected","ردشده"],
+    ["game","بازی"],["mobile","اپلیکیشن موبایل"],["skill","مهارت / رقابت"],
+    ["survey","نظرسنجی / پیشنهاد"],["other","سایر"]
+  ]);
   const translate = value => {
+    if (exactTranslations.has(value.trim())) return exactTranslations.get(value.trim());
     let out = value;
     for (const [en, fa] of replacements) out = out.split(en).join(fa);
     return out;
