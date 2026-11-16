@@ -20,3 +20,16 @@ html[dir="rtl"] dialog,html[dir="rtl"] input,html[dir="rtl"] select,html[dir="rt
 html[dir="rtl"] #toast{right:auto;left:22px}
 html[dir="rtl"] footer{text-align:center}
 @media(max-width:850px){html[dir="rtl"] .sidebar{position:static;width:auto;height:auto;border-left:0}html[dir="rtl"] main{margin:0}}
+
+/* Explainable risk checklist */
+.risk-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:16px 0}
+.risk-option{display:flex;align-items:flex-start;gap:9px;padding:12px;background:#0d1628;border:1px solid #26344d;border-radius:9px;color:#c4cee1;font-size:12px;line-height:1.6}
+.risk-option input{width:auto;min-width:16px;margin:2px 0 0;accent-color:#8b7cf6}
+.risk-form button{grid-column:1/-1;justify-self:start}
+.risk-result{padding:17px;background:#0d1628;border:1px solid #35435e;border-radius:10px;color:#cbd5e7;font-size:12px;line-height:1.8}
+.risk-score{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.risk-score strong{font-size:25px;color:#fff}
+.risk-score span{font-weight:700}
+.risk-result ul{margin:8px 0;padding-right:22px}
+.risk-warning{color:#f1c77b;border-top:1px solid #35435e;padding-top:10px;margin-bottom:0}
+@media(max-width:700px){.risk-form{grid-template-columns:1fr}.risk-form button{width:100%}}
