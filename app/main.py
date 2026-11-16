@@ -11,6 +11,8 @@ from urllib.parse import urlparse, urlunparse
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+
+from autoearn.opportunities import normalize_url
 from pydantic import BaseModel, Field, HttpUrl
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -152,10 +154,12 @@ def create_opportunity(data: OpportunityIn):
         raise HTTPException(422, "Only public http/https opportunity URLs are accepted.")
     if payload["terms_url"] and not safe_url(payload["terms_url"]):
         raise HTTPException(422, "Terms URL must be an http/https URL.")
-    score = 0
+    # Completeness score for the API record (0-100), not a legitimacy guarantee.
+    score = 20  # Required title and platform fields are present.
     score += 25 if payload["terms_url"] else 0
     score += 20 if payload["eligibility"] else 0
     score += 15 if payload["reward_description"] else 0
+    score += 20 if payload["notes"] else 0
     with connect() as db:
         existing = db.execute("SELECT id FROM opportunities WHERE url = ?", (payload["url"],)).fetchone()
         if existing:
