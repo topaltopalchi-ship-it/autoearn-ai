@@ -17,6 +17,7 @@ from app.policy import derive_automation_eligibility
 from app.game_engine import authorize_game_strategy, solve_target_number
 from app.game_benchmark import run_target_number_benchmark
 from app.game_training import run_offline_practice
+from app.memory_game import run_memory_practice
 from app.deduction_games import filter_word_candidates, solve_mastermind
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -385,6 +386,15 @@ def offline_game_practice(rounds: int = Query(default=10, ge=1, le=10)):
     """Automatically play bundled practice puzzles locally; never joins a real contest."""
     try:
         return run_offline_practice(rounds)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@app.get("/api/games/memory-practice")
+def offline_memory_practice(rounds: int = Query(default=6, ge=1, le=6)):
+    """Run bundled memory sequences locally; no third-party game is accessed."""
+    try:
+        return run_memory_practice(rounds)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
 

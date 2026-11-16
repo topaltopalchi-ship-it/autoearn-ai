@@ -92,3 +92,17 @@ def test_offline_practice_endpoint_runs_without_opportunity_or_external_actions(
 def test_offline_practice_endpoint_bounds_round_count():
     with TestClient(app) as client:
         assert client.get("/api/games/practice?rounds=11").status_code == 422
+
+
+
+def test_memory_practice_endpoint_is_local_and_bounded():
+    with TestClient(app) as client:
+        response = client.get("/api/games/memory-practice?rounds=3")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["mode"] == "offline_memory_practice"
+        assert payload["rounds"] == 3
+        assert payload["external_actions"] == 0
+        assert payload["site_played"] is False
+        assert payload["prize_or_earnings"] == 0
+        assert client.get("/api/games/memory-practice?rounds=7").status_code == 422
