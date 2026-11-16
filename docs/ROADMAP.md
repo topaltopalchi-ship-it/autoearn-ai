@@ -29,3 +29,5 @@ AutoEarn AI is an assisted, human-in-the-loop workspace for finding and evaluati
 - Platform eligibility and terms vary by country and change over time.
 - The MVP does not crawl the internet or play games autonomously.
 - Do not enter passwords, payment details, identity documents, or API secrets into opportunity notes.
+
+- [x] Evidence-based discovery review-priority queue (separate from income ranking; candidates remain unverified)
