@@ -5,7 +5,7 @@ const api = async (path, options={}) => {
   if (!response.ok) throw new Error(body.detail || "Request failed");
   return body;
 };
-const money = (n,c="USD") => new Intl.NumberFormat(undefined,{style:"currency",currency:c}).format(n);
+const money = (n,c="USD") => new Intl.NumberFormat("fa-IR",{style:"currency",currency:c}).format(n);
 function toast(message){const el=$("toast");el.textContent=message;el.classList.add("show");setTimeout(()=>el.classList.remove("show"),2600)}
 function esc(s=""){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 let opportunities=[];
