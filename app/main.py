@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse, urlunparse
 
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from autoearn.opportunities import BraveSearchProvider, discover_opportunities, normalize_url
@@ -144,6 +144,23 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+@app.middleware("http")
+async def enforce_loopback_only(request: Request, call_next):
+    """Reject requests whose TCP peer is not a loopback IP address."""
+    peer = request.client.host if request.client else ""
+    try:
+        is_loopback = ipaddress.ip_address(peer).is_loopback
+    except ValueError:
+        is_loopback = False
+    if not is_loopback:
+        return JSONResponse(
+            status_code=403,
+            content={"detail": "This personal app only accepts loopback connections."},
+        )
+    return await call_next(request)
+
 
 
 class DiscoverIn(BaseModel):
