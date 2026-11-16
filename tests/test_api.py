@@ -49,6 +49,47 @@ def opportunity(client):
     return response.json()
 
 
+
+def test_owner_preferences_use_self_declared_country_and_crypto_wallet(client):
+    response = client.put("/api/owner/preferences", json={
+        "residence_country": "LU",
+        "payout_asset": "BTC",
+        "payout_method": "crypto",
+        "wallet_address": "bc1qexamplepublicwalletaddress123456789",
+        "wallet_network": "BITCOIN",
+    })
+    assert response.status_code == 200
+    saved = response.json()
+    assert saved["residence_country"] == "LU"
+    assert saved["country_source"] == "self_declared"
+    assert saved["payout_asset"] == "BTC"
+    assert saved["payout_method"] == "crypto"
+    assert saved["wallet_network"] == "BITCOIN"
+    assert client.get("/api/owner/preferences").json() == saved
+
+
+def test_crypto_payout_requires_public_address_and_network(client):
+    response = client.put("/api/owner/preferences", json={
+        "residence_country": "LU",
+        "payout_asset": "USDT",
+        "payout_method": "crypto",
+        "wallet_address": "",
+        "wallet_network": "",
+    })
+    assert response.status_code == 422
+
+
+def test_non_crypto_payout_rejects_wallet_fields(client):
+    response = client.put("/api/owner/preferences", json={
+        "residence_country": "LU",
+        "payout_asset": "USD",
+        "payout_method": "bank",
+        "wallet_address": "bc1qexamplepublicwalletaddress123456789",
+        "wallet_network": "BITCOIN",
+    })
+    assert response.status_code == 422
+
+
 def test_health(client):
     assert client.get("/api/health").json()["status"] == "ok"
 
