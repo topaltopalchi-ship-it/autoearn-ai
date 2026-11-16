@@ -544,6 +544,9 @@ def get_owner_preferences():
         "payout_method": "none",
         "wallet_address": "",
         "wallet_network": "",
+        "card_network": "",
+        "bank_country": "",
+        "bank_currency": "",
         "updated_at": None,
     }
 
