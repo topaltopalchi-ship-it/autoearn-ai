@@ -177,6 +177,7 @@ class MastermindIn(BaseModel):
 
 
 class StrategyRecommendIn(BaseModel):
+    game_type: str | None = Field(default=None, max_length=40)
     candidates: list[str] = Field(min_length=1, max_length=20)
     history: list[dict] = Field(default_factory=list, max_length=5000)
     exploration: float = Field(default=2.0, ge=0, le=5)
