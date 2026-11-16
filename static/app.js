@@ -70,6 +70,44 @@ $("reward-form").onsubmit=async e=>{e.preventDefault();const data=Object.fromEnt
 $("search").oninput=renderOpportunities;$("filter").onchange=renderOpportunities;
 $("ranking-country").onchange=()=>refresh().catch(err=>toast(err.message));
 
+const economicsForm=$("economics-form");
+if(economicsForm){
+  economicsForm.onsubmit=async event=>{
+    event.preventDefault();
+    const button=economicsForm.querySelector('button[type="submit"]');
+    const result=$("economics-result");
+    const payload=Object.fromEntries(new FormData(economicsForm));
+    for(const key of ["gross_reward","estimated_hours","estimated_cost","fee_percent","flat_fee"]){
+      payload[key]=Number(payload[key]||0);
+    }
+    payload.currency=String(payload.currency||"EUR").trim().toUpperCase();
+    payload.cost_currency=payload.currency;
+    payload.target_hourly_rate=payload.target_hourly_rate===""?null:Number(payload.target_hourly_rate);
+    button.disabled=true;
+    result.className="empty";
+    result.textContent="در حال محاسبه…";
+    try{
+      const data=await api("/api/opportunities/evaluate",{
+        method:"POST",body:JSON.stringify(payload)
+      });
+      const status=data.assessment==="positive"?"سود مثبت":data.assessment==="break_even"?"سر به سر":"زیان تخمینی";
+      const target=data.target_met===null?"":'<p>رسیدن به درآمد هدف: <strong>'+(data.target_met?"بله":"خیر")+'</strong></p>';
+      const threshold=data.minimum_gross_reward_for_target===null?"":'<p>پاداش ناخالص لازم برای رسیدن به هدف: <strong>'+money(data.minimum_gross_reward_for_target,data.currency)+'</strong></p>';
+      result.className="risk-result";
+      result.innerHTML='<div class="risk-score"><strong>'+money(data.estimated_net,data.currency)+'</strong><span>'+status+'</span></div>'+
+        '<p>درآمد خالص تخمینی در ساعت: <strong>'+money(data.estimated_net_per_hour,data.currency)+'</strong></p>'+
+        '<p>پاداش ناخالص: '+money(data.gross_reward,data.currency)+' · مجموع هزینه و کارمزد: '+money(data.total_cost,data.currency)+'</p>'+
+        '<p>نقطه سر به سر: '+(data.break_even_gross_reward===null?"قابل محاسبه نیست":money(data.break_even_gross_reward,data.currency))+'</p>'+
+        target+threshold+'<p class="risk-warning">'+esc(data.disclaimer)+'</p>';
+    }catch(error){
+      result.className="empty";
+      result.textContent=error.message;
+    }finally{
+      button.disabled=false;
+    }
+  };
+}
+
 const riskForm=$("risk-form");
 if(riskForm){
   riskForm.onsubmit=async e=>{
