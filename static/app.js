@@ -202,16 +202,27 @@ function renderDiscoveryResults(){
 }
 
 async function updateCandidateReview(id,status){
+  const item=discoveryItems.find(candidate=>candidate.id===id);
+  if(!item)return;
+  const previousStatus=item.review_status||"pending";
+  // Update the interface immediately so the next explicit action is available
+  // without waiting for the network round trip.
+  item.review_status=status;
+  renderDiscoveryResults();
   try{
     const updated=await api("/api/discoveries/"+id+"/review",{
       method:"PATCH",
       body:JSON.stringify({status,note:status==="accepted"?"انتخاب دستی کاربر برای افزودن به فهرست شخصی؛ بررسی اعتبار همچنان لازم است.":"ردشده توسط کاربر"})
     });
-    const item=discoveryItems.find(candidate=>candidate.id===id);
-    if(item)item.review_status=updated.review_status;
+    item.review_status=updated.review_status;
     renderDiscoveryResults();
     toast(status==="accepted"?"برای انتقال انتخاب شد؛ هنوز تأیید اعتبار نشده است.":"فرصت رد شد.");
-  }catch(error){toast(error.message)}
+  }catch(error){
+    // Roll back the optimistic state when the server rejects the change.
+    item.review_status=previousStatus;
+    renderDiscoveryResults();
+    toast(error.message);
+  }
 }
 
 async function promoteCandidate(id){
