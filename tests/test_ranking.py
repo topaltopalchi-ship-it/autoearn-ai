@@ -36,3 +36,18 @@ def test_risk_score_reduces_ranking():
     safe = rank_opportunity(RankingInput(risk_score=5))
     risky = rank_opportunity(RankingInput(risk_score=90))
     assert safe["ranking_score"] > risky["ranking_score"]
+
+
+def test_discovery_review_priority_rewards_evidence_without_claiming_verification():
+    from autoearn.ranking import rank_discovery_candidate
+
+    sparse = rank_discovery_candidate(70, {}, "pending")
+    detailed = rank_discovery_candidate(70, {
+        "reward_amounts": [{"currency": "EUR", "amount_text": "10"}],
+        "eligibility_evidence": ["Available to residents of Germany."],
+        "terms_mentioned": True,
+        "verified": False,
+    }, "pending")
+    assert detailed["review_priority_score"] > sparse["review_priority_score"]
+    assert detailed["verified"] is False
+    assert "اولویت بررسی انسانی" in detailed["label"]

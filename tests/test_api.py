@@ -365,3 +365,33 @@ def test_ranked_opportunities_api_uses_saved_metadata_and_country(tmp_path, monk
         assert item["reward_currency"] == "EUR"
         outside = test_client.get("/api/opportunities/ranked?country=US").json()[0]
         assert outside["ranking"]["components"][2]["score"] == 0
+
+
+def test_discoveries_ranked_endpoint_prioritizes_evidence_and_keeps_unverified(client, monkeypatch):
+    from app import main
+    from autoearn.opportunities import SearchResult
+
+    class FakeProvider:
+        def search(self, query, limit=10):
+            return [
+                SearchResult("Candidate with terms", "https://example.org/terms"),
+                SearchResult("Candidate without details", "https://example.net/other"),
+            ]
+
+    monkeypatch.setenv("BRAVE_SEARCH_API_KEY", "test-token")
+    monkeypatch.setattr(main, "BraveSearchProvider", lambda token: FakeProvider())
+    found = client.post("/api/discover", json={"query": "remote work", "limit": 2}).json()
+    first_id = found[0]["id"]
+    extracted = client.post(
+        f"/api/discoveries/{first_id}/extract",
+        json={"page_text": "Terms and conditions. Eligible residents of Germany receive EUR 10."},
+    )
+    assert extracted.status_code == 200
+    assert extracted.json()["verified"] is False
+    ranked = client.get("/api/discoveries/ranked?review_status=pending")
+    assert ranked.status_code == 200
+    items = ranked.json()
+    assert len(items) == 2
+    assert items[0]["id"] == first_id
+    assert items[0]["review_priority"]["review_priority_score"] > items[1]["review_priority"]["review_priority_score"]
+    assert all(item["verified"] is False for item in items)

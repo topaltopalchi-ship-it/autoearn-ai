@@ -117,7 +117,7 @@ if(discoveryForm){
         limit:20
       })});
       results.className="";
-      results.innerHTML=found.length?found.map(item=>`<div class="item"><div><h3><span data-no-translate>${esc(item.title)}</span> <span class="pill">${esc(faCategory(item.category||"all"))}</span></h3><p><span data-no-translate>${esc(item.domain)}</span> · شاخص کشف: ${item.confidence}/100 · تأییدنشده<br><span data-no-translate>${esc(item.snippet||"خلاصه‌ای از منبع ارائه نشده است")}</span><br><a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">مشاهده منبع ↗</a></p></div><span class="pill">نیازمند بررسی انسانی</span></div>`).join(""):'<div class="empty">نتیجه‌ای پیدا نشد. عبارت گسترده‌تر یا دسته دیگری را امتحان کنید.</div>';
+      results.innerHTML=found.length?found.map(item=>`<div class="item"><div><h3><span data-no-translate>${esc(item.title)}</span> <span class="pill">${esc(faCategory(item.category||"all"))}</span></h3><p><span data-no-translate>${esc(item.domain)}</span> · شاخص کشف: ${item.confidence}/100 · اولویت بررسی انسانی: ${item.review_priority?.review_priority_score ?? "—"}/100 · تأییدنشده<br><span data-no-translate>${esc(item.snippet||"خلاصه‌ای از منبع ارائه نشده است")}</span><br><a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">مشاهده منبع ↗</a></p></div><span class="pill">نیازمند بررسی انسانی</span></div>`).join(""):'<div class="empty">نتیجه‌ای پیدا نشد. عبارت گسترده‌تر یا دسته دیگری را امتحان کنید.</div>';
       toast(found.length+" فرصت احتمالی پیدا شد");
     }catch(err){results.className="empty";results.textContent=err.message;toast(err.message)}
     finally{button.disabled=false;button.textContent="جست‌وجوی فرصت‌ها"}
