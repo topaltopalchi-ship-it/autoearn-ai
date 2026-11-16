@@ -68,8 +68,10 @@ class PersianDashboardBrowserTests(unittest.TestCase):
         page = self.browser.new_page(viewport={"width": 1365, "height": 900})
         page_errors = []
         page.on("pageerror", lambda error: page_errors.append(str(error)))
-        response = page.goto(self.base_url, wait_until="networkidle")
+        response = page.goto(self.base_url + "/", wait_until="networkidle")
         self.assertEqual(response.status, 200)
+        self.assertIn("text/html", response.headers.get("content-type", ""))
+        self.assertEqual(page.title(), "AutoEarn AI")
         self.assertEqual(page.locator("html").get_attribute("lang"), "fa")
         self.assertEqual(page.locator("html").get_attribute("dir"), "rtl")
 
