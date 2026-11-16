@@ -486,6 +486,7 @@ def test_accepted_candidate_promotes_without_guessing_numeric_reward(client):
         extraction={
             "reward_amounts": [{"currency": "EUR", "amount_text": "10"}],
             "eligibility_evidence": ["Eligible residents of Germany."],
+            "minimum_age_hints": [18],
             "terms_mentioned": True,
             "verified": False,
             "disclaimer": "Extracted from supplied text only.",
