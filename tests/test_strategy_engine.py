@@ -1,3 +1,5 @@
+import math
+
 import pytest
 
 from app.strategy_engine import recommend_strategy
@@ -24,10 +26,23 @@ def test_ucb1_selects_best_estimated_strategy_after_initial_exploration():
     assert result["algorithm"] == "ucb1"
 
 
-@pytest.mark.parametrize("candidates,history,exploration", [
-    ([], [], 2), (["x", "x"], [], 2), (["x"], [{"strategy": "bad", "reward": 1}], 2),
-    (["x"], [{"strategy": "x", "reward": 2}], 2), (["x"], [], 9),
-])
+@pytest.mark.parametrize(
+    "candidates,history,exploration",
+    [
+        ([], [], 2),
+        (["x", "x"], [], 2),
+        (["x"], [{"strategy": "bad", "reward": 1}], 2),
+        (["x"], [{"strategy": "x", "reward": 2}], 2),
+        (["x"], [], 9),
+        (["x", []], [], 2),
+        (["x"], [{"strategy": [], "reward": 0.5}], 2),
+        (["x"], [{"strategy": "x", "reward": math.nan}], 2),
+        (["x"], [{"strategy": "x", "reward": math.inf}], 2),
+        (["x"], [None], 2),
+        (["x"], None, 2),
+        (["x"], [], math.nan),
+    ],
+)
 def test_ucb1_rejects_invalid_inputs(candidates, history, exploration):
     with pytest.raises(ValueError):
         recommend_strategy(candidates, history, exploration)
