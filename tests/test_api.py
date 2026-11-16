@@ -71,3 +71,28 @@ def test_duplicate_opportunity_url_is_rejected(client):
     duplicate = client.post("/api/opportunities", json=payload)
     assert duplicate.status_code == 409
     assert "already registered" in duplicate.json()["detail"]
+
+
+def test_normalizes_duplicate_urls(client):
+    payload = {
+        "title": "Normalized URL", "platform": "Example Games",
+        "url": "https://EXAMPLE.com/game/#tracking",
+    }
+    assert client.post("/api/opportunities", json=payload).status_code == 201
+    duplicate = client.post("/api/opportunities", json={
+        **payload, "title": "Same destination", "url": "https://example.com/game/"
+    })
+    assert duplicate.status_code == 409
+
+
+def test_opportunity_score_is_out_of_100(client):
+    response = client.post("/api/opportunities", json={
+        "title": "Fully documented", "platform": "Example",
+        "url": "https://example.com/game",
+        "reward_description": "Points",
+        "eligibility": "Eligible regions",
+        "terms_url": "https://example.com/terms",
+        "notes": "Reviewed manually",
+    })
+    assert response.status_code == 201
+    assert response.json()["score"] == 100
