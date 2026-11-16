@@ -958,6 +958,14 @@ def update_opportunity(opportunity_id: int, data: OpportunityUpdateIn):
     changes = data.model_dump(exclude_unset=True)
     if not changes:
         raise HTTPException(422, "At least one opportunity field must be supplied.")
+    non_nullable_fields = {
+        "title", "platform", "url", "category", "reward_description",
+        "eligibility", "terms_url", "notes", "reward_currency",
+        "eligible_countries", "payout_method",
+    }
+    null_fields = sorted(key for key in non_nullable_fields if key in changes and changes[key] is None)
+    if null_fields:
+        raise HTTPException(422, f"Fields cannot be null: {', '.join(null_fields)}")
     if "url" in changes and changes["url"] is not None:
         changes["url"] = normalize_url(str(changes["url"]))
         if not safe_url(changes["url"]):
