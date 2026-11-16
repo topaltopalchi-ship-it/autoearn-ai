@@ -176,6 +176,7 @@ def approve_automation_action(action_id: int):
             "UPDATE automation_actions SET status = 'ready_for_user', updated_at = ? WHERE id = ?",
             (now(), action_id),
         )
+        db.execute("UPDATE automation_runs SET status = 'ready_for_user' WHERE id = ?", (row["run_id"],))
         updated = db.execute(
             "SELECT * FROM automation_actions WHERE id = ?", (action_id,)
         ).fetchone()
@@ -197,6 +198,7 @@ def reject_automation_action(action_id: int):
             "UPDATE automation_actions SET status = 'rejected', updated_at = ? WHERE id = ?",
             (now(), action_id),
         )
+        db.execute("UPDATE automation_runs SET status = 'rejected' WHERE id = ?", (row["run_id"],))
         return action_dict(db.execute(
             "SELECT * FROM automation_actions WHERE id = ?", (action_id,)
         ).fetchone())
