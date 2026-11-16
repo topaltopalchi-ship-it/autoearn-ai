@@ -1,7 +1,8 @@
-"""Mwmbl Search API adapter for free, keyless discovery prototypes.
+"""Mwmbl Search API adapter for opportunity-discovery prototypes.
 
-Anonymous Mwmbl access is limited to 1,000 requests/month and 1 request/second.
-Set MWMBL_API_KEY only when the operator has created a developer API key.
+The adapter supports an optional API key. Authentication requirements,
+availability, and usage limits must be confirmed against current provider
+documentation before relying on this integration.
 """
 from __future__ import annotations
 
@@ -32,7 +33,7 @@ def _respect_anonymous_rate_limit() -> None:
 
 
 class MwmblSearchProvider:
-    """Search adapter for Mwmbl v2; API key is optional for anonymous free access."""
+    """Search adapter for Mwmbl v2 with optional API-key configuration."""
 
     def __init__(self, api_key: str | None = None, timeout: float = 10.0):
         if timeout <= 0:
