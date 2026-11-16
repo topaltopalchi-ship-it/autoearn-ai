@@ -75,3 +75,20 @@ def test_word_and_logic_apis_are_policy_gated_and_local_only(tmp_path, monkeypat
         assert logic.status_code == 200
         assert logic.json()["possible_count"] == 4
         assert logic.json()["external_action_taken"] is False
+
+
+def test_offline_practice_endpoint_runs_without_opportunity_or_external_actions():
+    with TestClient(app) as client:
+        response = client.get("/api/games/practice?rounds=3")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["mode"] == "offline_practice"
+        assert payload["rounds"] == 3
+        assert payload["external_actions"] == 0
+        assert payload["site_played"] is False
+        assert payload["prize_or_earnings"] == 0
+
+
+def test_offline_practice_endpoint_bounds_round_count():
+    with TestClient(app) as client:
+        assert client.get("/api/games/practice?rounds=11").status_code == 422
