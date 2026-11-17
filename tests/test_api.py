@@ -1153,3 +1153,40 @@ def test_ranked_opportunities_uses_latest_country_evaluation_and_separates_curre
     assert all(item["execution_authorized"] is False
                for group in body["groups"] for item in group["items"])
     assert "Different currencies" in body["comparison_note"] or "different currencies" in body["comparison_note"].lower()
+
+
+def test_prioritized_discovery_endpoint_is_owner_only_and_marks_unknowns(client):
+    from app import main
+
+    assert client.get("/api/discovery/leads/prioritized").status_code == 401
+    with main.connect() as db:
+        feed = db.execute(
+            """INSERT INTO discovery_feeds
+               (name, feed_url, category, allowed_domains, max_items, status, created_at,
+                total_checks, total_successes)
+               VALUES (?, ?, ?, ?, ?, 'approved', ?, 10, 9)""",
+            ("Trusted feed", "https://example.com/feed.xml", "surveys_microtasks",
+             '["example.com"]', 30, main.now()),
+        ).lastrowid
+        db.execute(
+            """INSERT INTO discovery_leads
+               (source_feed_id, source_name, title, url, category, summary,
+                terms_url, observed_at, status, created_at, last_seen_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)""",
+            (feed, "Trusted feed", "Example task", "https://example.com/task",
+             "surveys_microtasks", "Detailed public task description " * 8,
+             "https://example.com/terms", main.now(), main.now(), main.now()),
+        )
+
+    response = owner_get(client, "/api/discovery/leads/prioritized")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 1
+    item = body["items"][0]
+    assert item["research_priority"] == "research_first"
+    assert item["feed_reliability_percent"] == 90
+    assert item["financial_evaluation_status"] == "not_evaluated"
+    assert item["country_eligibility"] == "unknown"
+    assert item["payout_availability"] == "unknown"
+    assert item["ai_permission"] == "unknown"
+    assert item["execution_authorized"] is False
