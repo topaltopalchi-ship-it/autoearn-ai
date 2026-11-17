@@ -8,7 +8,7 @@ const api = async (path, options={}) => {
   if (!response.ok) throw new Error("انجام درخواست با خطا روبه‌رو شد. اطلاعات و دسترسی را بررسی کنید.");
   return body;
 };
-const statusFa = (v) => ({game_rewards:"پاداش بازی",survey_rewards:"پاداش نظرسنجی",microtasks:"کارهای کوچک",freelance_jobs:"کارهای آزاد",digital_products:"محصولات دیجیتال",discovered:"کشف‌شده",reviewing:"در حال بررسی",eligible:"مجاز",ineligible:"غیرمجاز",archived:"بایگانی‌شده",pending:"در انتظار",approved:"تأییدشده",rejected:"ردشده",verified:"تأییدشده",pending_approval:"در انتظار تأیید",confirmed:"تأییدشده",paid:"پرداخت‌شده",estimated:"تخمینی",earned:"کسب‌شده",withdrawable:"قابل برداشت",manual:"دستی",assist:"با کمک دستیار",official_api:"رابط رسمی برنامه‌نویسی",games_competitions:"بازی و مسابقه",surveys_microtasks:"نظرسنجی و کارهای کوچک",freelancing_services:"فریلنسری و خدمات",ai_content_products:"محتوای هوش مصنوعی و محصولات دیجیتال",other:"سایر","unknown":"نامشخص",logic:"معما و منطق",coding:"برنامه‌نویسی",chess:"شطرنج",strategy:"استراتژی",general:"عمومی"})[v]||"نامشخص";
+const statusFa = (v) => ({game_rewards:"پاداش بازی",survey_rewards:"پاداش نظرسنجی",microtasks:"کارهای کوچک",freelance_jobs:"کارهای آزاد",digital_products:"محصولات دیجیتال",discovered:"کشف‌شده",reviewing:"در حال بررسی",eligible:"مجاز",ineligible:"غیرمجاز",archived:"بایگانی‌شده",pending:"در انتظار",approved:"تأییدشده",rejected:"ردشده",verified:"تأییدشده",pending_approval:"در انتظار تأیید",confirmed:"تأییدشده",paid:"پرداخت‌شده",estimated:"تخمینی",earned:"کسب‌شده",withdrawable:"قابل برداشت",submitting:"در حال ارسال؛ نتیجه باید بررسی شود",failed:"ارسال ناموفق؛ نتیجهٔ بیرونی نامشخص",blocked:"مسدودشده",submitted:"ارسال‌شده",manual:"دستی",assist:"با کمک دستیار",official_api:"رابط رسمی برنامه‌نویسی",games_competitions:"بازی و مسابقه",surveys_microtasks:"نظرسنجی و کارهای کوچک",freelancing_services:"فریلنسری و خدمات",ai_content_products:"محتوای هوش مصنوعی و محصولات دیجیتال",other:"سایر","unknown":"نامشخص",logic:"معما و منطق",coding:"برنامه‌نویسی",chess:"شطرنج",strategy:"استراتژی",general:"عمومی"})[v]||"نامشخص";
 const currencyFa = (c) => ({EUR:"یورو",USD:"دلار آمریکا",GBP:"پوند",TRY:"لیر",IRR:"ریال",CAD:"دلار کانادا",AUD:"دلار استرالیا"})[String(c||"").toUpperCase()] || "واحد پول";
 const money = (n,c="EUR") => new Intl.NumberFormat("fa-IR",{maximumFractionDigits:2}).format(Number(n||0))+" "+currencyFa(c);
 function ledgerTotals(groups,states){const values=Object.entries(groups||{}).map(([currency,items])=>{const total=states.reduce((sum,state)=>sum+Number(items[state]||0),0);return total?money(total,currency):null}).filter(Boolean);return values.join(" · ")||money(0,"EUR")}
@@ -149,7 +149,24 @@ function renderCompetitions(){
   host.querySelectorAll("[data-comp-dry]").forEach(b=>b.onclick=async()=>{
     try{const result=await api(`/api/competitions/${b.dataset.compDry}/dry-run`,{method:"POST"});alert("نتیجه تمرین آزمایشی\n\nارسال واقعی: خیر\nآمادگی: "+(result.readiness?"بله":"خیر")+"\nموانع:\n"+(result.blockers.join("\n")||"ندارد")+"\n\n"+result.message);}catch(e){toast(e.message)}
   });
+  host.querySelectorAll("[data-comp-history]").forEach(b=>b.onclick=()=>showCompetitionHistory(Number(b.dataset.compHistory)));
+
 }
+
+async function showCompetitionHistory(id){
+  try{
+    const rows=await api("/api/competitions/"+id+"/history");
+    const host=$("competition-history-list");
+    host.innerHTML=rows.length?rows.map(row=>{
+      const result=row.result||{};
+      const detail=result.message||result.external_entry_id||result.error_type||"جزئیات بیشتری ثبت نشده است";
+      const remote=result.external_submission===true?"ارسال بیرونی تأییدشده":result.external_submission==="unknown"?"نتیجهٔ ارسال بیرونی نامشخص":result.external_submission===false?"ارسال بیرونی انجام نشد":"";
+      return '<article class="item"><div><h3>'+esc(statusFa(row.status))+'</h3><p>روش: '+esc(row.mode)+' · زمان: '+esc(new Date(row.created_at).toLocaleString("fa-IR"))+'<br>'+esc(detail)+(remote?"<br>"+esc(remote):"")+'</p></div></article>';
+    }).join(""):'<div class="empty">هنوز تلاشی برای ارسال ثبت نشده است.</div>';
+    $("competition-history-dialog").showModal();
+  }catch(error){toast(error.message)}
+}
+
 function renderSources(){
   const status=$("source-filter").value;
   const rows=sources.filter(s=>!status||s.status===status);
