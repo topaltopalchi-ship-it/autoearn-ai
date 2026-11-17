@@ -13,7 +13,7 @@ This matrix is the single source of truth for progress reports. Percentages meas
 | Supervised execution and controls | 14% | 55% | 7.7% | Persistent approval queue, human decisions, audit history, serialized decisions, global pause for competition submission and in-process per-adapter rate limiting are implemented. Durable retry/backoff, distributed limits and a shared pause gate for any future external-action surface remain. |
 | Earnings ledger and reconciliation | 10% | 70% | 7.0% | Currency-separated ledger, constrained transitions, audit history, private PDF/PNG/JPEG receipt upload/list/download, file signature and size limits are implemented. Independent reconciliation with authoritative payment evidence and any payout integration remain. |
 | Security, testing and release readiness | 14% | 45% | 6.3% | Owner authentication on API routes, browser security headers, private evidence storage, dependency checks, syntax checks and CI are verified. Malware scanning, retention/backup policy, independent security review, production secret/session design and deployment hardening remain. |
-| **Total** | **100%** |  | **73.8%** | **27.1% engineering work remains. Production release is not yet approved.** |
+| **Total** | **100%** |  | **73.8%** | **26.2% engineering work remains. Production release is not yet approved.** |
 
 Calculation: sum of (workstream weight × verified completion). Values are conservative engineering estimates and will only change when acceptance evidence changes.
 
