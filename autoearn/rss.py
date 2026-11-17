@@ -110,6 +110,8 @@ class PublicRssAdapter:
         fetcher=None,
         timeout_seconds: int = 8,
         max_items: int = 30,
+        etag: str | None = None,
+        last_modified: str | None = None,
     ) -> None:
         if not 1 <= timeout_seconds <= 20:
             raise ValueError("timeout_seconds must be between 1 and 20")
@@ -121,6 +123,9 @@ class PublicRssAdapter:
         self.fetcher = fetcher or self._fetch
         self.timeout_seconds = timeout_seconds
         self.max_items = max_items
+        self.etag = etag
+        self.last_modified = last_modified
+        self.not_modified = False
         self._manifest = AdapterManifest(
             adapter_id=adapter_id,
             display_name=display_name,
@@ -153,12 +158,21 @@ class PublicRssAdapter:
                     "User-Agent": "AutoEarnAI-Discovery/1.0",
                     "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml",
                     "Connection": "close",
+                    **({"If-None-Match": self.etag} if self.etag else {}),
+                    **({"If-Modified-Since": self.last_modified} if self.last_modified else {}),
                 },
             )
             response = connection.getresponse()
+            if response.status == 304:
+                self.not_modified = True
+                self.etag = response.getheader("ETag") or self.etag
+                self.last_modified = response.getheader("Last-Modified") or self.last_modified
+                return b""
             if response.status != 200:
                 # Redirects are intentionally not followed.
                 raise ValueError(f"feed request rejected with HTTP {response.status}")
+            self.etag = response.getheader("ETag")
+            self.last_modified = response.getheader("Last-Modified")
             data = response.read(MAX_FEED_BYTES + 1)
         except (OSError, ssl.SSLError, http.client.HTTPException) as exc:
             raise ValueError("feed request failed") from exc
@@ -169,7 +183,10 @@ class PublicRssAdapter:
         return data
 
     def discover(self) -> list[DiscoveredLead]:
+        self.not_modified = False
         payload = self.fetcher(self.feed_url)
+        if self.not_modified:
+            return []
         if not isinstance(payload, bytes) or len(payload) > MAX_FEED_BYTES:
             raise ValueError("feed fetcher must return at most 1 MB of bytes")
         upper_payload = payload.upper()
