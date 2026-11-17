@@ -2225,3 +2225,33 @@ def test_concurrent_competition_submissions_share_persistent_rate_window(client,
         assert second.result(timeout=5).status_code == 429
 
     assert calls == ["submit"]
+
+
+def test_database_file_is_owner_only_on_posix(tmp_path, monkeypatch):
+    import stat
+
+    if os.name != "posix":
+        pytest.skip("POSIX permission modes are not available")
+    from app import main
+
+    database = tmp_path / "private-data" / "autoearn.db"
+    monkeypatch.setattr(main, "DB_PATH", database)
+    with main.connect() as db:
+        db.execute("CREATE TABLE private_sample (value TEXT)")
+    assert stat.S_IMODE(database.stat().st_mode) == 0o600
+
+
+def test_database_path_rejects_symbolic_links_on_posix(tmp_path, monkeypatch):
+    if os.name != "posix":
+        pytest.skip("POSIX symbolic links are not available")
+    from app import main
+
+    real_database = tmp_path / "real.db"
+    real_database.touch()
+    linked_database = tmp_path / "linked.db"
+    linked_database.symlink_to(real_database)
+    monkeypatch.setattr(main, "DB_PATH", linked_database)
+
+    with pytest.raises(RuntimeError, match="symbolic link"):
+        main.connect()
+    assert real_database.stat().st_size == 0
