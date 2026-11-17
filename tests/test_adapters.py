@@ -40,6 +40,15 @@ def test_registry_discovers_only_registered_adapter_and_returns_leads():
     assert leads[0].title == "Research task"
 
 
+def test_manifest_requires_an_explicit_exact_domain_allowlist():
+    with pytest.raises(ValueError, match="exact allowed domain"):
+        AdapterManifest(
+            adapter_id="unrestricted",
+            display_name="Unrestricted adapter",
+            categories=("other",),
+        )
+
+
 def test_unknown_adapter_cannot_run():
     with pytest.raises(KeyError):
         AdapterRegistry().discover("not-installed")
