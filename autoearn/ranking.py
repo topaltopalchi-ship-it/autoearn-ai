@@ -28,13 +28,18 @@ def rank_evaluations(records: list[dict[str, Any]]) -> dict[str, Any]:
         else:
             tier = "low_priority"
         flags = evaluation.get("risk_flags") or []
-        item = {
+        ai_assessment = evaluation.get("ai_task_assessment") or {}
+        ai_suitability = ai_assessment.get("suitability", "not_assessed")
+        ai_fit = (\n            "bounded_ai_draft_candidate" if ai_suitability == "ai_draft_candidate"\n            else "policy_blocked" if ai_suitability == "blocked"\n            else "human_review_or_policy_check"\n        )\n        item = {
             **record,
             "currency_group": currency,
             "ranking_score": score,
             "priority_tier": tier,
             "execution_allowed": bool(evaluation.get("execution_allowed", False)),
             "execution_authorized": False,
+            "ai_task_suitability": ai_suitability,
+            "ai_fit": ai_fit,
+            "ai_suitability_score": ai_assessment.get("score"),
             "risk_flag_count": len(flags) if isinstance(flags, list) else 0,
         }
         grouped[currency].append(item)
@@ -47,6 +52,7 @@ def rank_evaluations(records: list[dict[str, Any]]) -> dict[str, Any]:
             key=lambda item: (
                 tier_order[item["priority_tier"]],
                 -item["ranking_score"],
+                item["ai_fit"] != "bounded_ai_draft_candidate",
                 not item["execution_allowed"],
                 item["risk_flag_count"],
                 item.get("title", "").casefold(),
