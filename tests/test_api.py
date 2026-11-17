@@ -85,6 +85,29 @@ def test_normalizes_duplicate_urls(client):
     assert duplicate.status_code == 409
 
 
+
+def test_rejects_terms_url_with_credentials(client):
+    response = client.post("/api/opportunities", json={
+        "title": "Unsafe terms", "platform": "Example",
+        "url": "https://example.com/game",
+        "terms_url": "https://user:password@example.com/terms",
+    })
+    assert response.status_code == 422
+
+
+def test_completeness_score_counts_four_documented_fields(client):
+    response = client.post("/api/opportunities", json={
+        "title": "Complete opportunity", "platform": "Example",
+        "url": "https://example.com/complete",
+        "reward_description": "Points",
+        "eligibility": "Eligible regions",
+        "terms_url": "https://example.com/terms",
+        "notes": "Terms reviewed manually",
+    })
+    assert response.status_code == 201
+    assert response.json()["score"] == 100
+
+
 def test_opportunity_score_is_out_of_100(client):
     response = client.post("/api/opportunities", json={
         "title": "Fully documented", "platform": "Example",
