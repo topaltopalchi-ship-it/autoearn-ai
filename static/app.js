@@ -244,7 +244,7 @@ async function loadPrioritizedDiscovery(){
   const host=$("prioritized-discovery-list");
   host.textContent="در حال مرتب‌سازی فرصت‌های تازه…";
   try{
-    const country="Azerbaijan";
+    const country="Iran";
     const result=await api("/api/discovery/leads/prioritized?country="+encodeURIComponent(country));
     if(!result.total){host.innerHTML='<div class="empty">فرصت تازه‌ای در صف بررسی نیست.</div>';return}
     const labels={research_first:"بررسی در اولویت",review:"بررسی معمولی",low_signal:"اطلاعات ناکافی"};
