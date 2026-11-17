@@ -14,7 +14,7 @@
     <div class="sidebar-note"><b>Human in control</b><p>Review platform rules and approve every task before participating.</p></div>
   </aside>
   <main>
-    <header><div><span class="eyebrow">YOUR PLAY-AND-EARN COMMAND CENTER</span><h1>Overview</h1><p>Discover opportunities. Make informed decisions. Track every reward.</p></div><span class="status"><i></i> Local workspace</span></header>
+    <header><div><span class="eyebrow">YOUR PLAY-AND-EARN COMMAND CENTER</span><h1>Overview</h1><p>Discover opportunities. Make informed decisions. Track every reward.</p></div><div class="owner-access"><label for="owner-token">Owner token</label><input id="owner-token" type="password" autocomplete="off" placeholder="Session-only access key"><button class="secondary" id="save-owner-token" type="button">Connect</button></div><span class="status"><i></i> Local workspace</span></header>
     <section class="stats" id="overview">
       <article><span>Opportunities</span><strong id="stat-opps">0</strong><small>Tracked platforms</small></article>
       <article><span>Tasks created</span><strong id="stat-tasks">0</strong><small>Assisted workflow</small></article>
@@ -27,7 +27,7 @@
       <div id="opportunity-list" class="empty">No opportunities yet. Add a platform you want to evaluate.</div>
     </section>
     <section class="panel" id="sources">
-      <div class="section-head"><div><span class="eyebrow">HUMAN-REVIEWED INTAKE</span><h2>Source candidates</h2></div><button class="primary" id="add-source">+ Add source</button></div>
+      <div class="section-head"><div><span class="eyebrow">HUMAN-REVIEWED INTAKE</span><h2>Source candidates</h2></div><div class="section-actions"><button class="secondary" id="discover-rss" type="button">Discover RSS feed</button><button class="primary" id="add-source">+ Add source</button></div></div>
       <div class="toolbar"><select id="source-filter"><option value="">All source states</option><option value="pending">Pending review</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></div>
       <div id="source-list" class="empty">No source candidates yet. Add a public source for manual review.</div>
     </section>
