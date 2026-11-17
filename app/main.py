@@ -6,6 +6,7 @@ import hmac
 import sqlite3
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from dataclasses import asdict
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
@@ -20,11 +21,15 @@ from autoearn.supervision_store import SQLiteSupervisionStore
 from autoearn.supervision import SupervisionError
 from autoearn.rss import PublicRssAdapter
 from autoearn.evaluator import OpportunityCandidate, evaluate_candidate
+from autoearn.competitions import (
+    Competition, CompetitionAdapterRegistry, assess_competition, build_strategy,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.getenv("AUTOEARN_DB", ROOT / "autoearn.db"))
 OWNER_TOKEN = os.getenv("AUTOEARN_OWNER_TOKEN", "")
 STATIC_DIR = ROOT / "static"
+competition_adapters = CompetitionAdapterRegistry()
 
 
 def now() -> str:
@@ -132,6 +137,37 @@ def init_db() -> None:
         );
         CREATE INDEX IF NOT EXISTS idx_evaluation_history_opportunity
             ON evaluation_history(opportunity_id, created_at DESC);
+        CREATE TABLE IF NOT EXISTS competitions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            url TEXT NOT NULL,
+            rules_url TEXT NOT NULL,
+            task_type TEXT NOT NULL,
+            country TEXT NOT NULL,
+            eligibility TEXT NOT NULL DEFAULT 'unknown',
+            terms_verified INTEGER NOT NULL DEFAULT 0,
+            automated_agents_allowed INTEGER NOT NULL DEFAULT 0,
+            official_api INTEGER NOT NULL DEFAULT 0,
+            prize_amount REAL,
+            prize_currency TEXT NOT NULL DEFAULT 'EUR',
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS competition_plans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            competition_id INTEGER NOT NULL REFERENCES competitions(id) ON DELETE CASCADE,
+            plan_json TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_competition_plans_latest
+            ON competition_plans(competition_id, created_at DESC, id DESC);
+        CREATE TABLE IF NOT EXISTS competition_attempts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            competition_id INTEGER NOT NULL REFERENCES competitions(id) ON DELETE CASCADE,
+            mode TEXT NOT NULL,
+            status TEXT NOT NULL,
+            result_json TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
         """)
         # Additive migration for databases created by earlier MVP versions.
         columns = {row["name"] for row in db.execute("PRAGMA table_info(opportunities)")}
@@ -262,6 +298,30 @@ class OpportunityEvaluationIn(BaseModel):
     payment_probability: int | None = Field(default=None, ge=0, le=100)
     risk_score: int | None = Field(default=None, ge=0, le=100)
     evidence: list[str] = Field(default_factory=list, max_length=20)
+
+
+class CompetitionIn(BaseModel):
+    title: str = Field(min_length=2, max_length=160)
+    url: HttpUrl
+    rules_url: HttpUrl
+    task_type: Literal["logic", "coding", "chess", "strategy", "general"] = "general"
+    country: str = Field(min_length=2, max_length=80)
+    eligibility: Literal["eligible", "ineligible", "unknown"] = "unknown"
+    terms_verified: bool = False
+    automated_agents_allowed: bool = False
+    official_api: bool = False
+    prize_amount: float | None = Field(default=None, ge=0)
+    prize_currency: str = Field(default="EUR", min_length=3, max_length=8)
+
+
+class CompetitionPlanIn(BaseModel):
+    objective: str = Field(default="", max_length=1000)
+
+
+class CompetitionSubmitIn(BaseModel):
+    adapter_id: str = Field(min_length=2, max_length=80)
+    payload: dict = Field(default_factory=dict)
+    owner_confirmed: bool = False
 
 
 def require_owner(x_autoearn_owner_token: str | None = Header(default=None)):
@@ -865,6 +925,147 @@ def supervised_action_audit(request_id: str, actor: str = Depends(require_owner)
     if store.get(request_id) is None:
         raise HTTPException(404, "Action request not found.")
     return [event.__dict__ for event in store.audit_events(request_id)]
+
+
+def competition_from_row(row, allowed_actions=()):
+    return Competition(
+        competition_id=row["id"], title=row["title"], url=row["url"],
+        rules_url=row["rules_url"], task_type=row["task_type"],
+        country=row["country"], eligibility=row["eligibility"],
+        terms_verified=bool(row["terms_verified"]),
+        automated_agents_allowed=bool(row["automated_agents_allowed"]),
+        official_api=bool(row["official_api"]),
+        allowed_actions=tuple(allowed_actions),
+    )
+
+
+@app.post("/api/competitions", status_code=201)
+def create_competition(data: CompetitionIn, actor: str = Depends(require_owner)):
+    payload = data.model_dump()
+    payload["url"] = normalize_url(str(payload["url"]))
+    payload["rules_url"] = normalize_url(str(payload["rules_url"]))
+    if not safe_url(payload["url"]) or not safe_url(payload["rules_url"]):
+        raise HTTPException(422, "Competition and rules URLs must use safe HTTP/HTTPS addresses.")
+    if urlparse(payload["url"]).scheme != "https" or urlparse(payload["rules_url"]).scheme != "https":
+        raise HTTPException(422, "Competition and rules pages must use HTTPS.")
+    with connect() as db:
+        cur = db.execute("""
+            INSERT INTO competitions
+            (title, url, rules_url, task_type, country, eligibility, terms_verified,
+             automated_agents_allowed, official_api, prize_amount, prize_currency, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            payload["title"].strip(), payload["url"], payload["rules_url"],
+            payload["task_type"], payload["country"].strip(), payload["eligibility"],
+            int(payload["terms_verified"]), int(payload["automated_agents_allowed"]),
+            int(payload["official_api"]), payload["prize_amount"],
+            payload["prize_currency"].upper(), now(),
+        ))
+        row = db.execute("SELECT * FROM competitions WHERE id = ?", (cur.lastrowid,)).fetchone()
+        return row_dict(row)
+
+
+@app.get("/api/competitions")
+def list_competitions(actor: str = Depends(require_owner)):
+    with connect() as db:
+        rows = db.execute("SELECT * FROM competitions ORDER BY created_at DESC, id DESC").fetchall()
+        return [row_dict(row) for row in rows]
+
+
+@app.post("/api/competitions/{competition_id}/plan")
+def plan_competition(competition_id: int, data: CompetitionPlanIn,
+                     actor: str = Depends(require_owner)):
+    with connect() as db:
+        row = db.execute("SELECT * FROM competitions WHERE id = ?", (competition_id,)).fetchone()
+        if row is None:
+            raise HTTPException(404, "Competition not found.")
+        try:
+            plan = build_strategy(competition_id, row["task_type"], data.objective)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc))
+        plan_data = asdict(plan)
+        created_at = now()
+        db.execute(
+            "INSERT INTO competition_plans (competition_id, plan_json, created_at) VALUES (?, ?, ?)",
+            (competition_id, json.dumps(plan_data, ensure_ascii=False), created_at),
+        )
+    return {"plan": plan_data, "created_at": created_at,
+            "note": "این نسخه از برنامه‌ریز پایه و شفاف استفاده می‌کند؛ هنوز مدل زبانی خارجی یا عامل مسابقهٔ واقعی متصل نشده است."}
+
+
+@app.post("/api/competitions/{competition_id}/dry-run")
+def dry_run_competition(competition_id: int, actor: str = Depends(require_owner)):
+    with connect() as db:
+        row = db.execute("SELECT * FROM competitions WHERE id = ?", (competition_id,)).fetchone()
+        plan_row = db.execute(
+            "SELECT plan_json FROM competition_plans WHERE competition_id = ? ORDER BY created_at DESC, id DESC LIMIT 1",
+            (competition_id,),
+        ).fetchone()
+        if row is None:
+            raise HTTPException(404, "Competition not found.")
+        if plan_row is None:
+            raise HTTPException(409, "Create an agent strategy before running a dry-run.")
+        plan = json.loads(plan_row["plan_json"])
+        readiness = assess_competition(competition_from_row(row))
+        result = {
+            "status": "dry_run_only",
+            "external_submission": False,
+            "strategy_provider": plan["provider"],
+            "strategy_steps_checked": len(plan["steps"]),
+            "readiness": readiness.ready,
+            "blockers": list(readiness.blockers),
+            "message": "تمرین آزمایشی فقط برنامه و پیش‌نیازها را بررسی کرد؛ هیچ ورودی به مسابقه ارسال نشد.",
+        }
+        created_at = now()
+        db.execute(
+            "INSERT INTO competition_attempts (competition_id, mode, status, result_json, created_at) VALUES (?, 'dry_run', ?, ?, ?)",
+            (competition_id, result["status"], json.dumps(result, ensure_ascii=False), created_at),
+        )
+    return result
+
+
+@app.post("/api/competitions/{competition_id}/submit")
+def submit_competition_entry(competition_id: int, data: CompetitionSubmitIn,
+                             actor: str = Depends(require_owner)):
+    if not data.owner_confirmed:
+        raise HTTPException(403, "Explicit owner confirmation is required.")
+    manifest = competition_adapters.get_manifest(data.adapter_id)
+    if manifest is None:
+        raise HTTPException(409, "No approved official competition adapter is installed for this platform.")
+    with connect() as db:
+        row = db.execute("SELECT * FROM competitions WHERE id = ?", (competition_id,)).fetchone()
+        if row is None:
+            raise HTTPException(404, "Competition not found.")
+        competition = competition_from_row(row, manifest.allowed_actions)
+        readiness = assess_competition(competition)
+        if not readiness.ready:
+            raise HTTPException(409, {"message": "Competition is not ready for automated entry.", "blockers": list(readiness.blockers)})
+        try:
+            receipt = competition_adapters.submit(
+                data.adapter_id, competition, data.payload, owner_confirmed=True
+            )
+        except (PermissionError, KeyError, ValueError, RuntimeError) as exc:
+            raise HTTPException(409, str(exc))
+        result = {"status": receipt.status, "external_entry_id": receipt.external_entry_id,
+                  "evidence": receipt.evidence, "external_submission": True}
+        db.execute(
+            "INSERT INTO competition_attempts (competition_id, mode, status, result_json, created_at) VALUES (?, 'official_api', ?, ?, ?)",
+            (competition_id, receipt.status, json.dumps(result, ensure_ascii=False), now()),
+        )
+    return result
+
+
+@app.get("/api/competitions/{competition_id}/history")
+def competition_history(competition_id: int, actor: str = Depends(require_owner)):
+    with connect() as db:
+        if not db.execute("SELECT id FROM competitions WHERE id = ?", (competition_id,)).fetchone():
+            raise HTTPException(404, "Competition not found.")
+        rows = db.execute(
+            "SELECT id, mode, status, result_json, created_at FROM competition_attempts WHERE competition_id = ? ORDER BY created_at DESC, id DESC",
+            (competition_id,),
+        ).fetchall()
+    return [{"id": row["id"], "mode": row["mode"], "status": row["status"],
+             "result": json.loads(row["result_json"]), "created_at": row["created_at"]} for row in rows]
 
 
 @app.get("/api/dashboard")
