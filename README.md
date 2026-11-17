@@ -39,7 +39,15 @@ Before moving devices, updating the application, or performing maintenance, crea
 python scripts/backup.py
 ```
 
-An optional destination directory can be supplied. The command refuses to overwrite an existing backup, uses SQLite's online backup API (including committed WAL data), checks the copied database with `PRAGMA integrity_check`, copies private evidence without following symlinks, and writes a SHA-256 manifest. On POSIX systems, backup directories and sensitive files receive owner-only permissions. Keep backups on encrypted storage, outside the repository and preferably on a separate device. This is a manual local backup utility, not an automated off-site backup or a tested restore service; periodically verify recovery from a copy.
+An optional destination directory can be supplied. The command refuses to overwrite an existing backup, uses SQLite's online backup API (including committed WAL data), checks the copied database with `PRAGMA integrity_check`, copies private evidence without following symlinks, and writes a SHA-256 manifest. On POSIX systems, backup directories and sensitive files receive owner-only permissions. Keep backups on encrypted storage, outside the repository and preferably on a separate device.
+
+Verify and restore a backup into a **new directory** (the live database is never overwritten):
+
+```bash
+python scripts/restore.py backups/autoearn-YYYYMMDDTHHMMSSZ ./recovery-check
+```
+
+The restore command verifies the manifest, database integrity and every evidence checksum before creating the destination. It refuses existing destinations. To put recovered data back into service, stop AutoEarn first, preserve the current database and evidence directory, and then copy the verified files into the configured paths. This is a manual local backup/restore workflow, not automated off-site protection; periodically test recovery and keep encrypted copies on separate storage.
  
 ## Earnings ledger
 
