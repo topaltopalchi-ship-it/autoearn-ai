@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: phone-ci-${{ github.ref }}
+  group: autoearn-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
