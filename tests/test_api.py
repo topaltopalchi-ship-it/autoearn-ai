@@ -1998,3 +1998,32 @@ def test_failed_discovery_feed_uses_persisted_exponential_backoff(client, monkey
     assert second_result["status"] == "backoff"
     assert 1 <= second_result["retry_after_seconds"] <= 60
     assert calls == ["https://backoff.example/rss"]
+
+
+def test_legacy_discovery_feed_schema_migrates_retry_schedule(tmp_path, monkeypatch):
+    import sqlite3
+    from app import main
+
+    legacy_db = tmp_path / "legacy-feeds.db"
+    with sqlite3.connect(legacy_db) as db:
+        db.execute(
+            """CREATE TABLE discovery_feeds (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                feed_url TEXT NOT NULL UNIQUE,
+                category TEXT NOT NULL,
+                allowed_domains TEXT NOT NULL,
+                max_items INTEGER NOT NULL DEFAULT 30,
+                status TEXT NOT NULL DEFAULT 'pending',
+                created_at TEXT NOT NULL,
+                reviewed_at TEXT,
+                last_checked_at TEXT,
+                last_error TEXT NOT NULL DEFAULT ''
+            )"""
+        )
+    monkeypatch.setattr(main, "DB_PATH", legacy_db)
+    main.init_db()
+    with main.connect() as db:
+        columns = {row["name"] for row in db.execute("PRAGMA table_info(discovery_feeds)")}
+    assert {"last_success_at", "consecutive_failures", "total_checks",
+            "total_successes", "next_retry_at"}.issubset(columns)
