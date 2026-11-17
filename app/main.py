@@ -1066,8 +1066,24 @@ def download_earning_evidence(
         ).fetchone()
         if row is None:
             raise HTTPException(404, "Evidence file not found.")
-        path = (EVIDENCE_DIR / row["stored_name"]).resolve()
-        if path.parent != EVIDENCE_DIR.resolve() or not path.is_file():
+        # Downloads must enforce the same private-path boundary as uploads.
+        # Reject symlinks in every existing directory component and the stored
+        # file itself before resolving the path.
+        for component in (EVIDENCE_DIR, *EVIDENCE_DIR.parents):
+            if component.is_symlink():
+                raise HTTPException(404, "Evidence file is unavailable.")
+        stored_name = row["stored_name"]
+        if Path(stored_name).name != stored_name:
+            raise HTTPException(404, "Evidence file is unavailable.")
+        candidate = EVIDENCE_DIR / stored_name
+        if candidate.is_symlink():
+            raise HTTPException(404, "Evidence file is unavailable.")
+        try:
+            path = candidate.resolve(strict=True)
+            evidence_root = EVIDENCE_DIR.resolve(strict=True)
+        except (FileNotFoundError, OSError, RuntimeError):
+            raise HTTPException(404, "Evidence file is unavailable.")
+        if path.parent != evidence_root or not path.is_file():
             raise HTTPException(404, "Evidence file is unavailable.")
         suffix = EVIDENCE_TYPES[row["media_type"]][1]
         return FileResponse(
