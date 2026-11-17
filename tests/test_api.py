@@ -2169,6 +2169,13 @@ def test_concurrent_competition_submissions_share_persistent_rate_window(client,
         def submit(self, *args, **kwargs):
             with calls_lock:
                 calls.append("submit")
+            # The durable intent must already be committed before any
+            # potentially ambiguous external network operation begins.
+            with main.connect() as db:
+                attempt = db.execute(
+                    "SELECT status FROM competition_attempts ORDER BY id DESC LIMIT 1"
+                ).fetchone()
+            assert attempt["status"] == "submitting"
             entered.set()
             assert release.wait(timeout=5)
             return SimpleNamespace(
