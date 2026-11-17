@@ -199,7 +199,7 @@ function renderDiscoveryLeads(){
   });
 }
 async function editDiscoveryResearch(leadId){
-  const country="Azerbaijan";
+  const country="Iran";
   const path="/api/discovery/leads/"+leadId+"/research";
   try{
     const current=await api(path+"?country="+encodeURIComponent(country));
