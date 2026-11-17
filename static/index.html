@@ -10,7 +10,7 @@
 <body>
   <aside class="sidebar">
     <div class="brand"><span class="brand-mark">A</span><div><b>اتو درآمد</b><small>فضای کاری هوشمند</small></div></div>
-    <nav><a class="active" href="#overview">◫ &nbsp; نمای کلی</a><a href="#opportunities">◎ &nbsp; فرصت‌های درآمدزایی</a><a href="#sources">⌕ &nbsp; بررسی منابع</a><a href="#tasks">▣ &nbsp; کارهای تحت نظارت</a><a href="#rewards">◇ &nbsp; درآمدها</a></nav>
+    <nav><a class="active" href="#overview">◫ &nbsp; نمای کلی</a><a href="#opportunities">◎ &nbsp; فرصت‌های درآمدزایی</a><a href="#sources">⌕ &nbsp; بررسی منابع</a><a href="#competitions">♜ &nbsp; مسابقات هوشمند</a><a href="#tasks">▣ &nbsp; کارهای تحت نظارت</a><a href="#rewards">◇ &nbsp; درآمدها</a></nav>
     <div class="sidebar-note"><b>کنترل همیشه دست شماست</b><p>پیش از هرگونه مشارکت، قوانین هر پلتفرم را بررسی و هر کار را شخصاً تأیید کنید.</p></div>
   </aside>
   <main>
@@ -30,6 +30,21 @@
       <div class="section-head"><div><span class="eyebrow">ثبت و بررسی انسانی</span><h2>منابع پیشنهادی</h2></div><div class="section-actions"><button class="secondary" id="discover-rss" type="button">دریافت فهرست خبرخوان</button><button class="primary" id="add-source">+ افزودن منبع</button></div></div>
       <div class="toolbar"><select id="source-filter"><option value="">همهٔ وضعیت‌های منبع</option><option value="pending">در انتظار بررسی</option><option value="approved">تأییدشده</option><option value="rejected">ردشده</option></select></div>
       <div id="source-list" class="empty">هنوز منبعی ثبت نشده است. یک منبع عمومی برای بررسی دستی اضافه کنید.</div>
+    </section>
+    <section class="panel" id="competitions">
+      <div class="section-head"><div><span class="eyebrow">عامل رقابت هوشمند</span><h2>مسابقات و رقابت‌های جایزه‌دار</h2><p>ثبت مسابقه، ساخت استراتژی و اجرای تمرین آزمایشی؛ ارسال واقعی فقط با API رسمی و اجازهٔ صریح قوانین امکان‌پذیر است.</p></div></div>
+      <form id="competition-form" class="toolbar">
+        <input name="title" required minlength="2" maxlength="160" placeholder="نام مسابقه">
+        <input name="url" type="url" required placeholder="نشانی مسابقه با HTTPS">
+        <input name="rules_url" type="url" required placeholder="نشانی قوانین مسابقه">
+        <input name="country" required minlength="2" maxlength="80" placeholder="کشور محل اقامت">
+        <select name="task_type"><option value="logic">معما و منطق</option><option value="coding">برنامه‌نویسی</option><option value="chess">شطرنج</option><option value="strategy">بازی استراتژیک</option><option value="general">سایر</option></select>
+        <label><input type="checkbox" name="terms_verified"> قوانین را بررسی کرده‌ام</label>
+        <label><input type="checkbox" name="automated_agents_allowed"> قوانین ربات را صریحاً مجاز می‌دانند</label>
+        <label><input type="checkbox" name="official_api"> API رسمی دارد</label>
+        <button class="primary" type="submit">ثبت مسابقه</button>
+      </form>
+      <div id="competition-list" class="empty">هنوز مسابقه‌ای ثبت نشده است.</div>
     </section>
     <section class="panel" id="tasks">
       <div class="section-head"><div><span class="eyebrow">اجرای تحت نظارت</span><h2>کارهای در انتظار اقدام</h2></div></div>
