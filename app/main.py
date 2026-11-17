@@ -177,7 +177,8 @@ class OpportunityIn(BaseModel):
     eligible_countries: list[str] = Field(default_factory=list, max_length=100)
     excluded_countries: list[str] = Field(default_factory=list, max_length=100)
     minimum_withdrawal_amount: float | None = Field(default=None, ge=0)
-    withdrawal_currency: str = Field(default="USD", min_length=3, max_length=8)    payout_methods: list[str] = Field(default_factory=list, max_length=30)
+    withdrawal_currency: str = Field(default="USD", min_length=3, max_length=8)
+    payout_methods: list[str] = Field(default_factory=list, max_length=30)
 
 
 class SourceIn(BaseModel):
@@ -359,7 +360,8 @@ def create_opportunity(data: OpportunityIn, actor: str = Depends(require_owner))
         + (30 if payload["eligibility"] else 0)
         + (30 if payload["reward_description"] else 0)
     )
-    with connect() as db:        existing = db.execute("SELECT id FROM opportunities WHERE url = ?", (payload["url"],)).fetchone()
+    with connect() as db:
+        existing = db.execute("SELECT id FROM opportunities WHERE url = ?", (payload["url"],)).fetchone()
         if existing:
             raise HTTPException(409, "This opportunity URL is already registered.")
         try:
