@@ -23,6 +23,10 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12", "3.14"]
     steps:
       - name: Checkout selected commit without external actions
         env:
@@ -37,12 +41,16 @@ jobs:
           git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w 0)" fetch --no-tags --depth=1 origin "$GITHUB_SHA"
           git checkout --force --detach FETCH_HEAD
           git clean -fdx
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
       - name: Show runner versions
         run: |
-          python3 --version
+          python --version
           node --version
       - name: Create isolated Python environment
-        run: python3 -m venv .venv
+        run: python -m venv .venv
       - name: Install dependencies
         run: |
           .venv/bin/python -m pip install --upgrade pip
