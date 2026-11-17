@@ -1737,3 +1737,72 @@ def test_emergency_pause_update_waits_for_inflight_submission_gate(client, monke
               "owner_confirmed": True},
     )
     assert blocked.status_code == 423
+
+
+def test_concurrent_earning_state_transitions_are_serialized(client, monkeypatch):
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event, Lock
+    from app import main
+
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    item = client.post("/api/earnings", headers=headers, json={
+        "amount": 12.5, "currency": "EUR", "state": "estimated"
+    }).json()
+    for state in ("earned", "pending", "withdrawable"):
+        response = client.patch(
+            f"/api/earnings/{item['id']}/state", headers=headers,
+            json={"state": state},
+        )
+        assert response.status_code == 200
+
+    first_transition_entered = Event()
+    release_first_transition = Event()
+    second_request_started = Event()
+    call_lock = Lock()
+    calls = 0
+    original_now = main.now
+
+    def controlled_now():
+        nonlocal calls
+        with call_lock:
+            calls += 1
+            call_number = calls
+        if call_number == 1:
+            first_transition_entered.set()
+            assert release_first_transition.wait(timeout=5)
+        return original_now()
+
+    monkeypatch.setattr(main, "now", controlled_now)
+
+    def move_to_pending():
+        return client.patch(
+            f"/api/earnings/{item['id']}/state", headers=headers,
+            json={"state": "pending", "note": "first concurrent decision"},
+        )
+
+    def move_to_paid():
+        second_request_started.set()
+        return client.patch(
+            f"/api/earnings/{item['id']}/state", headers=headers,
+            json={"state": "paid", "note": "conflicting concurrent decision"},
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(move_to_pending)
+        assert first_transition_entered.wait(timeout=5)
+        second = pool.submit(move_to_paid)
+        assert second_request_started.wait(timeout=5)
+        time.sleep(0.1)
+        assert not second.done()
+        release_first_transition.set()
+        assert first.result(timeout=5).status_code == 200
+        assert second.result(timeout=5).status_code == 409
+
+    final = client.get(f"/api/earnings", headers=headers).json()
+    record = next(row for row in final if row["id"] == item["id"])
+    assert record["state"] == "pending"
+    history = client.get(
+        f"/api/earnings/{item['id']}/history", headers=headers
+    ).json()
+    assert [event["to_state"] for event in history][-2:] == ["withdrawable", "pending"]
