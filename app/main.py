@@ -1008,7 +1008,14 @@ def dry_run_competition(competition_id: int, actor: str = Depends(require_owner)
         if plan_row is None:
             raise HTTPException(409, "Create an agent strategy before running a dry-run.")
         plan = json.loads(plan_row["plan_json"])
-        readiness = assess_competition(competition_from_row(row))
+        competition_host = (urlparse(row["url"]).hostname or "").casefold()
+        matching_manifest = next(
+            (item for item in competition_adapters.list_manifests()
+             if item.exact_host == competition_host),
+            None,
+        )
+        allowed_actions = matching_manifest.allowed_actions if matching_manifest else ()
+        readiness = assess_competition(competition_from_row(row, allowed_actions))
         result = {
             "status": "dry_run_only",
             "external_submission": False,
