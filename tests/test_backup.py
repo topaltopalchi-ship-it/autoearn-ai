@@ -101,7 +101,7 @@ def test_restore_verifies_and_recovers_backup_without_overwriting(tmp_path):
         db.execute("INSERT INTO earnings(amount) VALUES (875)")
     evidence = tmp_path / "private_evidence"
     evidence.mkdir()
-    (evidence / "proof.png").write_bytes(b"\\x89PNG\\r\\n\\x1a\\nreceipt")
+    (evidence / "proof.png").write_bytes(b"\x89PNG\r\n\x1a\nreceipt")
     backup = tmp_path / "backups" / "snapshot"
     create_backup(database, evidence, backup)
 
