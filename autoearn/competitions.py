@@ -15,9 +15,9 @@ from collections import deque
 from threading import Lock
 from time import monotonic
 from typing import Literal, Protocol
-from urllib.error import URLError
 from urllib.parse import urlsplit
-from urllib.request import Request, urlopen
+import http.client
+import ssl
 
 Eligibility = Literal["eligible", "ineligible", "unknown"]
 TaskType = Literal["logic", "coding", "chess", "strategy", "general"]
@@ -174,20 +174,35 @@ def _openai_strategy(
         "max_output_tokens": 900,
         "store": False,
     }).encode("utf-8")
-    request = Request(
-        "https://api.openai.com/v1/responses",
-        data=body,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
+    connection = None
     try:
-        with urlopen(request, timeout=30) as response:
-            response_data = json.loads(response.read(1_000_000).decode("utf-8"))
-    except (OSError, URLError, TimeoutError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        connection = http.client.HTTPSConnection(
+            "api.openai.com", timeout=30, context=ssl.create_default_context()
+        )
+        connection.request(
+            "POST",
+            "/v1/responses",
+            body=body,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+        )
+        response = connection.getresponse()
+        if response.status != 200:
+            raise AIProviderError("The configured AI provider returned a non-success status.")
+        response_payload = response.read(1_000_001)
+        if len(response_payload) > 1_000_000:
+            raise AIProviderError("The configured AI provider response exceeded the size limit.")
+        response_data = json.loads(response_payload.decode("utf-8"))
+    except AIProviderError:
+        raise
+    except (OSError, ssl.SSLError, http.client.HTTPException, TimeoutError,
+            UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise AIProviderError("The configured AI provider request failed.") from exc
+    finally:
+        if connection is not None:
+            connection.close()
     chunks = []
     for item in response_data.get("output", []):
         if item.get("type") != "message":
