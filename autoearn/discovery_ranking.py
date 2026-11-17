@@ -16,7 +16,10 @@ def _age_days(value: str) -> int | None:
         stamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
         if stamp.tzinfo is None:
             stamp = stamp.replace(tzinfo=timezone.utc)
-        return max(0, (datetime.now(timezone.utc) - stamp.astimezone(timezone.utc)).days)
+        age_seconds = (datetime.now(timezone.utc) - stamp.astimezone(timezone.utc)).total_seconds()
+        if age_seconds < -86400:
+            return None
+        return max(0, int(age_seconds // 86400))
     except (TypeError, ValueError):
         return None
 
