@@ -38,6 +38,41 @@ def test_explicit_country_eligibility_and_net_hourly_estimate():
     assert result["execution_allowed"] is True
 
 
+def test_probability_weighted_expected_net_earnings():
+    result = evaluate_candidate(
+        complete_candidate(payment_probability=50),
+        "Germany",
+        now=NOW,
+    )
+    assert result["net_reward_estimate"] == 10.0
+    assert result["net_hourly_estimate"] == 20.0
+    assert result["expected_net_reward_estimate"] == 5.0
+    assert result["expected_net_hourly_estimate"] == 10.0
+    assert result["payment_probability_percent"] == 50
+
+
+def test_unknown_payment_probability_keeps_expected_earnings_unknown():
+    result = evaluate_candidate(
+        complete_candidate(payment_probability=None),
+        "Germany",
+        now=NOW,
+    )
+    assert result["net_reward_estimate"] == 10.0
+    assert result["expected_net_reward_estimate"] is None
+    assert result["expected_net_hourly_estimate"] is None
+
+
+def test_zero_payment_probability_blocks_execution():
+    result = evaluate_candidate(
+        complete_candidate(payment_probability=0),
+        "Germany",
+        now=NOW,
+    )
+    assert result["expected_net_reward_estimate"] == 0.0
+    assert result["execution_allowed"] is False
+    assert "estimated payment probability is zero" in result["risk_flags"]
+
+
 def test_country_not_listed_is_ineligible_when_allowlist_exists():
     result = evaluate_candidate(complete_candidate(), "France", now=NOW)
     assert result["eligibility"] == "ineligible"
