@@ -1642,7 +1642,10 @@ def _run_discovery_once(*, force: bool = False) -> dict | None:
         return None
     try:
         result = _run_approved_discovery_batch()
-        _finish_discovery_lease(lease_token, result=result)
+        if not _finish_discovery_lease(lease_token, result=result):
+            # A newer worker owns the scheduler now. The batch may have written
+            # idempotent lead records, but this worker must not report completion.
+            return None
         return result
     except Exception as exc:
         _finish_discovery_lease(lease_token, error=str(exc))

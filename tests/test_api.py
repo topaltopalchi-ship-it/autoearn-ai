@@ -1504,3 +1504,17 @@ def test_discovery_scheduler_migrates_existing_database_with_legacy_lease_schema
         state = db.execute("SELECT lease_token FROM discovery_scheduler WHERE id = 1").fetchone()
     assert "lease_token" in columns
     assert state["lease_token"] == ""
+
+
+
+def test_scheduler_does_not_report_success_after_lease_is_fenced(client, monkeypatch):
+    from app import main
+
+    calls = []
+    monkeypatch.setattr(main, "_run_approved_discovery_batch", lambda: calls.append(True) or {"inserted_count": 1})
+    monkeypatch.setattr(main, "_finish_discovery_lease", lambda *args, **kwargs: False)
+
+    result = main._run_discovery_once(force=True)
+
+    assert calls == [True]
+    assert result is None
