@@ -1514,3 +1514,65 @@ def test_discovery_worker_does_not_report_success_after_lease_loss(client, monke
     monkeypatch.setattr(main, "_finish_discovery_lease", lambda *args, **kwargs: False)
 
     assert main._run_discovery_once(force=True) is None
+
+
+def test_discovery_batch_continues_after_one_feed_failure(client, monkeypatch):
+    from app import main
+    from autoearn.adapters import DiscoveredLead
+
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    payloads = [
+        {"name": "Broken feed", "feed_url": "https://broken.example/rss",
+         "category": "other", "allowed_domains": ["broken.example"], "max_items": 10},
+        {"name": "Healthy feed", "feed_url": "https://healthy.example/rss",
+         "category": "freelancing_services", "allowed_domains": ["healthy.example"], "max_items": 10},
+    ]
+    feed_ids = []
+    for payload in payloads:
+        created = client.post("/api/discovery/feeds", headers=headers, json=payload)
+        assert created.status_code == 201
+        feed_id = created.json()["id"]
+        feed_ids.append(feed_id)
+        approved = client.patch(
+            f"/api/discovery/feeds/{feed_id}/review", headers=headers,
+            json={"status": "approved"},
+        )
+        assert approved.status_code == 200
+
+    class MixedFeed:
+        def __init__(self, **kwargs):
+            self.feed_url = kwargs["feed_url"]
+
+        def discover(self):
+            if "broken.example" in self.feed_url:
+                raise ValueError("simulated malformed feed")
+            return [DiscoveredLead(
+                title="Verified-format task", url="https://healthy.example/task/1",
+                category="freelancing_services", source_name="Healthy feed",
+                observed_at="2026-11-17T00:00:00+00:00",
+                summary="Country and payout still require review",
+            )]
+
+    monkeypatch.setattr(main, "PublicRssAdapter", MixedFeed)
+    response = client.post("/api/discovery/run", headers=headers)
+    assert response.status_code == 200
+    result = response.json()
+    assert result["approved_feed_count"] == 2
+    assert result["successful_feed_count"] == 1
+    assert result["inserted_count"] == 1
+    by_id = {item["feed_id"]: item for item in result["feeds"]}
+    assert by_id[feed_ids[0]]["status"] == "error"
+    assert "simulated malformed feed" in by_id[feed_ids[0]]["error"]
+    assert by_id[feed_ids[1]]["status"] == "ok"
+
+    with main.connect() as db:
+        broken = db.execute(
+            "SELECT consecutive_failures, total_checks FROM discovery_feeds WHERE id = ?",
+            (feed_ids[0],),
+        ).fetchone()
+        healthy = db.execute(
+            "SELECT consecutive_failures, total_checks, total_successes FROM discovery_feeds WHERE id = ?",
+            (feed_ids[1],),
+        ).fetchone()
+    assert tuple(broken) == (1, 1)
+    assert tuple(healthy) == (0, 1, 1)
