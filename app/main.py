@@ -82,6 +82,19 @@ def init_db() -> None:
             discovered_at TEXT NOT NULL,
             review_notes TEXT NOT NULL DEFAULT ''
         );
+        CREATE TABLE IF NOT EXISTS discovery_feeds (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            feed_url TEXT NOT NULL UNIQUE,
+            category TEXT NOT NULL,
+            allowed_domains TEXT NOT NULL,
+            max_items INTEGER NOT NULL DEFAULT 30,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at TEXT NOT NULL,
+            reviewed_at TEXT,
+            last_checked_at TEXT,
+            last_error TEXT NOT NULL DEFAULT ''
+        );
         CREATE TABLE IF NOT EXISTS tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             opportunity_id INTEGER NOT NULL REFERENCES opportunities(id) ON DELETE CASCADE,
@@ -283,6 +296,18 @@ class RssDiscoveryIn(BaseModel):
     category: Literal["games_competitions", "surveys_microtasks", "freelancing_services", "ai_content_products", "other"]
     allowed_domains: list[str] = Field(min_length=1, max_length=20)
     max_items: int = Field(default=30, ge=1, le=100)
+
+class DiscoveryFeedIn(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    feed_url: HttpUrl
+    category: Literal["games_competitions", "surveys_microtasks", "freelancing_services", "ai_content_products", "other"]
+    allowed_domains: list[str] = Field(min_length=1, max_length=10)
+    max_items: int = Field(default=30, ge=1, le=50)
+
+
+class DiscoveryFeedReviewIn(BaseModel):
+    status: Literal["pending", "approved", "rejected"]
+
 
 class OpportunityEvaluationIn(BaseModel):
     source_id: int = Field(gt=0)
@@ -850,6 +875,155 @@ def discover_rss_sources(data: RssDiscoveryIn, actor: str = Depends(require_owne
     return {"adapter_id": data.adapter_id, "discovered_count": len(leads),
             "inserted_count": len(inserted), "duplicate_count": duplicates,
             "candidates": inserted, "review_required": True}
+
+
+@app.post("/api/discovery/feeds", status_code=201)
+def create_discovery_feed(data: DiscoveryFeedIn, actor: str = Depends(require_owner)):
+    feed_url = normalize_url(str(data.feed_url))
+    parsed = urlparse(feed_url)
+    host = (parsed.hostname or "").casefold()
+    domains = [item.strip().casefold() for item in data.allowed_domains]
+    if parsed.scheme != "https" or not host or parsed.username or parsed.password:
+        raise HTTPException(422, "Discovery feed must use a public HTTPS URL without credentials.")
+    if host not in domains:
+        raise HTTPException(422, "The feed hostname must exactly match one allowed domain.")
+    if len(set(domains)) != len(domains) or any(
+        not domain or domain.startswith(".") or domain.endswith(".")
+        or "*" in domain or "/" in domain or ":" in domain
+        for domain in domains
+    ):
+        raise HTTPException(422, "Allowed domains must be unique exact hostnames; wildcards are not accepted.")
+    with connect() as db:
+        try:
+            cursor = db.execute(
+                """INSERT INTO discovery_feeds
+                   (name, feed_url, category, allowed_domains, max_items, status, created_at)
+                   VALUES (?, ?, ?, ?, ?, 'pending', ?)""",
+                (data.name.strip(), feed_url, data.category,
+                 json.dumps(domains), data.max_items, now()),
+            )
+        except sqlite3.IntegrityError:
+            raise HTTPException(409, "This discovery feed is already registered.")
+        row = db.execute("SELECT * FROM discovery_feeds WHERE id = ?",
+                         (cursor.lastrowid,)).fetchone()
+        return row_dict(row)
+
+
+@app.get("/api/discovery/feeds")
+def list_discovery_feeds(status: Literal["pending", "approved", "rejected"] | None = None,
+                         actor: str = Depends(require_owner)):
+    sql = "SELECT * FROM discovery_feeds"
+    params = ()
+    if status:
+        sql += " WHERE status = ?"
+        params = (status,)
+    sql += " ORDER BY created_at DESC, id DESC"
+    with connect() as db:
+        rows = db.execute(sql, params).fetchall()
+    result = []
+    for row in rows:
+        item = row_dict(row)
+        item["allowed_domains"] = json.loads(item["allowed_domains"] or "[]")
+        result.append(item)
+    return result
+
+
+@app.patch("/api/discovery/feeds/{feed_id}/review")
+def review_discovery_feed(feed_id: int, data: DiscoveryFeedReviewIn,
+                          actor: str = Depends(require_owner)):
+    with connect() as db:
+        row = db.execute("SELECT * FROM discovery_feeds WHERE id = ?", (feed_id,)).fetchone()
+        if row is None:
+            raise HTTPException(404, "Discovery feed not found.")
+        reviewed_at = now() if data.status != "pending" else None
+        db.execute(
+            "UPDATE discovery_feeds SET status = ?, reviewed_at = ? WHERE id = ?",
+            (data.status, reviewed_at, feed_id),
+        )
+        updated = db.execute("SELECT * FROM discovery_feeds WHERE id = ?", (feed_id,)).fetchone()
+        item = row_dict(updated)
+        item["allowed_domains"] = json.loads(item["allowed_domains"] or "[]")
+        return item
+
+
+@app.post("/api/discovery/run")
+def run_approved_discovery(actor: str = Depends(require_owner)):
+    with connect() as db:
+        feeds = db.execute(
+            """SELECT * FROM discovery_feeds WHERE status = 'approved'
+               ORDER BY id ASC LIMIT 25"""
+        ).fetchall()
+    feed_results = []
+    inserted_count = 0
+    duplicate_count = 0
+    successful_feeds = 0
+    for feed in feeds:
+        feed_id = feed["id"]
+        try:
+            adapter = PublicRssAdapter(
+                adapter_id=f"stored-feed-{feed_id}",
+                display_name=feed["name"],
+                feed_url=feed["feed_url"],
+                category=feed["category"],
+                allowed_domains=tuple(json.loads(feed["allowed_domains"] or "[]")),
+                max_items=feed["max_items"],
+            )
+            leads = adapter.discover()
+            feed_inserted = 0
+            feed_duplicates = 0
+            with connect() as db:
+                for lead in leads:
+                    canonical_url = normalize_url(lead.url)
+                    exists = db.execute(
+                        "SELECT id FROM opportunities WHERE url = ? UNION SELECT id FROM sources WHERE url = ? LIMIT 1",
+                        (canonical_url, canonical_url),
+                    ).fetchone()
+                    if exists:
+                        feed_duplicates += 1
+                        continue
+                    try:
+                        db.execute(
+                            """INSERT INTO sources
+                               (name, url, category, terms_url, country_notes, payment_notes,
+                                status, discovered_at, review_notes)
+                               VALUES (?, ?, ?, ?, '', ?, 'pending', ?, '')""",
+                            (lead.title[:160], canonical_url, lead.category,
+                             lead.terms_url, lead.summary[:1000], lead.observed_at),
+                        )
+                        feed_inserted += 1
+                    except sqlite3.IntegrityError:
+                        feed_duplicates += 1
+                db.execute(
+                    "UPDATE discovery_feeds SET last_checked_at = ?, last_error = '' WHERE id = ?",
+                    (now(), feed_id),
+                )
+            successful_feeds += 1
+            inserted_count += feed_inserted
+            duplicate_count += feed_duplicates
+            feed_results.append({
+                "feed_id": feed_id, "name": feed["name"], "status": "ok",
+                "discovered": len(leads), "inserted": feed_inserted,
+                "duplicates": feed_duplicates,
+            })
+        except (ValueError, OSError, TypeError) as exc:
+            message = str(exc)[:500]
+            with connect() as db:
+                db.execute(
+                    "UPDATE discovery_feeds SET last_checked_at = ?, last_error = ? WHERE id = ?",
+                    (now(), message, feed_id),
+                )
+            feed_results.append({
+                "feed_id": feed_id, "name": feed["name"], "status": "error",
+                "error": message,
+            })
+    return {
+        "checked_at": now(), "approved_feed_count": len(feeds),
+        "successful_feed_count": successful_feeds,
+        "inserted_count": inserted_count, "duplicate_count": duplicate_count,
+        "feeds": feed_results,
+        "review_required": True,
+        "note": "All discovered items remain pending for owner review; no platform action was taken.",
+    }
 
 
 @app.post("/api/supervision/actions", status_code=201)
