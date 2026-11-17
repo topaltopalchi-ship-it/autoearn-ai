@@ -47,7 +47,7 @@ A high score is not a guarantee. Missing or stale evidence lowers confidence and
 
 ## Delivery phases
 
-### Phase 1 — foundation (next implementation step)
+### Phase 1 — foundation (implemented in progress)
 - Add category and execution-mode enums, evidence/freshness fields, eligibility state, expected effort and payout metadata.
 - Add a deterministic evaluator that returns eligibility (eligible, ineligible, unknown), confidence, risk flags, and a transparent ranking breakdown.
 - Add tests for unknown eligibility, stale evidence, unsupported automation, and country mismatch.
@@ -57,6 +57,13 @@ A high score is not a guarantee. Missing or stale evidence lowers confidence and
 - Start with official/public metadata endpoints and curated source registries across all four initial categories.
 - Add source-specific rate limits, caching, provenance, and adapter health status.
 - Do not enable broad crawling by default.
+
+### Competition agent implementation (first vertical slice)
+- Added a transparent baseline strategy planner for logic, coding, chess, strategy, and general competitions.
+- Added a competition registry contract that accepts only locally registered adapters using an official API, an exact hostname allowlist, and explicit permission for automated agents.
+- Added owner-authenticated competition intake, strategy planning, dry-run history, and a guarded submission endpoint.
+- The built-in planner is a deterministic baseline, not an external LLM. No platform adapter is installed by default, so real submissions remain unavailable until a platform-specific adapter is reviewed, tested, and explicitly enabled.
+- A dry-run never submits an entry or claims a score. Actual participation must use a competition's published rules and official integration.
 
 ### Phase 3 — supervised execution
 - Introduce task queue, dry-run, explicit capability registry, audit events, user approval gates, retry policy, and kill switch.
