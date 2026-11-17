@@ -1350,9 +1350,9 @@ def test_opportunity_evaluation_requires_explicit_country_payout_support_for_rea
     })
     assert source_response.status_code == 201
     source = source_response.json()
-    client.patch(f"/api/sources/{source["id"]}/review", headers=headers,
+    client.patch(f"/api/sources/{source['id']}/review", headers=headers,
                  json={"status": "approved", "notes": "Reviewed"})
-    client.patch(f"/api/opportunities/{opp["id"]}/verification", headers=headers,
+    client.patch(f"/api/opportunities/{opp['id']}/verification", headers=headers,
                  json={"status": "verified", "notes": "Reviewed"})
     payload = {
         "source_id": source["id"], "country": "Iran", "execution_mode": "official_api",
@@ -1363,16 +1363,16 @@ def test_opportunity_evaluation_requires_explicit_country_payout_support_for_rea
                             "repetitive_information_processing": True,
                             "output_is_objectively_verifiable": True},
     }
-    unknown = client.post(f"/api/opportunities/{opp["id"]}/evaluate", headers=headers, json=payload)
+    unknown = client.post(f"/api/opportunities/{opp['id']}/evaluate", headers=headers, json=payload)
     assert unknown.status_code == 200
     assert unknown.json()["evaluation"]["execution_allowed"] is False
     assert unknown.json()["evaluation"]["payout_supported"] is None
     payload["payout_supported"] = False
-    blocked = client.post(f"/api/opportunities/{opp["id"]}/evaluate", headers=headers, json=payload)
+    blocked = client.post(f"/api/opportunities/{opp['id']}/evaluate", headers=headers, json=payload)
     assert blocked.status_code == 200
     assert blocked.json()["evaluation"]["execution_allowed"] is False
     payload["payout_supported"] = True
-    verified = client.post(f"/api/opportunities/{opp["id"]}/evaluate", headers=headers, json=payload)
+    verified = client.post(f"/api/opportunities/{opp['id']}/evaluate", headers=headers, json=payload)
     assert verified.status_code == 200
     assert verified.json()["evaluation"]["payout_supported"] is True
     assert verified.json()["execution_authorized"] is False
