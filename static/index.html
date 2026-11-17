@@ -25,6 +25,11 @@
       <div class="section-head"><div><span class="eyebrow">کشف و بررسی دقیق</span><h2>فرصت‌های درآمدزایی</h2></div><button class="primary" id="add-opportunity">+ افزودن فرصت</button></div>
       <div class="toolbar"><input id="search" placeholder="جست‌وجوی پلتفرم یا فرصت…"><select id="filter"><option value="">همهٔ وضعیت‌ها</option><option value="discovered">کشف‌شده</option><option value="reviewing">در حال بررسی</option><option value="eligible">مجاز</option><option value="ineligible">غیرمجاز</option><option value="archived">بایگانی‌شده</option></select><select id="verification-filter"><option value="">همهٔ وضعیت‌های بررسی</option><option value="pending">در انتظار تأیید</option><option value="verified">تأییدشده</option><option value="rejected">ردشده</option></select></div>
       <div id="opportunity-list" class="empty">هنوز فرصتی ثبت نشده است. پلتفرمی را برای ارزیابی اضافه کنید.</div>
+      <div class="subsection">
+        <div class="section-head"><div><span class="eyebrow">انتخاب هوشمند</span><h3>اولویت‌بندی فرصت‌های ارزیابی‌شده</h3><p>آخرین ارزیابی هر فرصت را بر اساس کشور، امتیاز، ریسک و تناسب AI مرتب می‌کند.</p></div></div>
+        <div class="toolbar"><label>کشور هدف<input id="rank-country" value="Azerbaijan" minlength="2" maxlength="80"></label><button class="primary" id="rank-opportunities" type="button">رتبه‌بندی فرصت‌ها</button></div>
+        <div id="ranked-opportunity-list" class="empty">برای مشاهدهٔ فهرست اولویت‌بندی‌شده، کشور را انتخاب و رتبه‌بندی را اجرا کنید.</div>
+      </div>
     </section>
     <section class="panel" id="sources">
       <div class="section-head"><div><span class="eyebrow">ثبت و بررسی انسانی</span><h2>منابع پیشنهادی</h2></div><div class="section-actions"><button class="secondary" id="discover-rss" type="button">دریافت یک‌باره خبرخوان</button><button class="secondary" id="add-discovery-feed" type="button">+ ثبت خبرخوان پایدار</button><button class="primary" id="run-discovery" type="button">بررسی همهٔ منابع تأییدشده</button><button class="primary" id="add-source">+ افزودن منبع</button></div></div>
