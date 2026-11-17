@@ -55,11 +55,19 @@ async function showEvaluationHistory(id){
   try{
     const rows=await api(`/api/opportunities/${id}/evaluations`);
     if(!rows.length){toast("هنوز سابقه‌ای برای ارزیابی ثبت نشده است");return}
-    const summary=rows.map((row,index)=>{
+    $("evaluation-history-list").innerHTML=rows.map((row,index)=>{
       const e=row.evaluation||{};
-      return `#${index+1} · ${new Date(row.created_at).toLocaleString("fa-IR")}\nکشور: ${row.country}\nوضعیت صلاحیت: ${statusFa(e.eligibility)}\nامتیاز: ${e.ranking_score??"—"}/100\nپاداش خالص: ${e.net_reward_estimate??"نامشخص"} ${e.currency?currencyFa(e.currency):""}\nروش مشارکت: ${statusFa(row.execution_mode)}`;
-    }).join("\n\n");
-    alert("سوابق ارزیابی\n\n"+summary);
+      return `<article class="item"><div>
+        <h3>ارزیابی شمارهٔ ${new Intl.NumberFormat("fa-IR").format(index+1)}</h3>
+        <p>زمان: ${esc(new Date(row.created_at).toLocaleString("fa-IR"))}<br>
+        کشور: ${esc(row.country)}<br>
+        وضعیت صلاحیت: ${esc(statusFa(e.eligibility))}<br>
+        امتیاز: ${e.ranking_score??"—"} از ۱۰۰<br>
+        پاداش خالص: ${e.net_reward_estimate==null?"نامشخص":esc(e.net_reward_estimate)+" "+(e.currency?currencyFa(e.currency):"")}<br>
+        روش مشارکت: ${esc(statusFa(row.execution_mode))}</p>
+      </div></article>`;
+    }).join("");
+    $("evaluation-history-dialog").showModal();
   }catch(e){toast(e.message)}
 }
 async function createTask(id){const description=prompt("فعالیتی را که قصد انجامش را دارید شرح دهید. دستیار بدون تأیید شما بازی یا چیزی را ارسال نمی‌کند:");if(!description)return;try{await api("/api/tasks",{method:"POST",body:JSON.stringify({opportunity_id:id,description})});toast("کار به صف تأیید اضافه شد");refresh()}catch(e){toast(e.message)}}
