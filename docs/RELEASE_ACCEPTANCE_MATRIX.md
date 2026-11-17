@@ -12,8 +12,8 @@ This matrix is the single source of truth for progress reports. Percentages meas
 | Competition planning and integration | 12% | 65% | 7.8% | Deterministic/optional AI planning, intake, dry-run history, official API registry, exact-host allowlist, terms/eligibility checks and explicit confirmation are implemented. A real platform adapter with written permission, official scopes and sandbox validation is not installed. |
 | Supervised execution and controls | 14% | 55% | 7.7% | Persistent approval queue, human decisions, audit history, serialized decisions, global pause for competition submission and in-process per-adapter rate limiting are implemented. Durable retry/backoff, distributed limits and a shared pause gate for any future external-action surface remain. |
 | Earnings ledger and reconciliation | 10% | 70% | 7.0% | Currency-separated ledger, constrained transitions, audit history, private PDF/PNG/JPEG receipt upload/list/download, file signature and size limits are implemented. Independent reconciliation with authoritative payment evidence and any payout integration remain. |
-| Security, testing and release readiness | 14% | 50% | 7.0% | Owner authentication on API routes, browser security headers, private evidence storage, dependency checks, syntax checks and a passing Python 3.10/3.12/3.14 CI matrix are verified. Malware scanning, retention/backup policy, independent security review, production secret/session design and deployment hardening remain. |
-| **Total** | **100%** |  | **75.4%** | **24.6% engineering work remains. Production release is not yet approved.** |
+| Security, testing and release readiness | 14% | 55% | 7.7% | Owner authentication on API routes, browser security headers, private evidence storage with owner-only POSIX directory/file permissions, dependency checks, syntax checks and a passing Python 3.10/3.12/3.14 CI matrix are verified. Malware scanning, retention/backup policy, independent security review, production secret/session design and deployment hardening remain. |
+| **Total** | **100%** |  | **76.1%** | **24.6% engineering work remains. Production release is not yet approved.** |
 
 Calculation: sum of (workstream weight × verified completion). Values are conservative engineering estimates and will only change when acceptance evidence changes.
 
@@ -27,7 +27,7 @@ Calculation: sum of (workstream weight × verified completion). Values are conse
 
 ## Latest verification
 
-- Latest verified implementation commit: `3e4311174a518294cff7cc4793a9f075a0359789`.
-- GitHub Actions run [44153612502](https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44153612502): **261 passed on each of Python 3.10, 3.12 and 3.14**; dependency consistency, Python syntax and dashboard JavaScript syntax passed in all three jobs.
+- Latest verified implementation commit: `0ab4d40cb397a3f6bdae6feee0b02dd799ebf1d5`.
+- GitHub Actions run [44154265136](https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44154265136): **261 passed on each of Python 3.10, 3.12 and 3.14**; dependency consistency, Python syntax and dashboard JavaScript syntax passed in all three jobs. The receipt-storage permission test verifies owner-only POSIX modes.
 - Later documentation-only updates must receive their own CI verification before release.
 - `main` remains unchanged; PR #47 remains draft and unmerged; repository visibility remains public.
