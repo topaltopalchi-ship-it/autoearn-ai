@@ -5,3 +5,5 @@ A transparent opportunity discovery and reward-tracking workspace. The first rel
 ## Status
 
 Project initialized. The application scaffold is being built on the `develop` branch.
+
+See [PROJECT_STATUS.md](PROJECT_STATUS.md) for the product direction, privacy and security requirements, development handoff, and next steps.
