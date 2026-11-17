@@ -5,6 +5,9 @@ on:
     branches:
       - feat-opportunity-eligibility-payout-details
       - feat-task-ai-suitability-screening
+  pull_request:
+    branches:
+      - feat-task-ai-suitability-screening
   workflow_dispatch:
 
 concurrency:
