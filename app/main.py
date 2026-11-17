@@ -1166,8 +1166,7 @@ def discover_rss_sources(data: RssDiscoveryIn, actor: str = Depends(require_owne
                 duplicates += 1
                 continue
             try:
-                cursor = db.execute(
-                    track_key = str(getattr(lead, "track_key", "") or "").strip()
+                track_key = str(getattr(lead, "track_key", "") or "").strip()
                 track_review_status = "matched" if track_key else "needs_review"
                 cursor = db.execute(
                     """INSERT INTO discovery_leads
