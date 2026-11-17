@@ -21,7 +21,24 @@ def rank_evaluations(records: list[dict[str, Any]]) -> dict[str, Any]:
             score = 0
         eligibility = evaluation.get("eligibility", "unknown")
         stale = bool(evaluation.get("evidence_stale", True))
-        if eligibility == "eligible" and not stale and score >= 70:
+        research = record.get("research") or {}
+        research_status = {
+            "country": research.get("country_status", "unknown"),
+            "payout": research.get("payout_status", "unknown"),
+            "ai_permission": research.get("ai_permission", "unknown"),
+        }
+        research_complete = (
+            research_status["country"] == "verified"
+            and research_status["payout"] == "verified"
+            and research_status["ai_permission"] == "allowed"
+        )
+        api_required = record.get("execution_mode") == "official_api"
+        api_ready = research.get("api_status", "unknown") == "available"
+        if not research_complete:
+            tier = "blocked_pending_research"
+        elif api_required and not api_ready:
+            tier = "blocked_api_unverified"
+        elif eligibility == "eligible" and not stale and score >= 70:
             tier = "priority_candidate"
         elif eligibility != "ineligible" and score >= 35:
             tier = "needs_review"
@@ -49,10 +66,13 @@ def rank_evaluations(records: list[dict[str, Any]]) -> dict[str, Any]:
             "ai_fit": ai_fit,
             "ai_suitability_score": ai_assessment.get("score"),
             "risk_flag_count": len(flags) if isinstance(flags, list) else 0,
+            "research_status": research_status,
+            "research_complete": research_complete,
+            "api_research_ready": api_ready,
         }
         grouped[currency].append(item)
 
-    tier_order = {"priority_candidate": 0, "needs_review": 1, "low_priority": 2}
+    tier_order = {"priority_candidate": 0, "needs_review": 1, "blocked_pending_research": 2, "blocked_api_unverified": 3, "low_priority": 4}
     groups = []
     for currency in sorted(grouped):
         items = sorted(
