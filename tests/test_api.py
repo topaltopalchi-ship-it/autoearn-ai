@@ -1840,6 +1840,9 @@ def test_security_headers_cover_html_api_and_static_assets(client, path):
     assert response.headers["x-frame-options"] == "DENY"
     assert response.headers["referrer-policy"] == "no-referrer"
     assert response.headers["permissions-policy"] == "camera=(), microphone=(), geolocation=()"
+    assert response.headers["cross-origin-opener-policy"] == "same-origin"
+    assert response.headers["cross-origin-resource-policy"] == "same-origin"
+    assert response.headers["x-permitted-cross-domain-policies"] == "none"
     policy = response.headers["content-security-policy"]
     assert "default-src 'self'" in policy
     assert "object-src 'none'" in policy
