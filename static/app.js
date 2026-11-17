@@ -27,7 +27,8 @@ const riskFlagFa = (v) => ({
   "time estimate is missing or invalid":"برآورد زمان ثبت نشده یا معتبر نیست",
   "advertised reward is unknown":"مبلغ پاداش اعلام‌شده مشخص نیست",
   "risk assessment is missing":"ارزیابی ریسک انجام نشده است",
-  "automatic execution is unavailable for this execution mode":"اجرای خودکار در روش انتخاب‌شده مجاز نیست"
+  "automatic execution is unavailable for this execution mode":"اجرای خودکار در روش انتخاب‌شده مجاز نیست",
+  "minimum withdrawal threshold uses a different currency; conversion is unknown":"ارز حداقل برداشت با ارز پاداش متفاوت است؛ تبدیل ارز مشخص نیست"
 })[v]||"هشدار دیگری ثبت شده است";
 function toast(message){const el=$("toast");el.textContent=message;el.classList.add("show");setTimeout(()=>el.classList.remove("show"),2600)}
 function esc(s=""){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
@@ -155,7 +156,8 @@ $("evaluation-form").onsubmit=async e=>{
   data.source_id=Number(data.source_id);
   for(const field of ["reward_amount","estimated_minutes","payment_probability","risk_score"])
     data[field]=data[field]===""?null:Number(data[field]);
-  data.estimated_cost=Number(data.estimated_cost||0);
+  for(const field of ["estimated_cost","payout_fee_fixed","payout_fee_percent","conversion_fee_percent"])
+    data[field]=Number(data[field]||0);
   data.evidence=String(data.evidence||"").split("\n").map(x=>x.trim()).filter(Boolean);
   try{
     const result=await api("/api/opportunities/"+data.opportunity_id+"/evaluate",{method:"POST",body:JSON.stringify(data)});
@@ -166,6 +168,9 @@ $("evaluation-form").onsubmit=async e=>{
       "\nامتیاز رتبه‌بندی: "+value.ranking_score+"/100"+
       "\nپاداش خالص تخمینی: "+(value.net_reward_estimate==null?"نامشخص":value.net_reward_estimate+" "+currencyFa(value.currency))+
       "\nدرآمد خالص ساعتی تخمینی: "+(value.net_hourly_estimate==null?"نامشخص":value.net_hourly_estimate+" "+currencyFa(value.currency)+" در ساعت")+
+      "\nکارمزد برداشت تخمینی: "+money(value.payout_fee_estimate,value.currency)+
+      "\nکارمزد تبدیل تخمینی: "+money(value.conversion_fee_estimate,value.currency)+
+      "\nوضعیت حداقل برداشت: "+(value.withdrawal_threshold_currency_mismatch?"نامشخص؛ ارز متفاوت است":value.withdrawal_reachable_estimate===null?"حداقل برداشت قابل محاسبه نیست":value.withdrawal_reachable_estimate?"قابل دستیابی":"کمتر از حداقل برداشت")+
       "\nآمادگی اجرا: "+(value.execution_allowed?"پیش‌نیازها فراهم است":"مسدود است")+
       "\n\nهشدارها:\n"+(value.risk_flags.map(riskFlagFa).join("\n")||"بدون هشدار")+
       "\n\nهیچ اقدامی در پلتفرم انجام نشد.");
