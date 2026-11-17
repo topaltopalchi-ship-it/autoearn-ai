@@ -428,6 +428,8 @@ class OpportunityEvaluationIn(BaseModel):
     conversion_fee_percent: float = Field(default=0, ge=0, le=100)
     estimated_minutes: int | None = Field(default=None, gt=0)
     payment_probability: int | None = Field(default=None, ge=0, le=100)
+    acceptance_probability: int | None = Field(default=None, ge=0, le=100)
+    payout_reliability: int | None = Field(default=None, ge=0, le=100)
     # Must be explicitly confirmed for the selected residence country; unknown is not supported.
     payout_supported: bool | None = None
     risk_score: int | None = Field(default=None, ge=0, le=100)
@@ -942,6 +944,8 @@ def evaluate_opportunity(opportunity_id: int, data: OpportunityEvaluationIn,
             ),
             estimated_minutes=data.estimated_minutes,
             payment_probability=data.payment_probability,
+            acceptance_probability=data.acceptance_probability,
+            payout_reliability=data.payout_reliability,
             payout_supported=data.payout_supported,
             risk_score=data.risk_score,
             evidence=tuple(clean_list(data.evidence, "evidence")),
