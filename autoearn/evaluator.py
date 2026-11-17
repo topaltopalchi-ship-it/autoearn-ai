@@ -40,6 +40,7 @@ class OpportunityCandidate:
     minimum_withdrawal_amount: float | None = None
     estimated_minutes: int | None = None
     payment_probability: int | None = None
+    payout_supported: bool | None = None
     risk_score: int | None = None
     evidence: tuple[str, ...] = field(default_factory=tuple)
 
@@ -147,6 +148,8 @@ def evaluate_candidate(
         flags.append("opportunity has not been verified")
     if not candidate.evidence:
         flags.append("no supporting evidence recorded")
+    if candidate.payout_supported is not True:
+        flags.append("payout support for this country is not verified")
     if candidate.payment_probability is None:
         flags.append("payment probability is unknown")
     elif candidate.payment_probability == 0:
@@ -180,6 +183,7 @@ def evaluate_candidate(
         and bool(candidate.evidence)
         and candidate.execution_mode == "official_api"
         and candidate.reward_amount is not None
+        and candidate.payout_supported is True
         and candidate.payment_probability is not None
         and candidate.payment_probability > 0
         and candidate.estimated_minutes is not None
@@ -200,6 +204,7 @@ def evaluate_candidate(
         candidate.verification_status == "verified",
         bool(candidate.evidence),
         candidate.payment_probability is not None,
+        candidate.payout_supported is True,
         candidate.estimated_minutes is not None and candidate.estimated_minutes > 0,
         candidate.reward_amount is not None,
         candidate.risk_score is not None,
@@ -252,6 +257,7 @@ def evaluate_candidate(
         "expected_net_reward_estimate": expected_net_reward,
         "expected_net_hourly_estimate": expected_hourly_net,
         "payment_probability_percent": candidate.payment_probability,
+        "payout_supported": candidate.payout_supported,
         "withdrawal_reachable_estimate": withdrawal_reachable,
         "payout_fee_estimate": round((candidate.payout_fee_fixed + (max(0.0, (candidate.reward_amount or 0) - candidate.estimated_cost) * candidate.payout_fee_percent / 100)), 2),
         "conversion_fee_estimate": round(max(0.0, (candidate.reward_amount or 0) - candidate.estimated_cost) * candidate.conversion_fee_percent / 100, 2),
