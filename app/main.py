@@ -361,16 +361,26 @@ def create_opportunity(data: OpportunityIn, actor: str = Depends(require_owner))
         existing = db.execute("SELECT id FROM opportunities WHERE url = ?", (payload["url"],)).fetchone()
         if existing:
             raise HTTPException(409, "This opportunity URL is already registered.")
-        cur = db.execute("""
-            INSERT INTO opportunities
-            (title, platform, url, category, reward_description, eligibility, terms_url, notes, score, created_at,
-             eligible_countries, excluded_countries, minimum_withdrawal_amount, withdrawal_currency, payout_methods,
-             verification_status, verified_at, verification_notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NULL, '')
-        """, (payload["title"], payload["platform"], payload["url"], payload["category"],
-              payload["reward_description"], payload["eligibility"], payload["terms_url"],
-              payload["notes"], score, now(), payload["eligible_countries"], payload["excluded_countries"],
-              payload["minimum_withdrawal_amount"], payload["withdrawal_currency"], payload["payout_methods"]))
+        try:
+            cur = db.execute("""
+                INSERT INTO opportunities
+                (title, platform, url, category, reward_description, eligibility, terms_url, notes, score, created_at,
+                 eligible_countries, excluded_countries, minimum_withdrawal_amount, withdrawal_currency, payout_methods,
+                 verification_status, verified_at, verification_notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NULL, '')
+            """, (payload["title"], payload["platform"], payload["url"], payload["category"],
+                  payload["reward_description"], payload["eligibility"], payload["terms_url"],
+                  payload["notes"], score, now(), payload["eligible_countries"], payload["excluded_countries"],
+                  payload["minimum_withdrawal_amount"], payload["withdrawal_currency"], payload["payout_methods"]))
+        except sqlite3.IntegrityError:
+            # The pre-insert SELECT is only a friendly fast path. The unique
+            # index is the concurrency-safe authority when two requests race.
+            existing = db.execute(
+                "SELECT id FROM opportunities WHERE url = ?", (payload["url"],)
+            ).fetchone()
+            if existing:
+                raise HTTPException(409, "This opportunity URL is already registered.")
+            raise
         row = db.execute("SELECT * FROM opportunities WHERE id = ?", (cur.lastrowid,)).fetchone()
         return row_dict(row)
 
