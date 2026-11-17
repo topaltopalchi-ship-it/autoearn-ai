@@ -141,7 +141,7 @@ function renderDiscoveryHealth(){
   const summary=["healthy","error","stale","never_checked","pending_review","rejected"].map(k=>labels[k]+": "+Number(c[k]||0)).join(" · ");
   const rows=(discoveryHealth.feeds||[]).filter(f=>f.review_status==="approved");
   host.innerHTML='<div><b>سلامت خبرخوان‌ها</b><p>'+esc(summary||"هنوز منبعی ثبت نشده است")+'</p></div>'+
-    (rows.length?'<div>'+rows.map(f=>'<p><b>'+esc(f.name)+'</b> · '+esc(labels[f.health]||"غیرفعال")+' · خطاهای متوالی: '+Number(f.consecutive_failures||0)+(f.last_error?' · '+esc(f.last_error):'')+'</p>').join('')+'</div>':'');
+    (rows.length?'<div>'+rows.map(f=>'<p><b>'+esc(f.name)+'</b> · '+esc(labels[f.health]||"غیرفعال")+' · قابلیت اتکا: '+(f.reliability_percent===null?'داده کافی نیست':Number(f.reliability_percent).toFixed(1)+'٪')+' ('+Number(f.total_successes||0)+' موفق از '+Number(f.total_checks||0)+' بررسی؛ '+(f.reliability_sample==='established'?'نمونه کافی':'نمونه محدود')+') · خطاهای متوالی: '+Number(f.consecutive_failures||0)+(f.last_error?' · '+esc(f.last_error):'')+'</p>').join('')+'</div>':'');
 }
 function renderDiscoveryFeeds(){
   const host=$("discovery-feed-list");
