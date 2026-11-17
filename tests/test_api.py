@@ -125,6 +125,28 @@ def test_owner_auth_rate_limit_fails_closed_when_storage_is_unavailable(client, 
     assert "database unavailable" not in response.text
 
 
+def test_owner_auth_throttle_persists_keyed_client_identifier_not_raw_address(client, tmp_path):
+    from app import main
+
+    with TestClient(app, client=("192.0.2.55", 12345)) as remote_client:
+        response = remote_client.get("/api/opportunities")
+        assert response.status_code == 401
+
+    with main.connect() as db:
+        rows = db.execute(
+            "SELECT source_hash FROM owner_auth_failures"
+        ).fetchall()
+    assert len(rows) == 1
+    stored_identifier = rows[0]["source_hash"]
+    assert stored_identifier != "192.0.2.55"
+    assert len(stored_identifier) == 64
+    assert stored_identifier == __import__("hmac").new(
+        main.OWNER_TOKEN.encode("utf-8"),
+        b"192.0.2.55",
+        __import__("hashlib").sha256,
+    ).hexdigest()
+
+
 def test_state_changing_api_rejects_cross_origin_requests(client):
     response = client.post(
         "/api/opportunities",
