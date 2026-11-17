@@ -58,6 +58,59 @@ def test_backup_refuses_to_overwrite_existing_destination(tmp_path):
         create_backup(database, evidence, destination)
 
 
+def test_backup_rejects_symlinked_evidence_directory(tmp_path):
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    real_evidence = tmp_path / "real-evidence"
+    real_evidence.mkdir()
+    linked_evidence = tmp_path / "linked-evidence"
+    try:
+        linked_evidence.symlink_to(real_evidence, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("Symlinks are unavailable on this platform")
+
+    with pytest.raises(ValueError, match="Symbolic links"):
+        create_backup(database, linked_evidence, tmp_path / "backup")
+    assert not (tmp_path / "backup").exists()
+
+
+def test_backup_rejects_symlinked_database_file(tmp_path):
+    real_database = tmp_path / "real.db"
+    with sqlite3.connect(real_database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    linked_database = tmp_path / "linked.db"
+    try:
+        linked_database.symlink_to(real_database)
+    except (OSError, NotImplementedError):
+        pytest.skip("Symlinks are unavailable on this platform")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+
+    with pytest.raises(ValueError, match="Symbolic links"):
+        create_backup(linked_database, evidence, tmp_path / "backup")
+    assert not (tmp_path / "backup").exists()
+
+
+def test_backup_rejects_symlinked_destination_parent(tmp_path):
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    real_parent = tmp_path / "real-parent"
+    real_parent.mkdir()
+    linked_parent = tmp_path / "linked-parent"
+    try:
+        linked_parent.symlink_to(real_parent, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("Symlinks are unavailable on this platform")
+
+    with pytest.raises(ValueError, match="Symbolic links"):
+        create_backup(database, evidence, linked_parent / "backup")
+    assert not (real_parent / "backup").exists()
+
+
 def test_backup_rejects_evidence_symlinks(tmp_path):
     database = tmp_path / "autoearn.db"
     with sqlite3.connect(database) as db:
