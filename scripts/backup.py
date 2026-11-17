@@ -9,6 +9,7 @@ and a SHA-256 manifest. Keep the destination on encrypted storage.
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -54,8 +55,8 @@ def create_backup(
     staging = Path(tempfile.mkdtemp(prefix=".autoearn-backup-", dir=destination.parent))
     try:
         database_copy = staging / database_path.name
-        with sqlite3.connect(database_path.as_uri() + "?mode=ro", uri=True) as source:
-            with sqlite3.connect(database_copy) as target:
+        with closing(sqlite3.connect(database_path.as_uri() + "?mode=ro", uri=True)) as source:
+            with closing(sqlite3.connect(database_copy)) as target:
                 source.backup(target)
                 integrity = target.execute("PRAGMA integrity_check").fetchone()[0]
                 if integrity != "ok":
@@ -63,7 +64,7 @@ def create_backup(
         if os.name == "posix":
             os.chmod(database_copy, 0o600)
 
-        with sqlite3.connect(database_copy) as snapshot:
+        with closing(sqlite3.connect(database_copy)) as snapshot:
             try:
                 evidence_rows = snapshot.execute(
                     "SELECT stored_name, size_bytes, sha256 FROM earnings_evidence"
