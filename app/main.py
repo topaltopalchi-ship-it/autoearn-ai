@@ -269,7 +269,7 @@ def list_opportunities(status: str | None = None, verification_status: Literal["
 
 
 @app.post("/api/opportunities", status_code=201)
-def create_opportunity(data: OpportunityIn):
+def create_opportunity(data: OpportunityIn, actor: str = Depends(require_owner)):
     payload = data.model_dump()
     payload["url"] = normalize_url(str(payload["url"]))
     if not safe_url(payload["url"]):
@@ -324,7 +324,7 @@ def list_sources(status: Literal["pending", "approved", "rejected"] | None = Non
 
 
 @app.post("/api/sources", status_code=201)
-def create_source(data: SourceIn):
+def create_source(data: SourceIn, actor: str = Depends(require_owner)):
     payload = data.model_dump()
     payload["url"] = normalize_url(str(payload["url"]))
     if not safe_url(payload["url"]):
