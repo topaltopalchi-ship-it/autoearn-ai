@@ -675,3 +675,43 @@ def test_earnings_ledger_requires_owner_and_valid_opportunity(client):
         "opportunity_id": 9999, "amount": 2, "currency": "EUR"
     })
     assert missing.status_code == 404
+
+
+def test_rss_discovery_skips_opportunities_already_in_catalog(client, monkeypatch):
+    from types import SimpleNamespace
+    from app import main
+
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    existing = client.post("/api/opportunities", headers=headers, json={
+        "title": "Already registered task", "platform": "Example",
+        "url": "https://EXAMPLE.com/game/#utm_source=newsletter",
+    })
+    assert existing.status_code == 201
+
+    class FakeRssAdapter:
+        def __init__(self, **kwargs):
+            pass
+
+        def discover(self):
+            return [SimpleNamespace(
+                title="Same task from RSS",
+                url="https://example.com/game/",
+                category="surveys_microtasks",
+                terms_url="",
+                summary="Discovered from a second feed",
+                observed_at="2026-11-17T00:00:00+00:00",
+            )]
+
+    monkeypatch.setattr(main, "PublicRssAdapter", FakeRssAdapter)
+    response = client.post("/api/discovery/rss", headers=headers, json={
+        "adapter_id": "feed-duplicate", "display_name": "Another public feed",
+        "feed_url": "https://feeds.example.com/rss",
+        "category": "surveys_microtasks",
+        "allowed_domains": ["feeds.example.com", "example.com"],
+        "max_items": 10,
+    })
+    assert response.status_code == 200
+    result = response.json()
+    assert result["inserted_count"] == 0
+    assert result["duplicate_count"] == 1
+    assert client.get("/api/sources").json() == []
