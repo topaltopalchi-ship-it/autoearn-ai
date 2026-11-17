@@ -1561,8 +1561,9 @@ def _run_approved_discovery_batch():
                 "discovered": len(leads), "inserted": feed_inserted,
                 "duplicates": feed_duplicates,
             })
-        except (ValueError, OSError, TypeError) as exc:
-            message = str(exc)[:500]
+        except Exception as exc:
+            # One malformed or unavailable feed must not abort the whole batch.
+            message = f"{type(exc).__name__}: {exc}"[:500]
             with connect() as db:
                 db.execute(
                     "UPDATE discovery_feeds SET last_checked_at = ?, consecutive_failures = consecutive_failures + 1, total_checks = total_checks + 1, last_error = ? WHERE id = ?",
@@ -1642,7 +1643,10 @@ def _run_discovery_once(*, force: bool = False) -> dict | None:
         return None
     try:
         result = _run_approved_discovery_batch()
-        _finish_discovery_lease(lease_token, result=result)
+        if not _finish_discovery_lease(lease_token, result=result):
+            # A newer worker owns the scheduler now. Do not report this stale
+            # worker's batch as the scheduler's completed result.
+            return None
         return result
     except Exception as exc:
         _finish_discovery_lease(lease_token, error=str(exc))
