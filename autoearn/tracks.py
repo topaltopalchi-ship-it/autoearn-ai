@@ -95,6 +95,29 @@ def tracks_for_category(category: str) -> tuple[OpportunityTrack, ...]:
     return tuple(track for track in TRACKS if track.parent_category == category)
 
 
+_TRACK_KEYWORDS = {
+    "game_playtesting": ("playtest", "game testing", "test a game"),
+    "puzzle_solving": ("puzzle", "logic puzzle", "brain teaser"),
+    "iq_reasoning": ("iq test", "reasoning test", "logic test"),
+    "skill_competitions": ("skill contest", "skill competition", "tournament"),
+    "bug_testing": ("bug bounty", "bug report", "report a bug"),
+    "software_qa": ("software testing", "qa testing", "test software"),
+    "ai_data_tasks": ("data annotation", "ai training", "label data"),
+    "microtasks": ("microtask", "small task", "paid survey"),
+    "freelance_projects": ("freelance project", "client project", "contract work"),
+}
+
+
+def infer_track_from_text(title: str, summary: str, category: str) -> str:
+    """Infer only a unique track; ambiguous candidates remain for manual review."""
+    text = f"{title} {summary}".casefold()
+    matches = [
+        track.key for track in tracks_for_category(category)
+        if any(term in text for term in _TRACK_KEYWORDS.get(track.key, ()))
+    ]
+    return matches[0] if len(matches) == 1 else ""
+
+
 def track_matches_category(key: str, category: str) -> bool:
     """Check that a track belongs to the adapter's declared parent category."""
     track = get_track(key)
