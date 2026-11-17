@@ -36,13 +36,14 @@ $("owner-token").value = ownerToken();
 let opportunities=[];
 let sources=[];
 let competitions=[];
+let discoveryFeeds=[];
 async function refresh(){
-  const [dash,opps,tasks,earnings,sourceRows,competitionRows]=await Promise.all([api("/api/dashboard"),api("/api/opportunities"),api("/api/tasks"),api("/api/earnings"),api("/api/sources"),api("/api/competitions")]);
-  opportunities=opps;sources=sourceRows;competitions=competitionRows;
+  const [dash,opps,tasks,earnings,sourceRows,competitionRows,feedRows]=await Promise.all([api("/api/dashboard"),api("/api/opportunities"),api("/api/tasks"),api("/api/earnings"),api("/api/sources"),api("/api/competitions"),api("/api/discovery/feeds")]);
+  opportunities=opps;sources=sourceRows;competitions=competitionRows;discoveryFeeds=feedRows;
   $("stat-opps").textContent=dash.opportunities;$("stat-tasks").textContent=dash.tasks;
   $("stat-approval").textContent=dash.awaiting_approval;$("stat-paid").textContent=ledgerTotals(dash.earnings_totals,["paid"]);
   $("stat-pending").textContent="در جریان: "+ledgerTotals(dash.earnings_totals,["estimated","earned","pending","withdrawable"]);
-  renderOpportunities();renderSources();renderCompetitions();renderTasks(tasks);renderEarnings(earnings);fillRewardOptions();
+  renderOpportunities();renderSources();renderDiscoveryFeeds();renderCompetitions();renderTasks(tasks);renderEarnings(earnings);fillRewardOptions();
 }
 function renderOpportunities(){
   const q=$("search").value.toLowerCase(),status=$("filter").value,verification=$("verification-filter").value;
@@ -113,6 +114,13 @@ async function reviewSource(id,status){
   if(notes===null)return;
   try{await api(`/api/sources/${id}/review`,{method:"PATCH",body:JSON.stringify({status,notes})});toast("نتیجهٔ بررسی منبع ذخیره شد");refresh()}catch(e){toast(e.message)}
 }
+function renderDiscoveryFeeds(){
+  const host=$("discovery-feed-list");
+  host.innerHTML=discoveryFeeds.length?discoveryFeeds.map(feed=>`<div class="item"><div><h3>${esc(feed.name)} <span class="pill">${esc(statusFa(feed.status))}</span></h3><p><a href="${esc(feed.feed_url)}" target="_blank" rel="noopener noreferrer">نشانی خبرخوان ↗</a><br>دامنه‌های مجاز: ${esc((feed.allowed_domains||[]).join(", "))} · آخرین بررسی: ${esc(feed.last_checked_at||"هنوز بررسی نشده")} ${feed.last_error?"<br>خطا: "+esc(feed.last_error):""}</p></div><div class="item-actions">${feed.status!=="approved"?'<button class="secondary" data-feed-review="'+feed.id+'" data-feed-state="approved">تأیید خبرخوان</button>':""}${feed.status!=="rejected"?'<button class="secondary" data-feed-review="'+feed.id+'" data-feed-state="rejected">رد</button>':""}</div></div>`).join(""):'<div class="empty">خبرخوان پایداری ثبت نشده است.</div>';
+  host.querySelectorAll("[data-feed-review]").forEach(button=>button.onclick=async()=>{
+    try{await api("/api/discovery/feeds/"+button.dataset.feedReview+"/review",{method:"PATCH",body:JSON.stringify({status:button.dataset.feedState})});toast("وضعیت خبرخوان ذخیره شد");refresh()}catch(error){toast(error.message)}
+  });
+}
 function renderTasks(tasks){$("task-list").innerHTML=tasks.length?tasks.map(t=>`<div class="item"><div><h3>${esc(t.description)}</h3><p>${esc(t.opportunity_title)} · ${esc(t.platform)} · ${esc(statusFa(t.status))}</p></div><div class="item-actions">${t.status==="pending_approval"?'<button class="primary" data-approve="'+t.id+'">تأیید کار</button>':''}${t.status==="approved"?'<button class="secondary" data-complete="'+t.id+'">علامت‌گذاری به‌عنوان تکمیل‌شده</button>':''}</div></div>`).join(""):'<div class="empty">هنوز کاری ثبت نشده است. از یک فرصت، کار جدید بسازید.</div>';
   $("task-list").querySelectorAll("[data-approve]").forEach(b=>b.onclick=async()=>{if(!confirm("این کار را تأیید می‌کنید؟ مسئولیت رعایت قوانین پلتفرم همچنان با شماست."))return;try{await api(`/api/tasks/${b.dataset.approve}/approve`,{method:"POST"});toast("کار تأیید شد")}catch(e){toast(e.message)}refresh()});
   $("task-list").querySelectorAll("[data-complete]").forEach(b=>b.onclick=async()=>{try{await api(`/api/tasks/${b.dataset.complete}/complete`,{method:"POST"});toast("کار به‌عنوان تکمیل‌شده ثبت شد")}catch(e){toast(e.message)}refresh()});
@@ -146,6 +154,29 @@ $("competition-form").onsubmit=async e=>{
 $("add-opportunity").onclick=()=>$("opportunity-dialog").showModal();
 $("add-source").onclick=()=>$("source-dialog").showModal();
 $("save-owner-token").onclick=()=>{const value=$("owner-token").value.trim();if(!value){sessionStorage.removeItem("autoearn_owner_token");toast("رمز مالک برای این نشست پاک شد");return}sessionStorage.setItem("autoearn_owner_token",value);toast("رمز مالک برای این نشست ذخیره شد");refresh().catch(e=>toast(e.message))};
+$("add-discovery-feed").onclick=async()=>{
+  const name=prompt("نام این خبرخوان را وارد کنید:");
+  if(!name)return;
+  const feed_url=prompt("نشانی مستقیم RSS یا Atom با HTTPS:");
+  if(!feed_url)return;
+  const domains=prompt("دامنهٔ دقیق خبرخوان و دامنهٔ لینک‌های داخل آن (با ویرگول جدا کنید):");
+  if(!domains)return;
+  const categoryChoice=prompt("دسته‌بندی: ۱ مسابقه، ۲ نظرسنجی و کارهای کوچک، ۳ فریلنسری، ۴ محصولات دیجیتال، ۵ سایر","۲");
+  const category=({"۱":"games_competitions","1":"games_competitions","۲":"surveys_microtasks","2":"surveys_microtasks","۳":"freelancing_services","3":"freelancing_services","۴":"ai_content_products","4":"ai_content_products","۵":"other","5":"other"})[(categoryChoice||"").trim()];
+  if(!category){toast("دسته‌بندی معتبر نیست");return;}
+  try{
+    await api("/api/discovery/feeds",{method:"POST",body:JSON.stringify({name,feed_url,category,allowed_domains:domains.split(",").map(x=>x.trim()).filter(Boolean),max_items:30})});
+    toast("خبرخوان ثبت شد و تا زمان تأیید شما غیرفعال می‌ماند");refresh();
+  }catch(error){toast(error.message)}
+};
+$("run-discovery").onclick=async()=>{
+  if(!confirm("همهٔ خبرخوان‌های تأییدشده بررسی شوند؟ موارد تازه فقط به صف بررسی اضافه می‌شوند."))return;
+  try{
+    const result=await api("/api/discovery/run",{method:"POST"});
+    toast("بررسی تمام شد؛ منابع تازه: "+result.inserted_count+"، تکراری: "+result.duplicate_count+"، خبرخوان موفق: "+result.successful_feed_count);
+    refresh();
+  }catch(error){toast(error.message)}
+};
 $("discover-rss").onclick=async()=>{
   const feed_url=prompt("نشانی فهرست خبرخوان عمومی با اتصال امن:");
   if(!feed_url)return;
