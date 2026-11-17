@@ -59,6 +59,18 @@ def init_db() -> None:
             verification_notes TEXT NOT NULL DEFAULT ''
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_opportunities_url ON opportunities(url);
+        CREATE TABLE IF NOT EXISTS sources (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            url TEXT NOT NULL UNIQUE,
+            category TEXT NOT NULL DEFAULT 'game_rewards',
+            terms_url TEXT NOT NULL DEFAULT '',
+            country_notes TEXT NOT NULL DEFAULT '',
+            payment_notes TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'pending',
+            discovered_at TEXT NOT NULL,
+            review_notes TEXT NOT NULL DEFAULT ''
+        );
         CREATE TABLE IF NOT EXISTS tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             opportunity_id INTEGER NOT NULL REFERENCES opportunities(id) ON DELETE CASCADE,
@@ -124,6 +136,20 @@ class OpportunityIn(BaseModel):
     minimum_withdrawal_amount: float | None = Field(default=None, ge=0)
     withdrawal_currency: str = Field(default="USD", min_length=3, max_length=8)
     payout_methods: list[str] = Field(default_factory=list, max_length=30)
+
+
+class SourceIn(BaseModel):
+    name: str = Field(min_length=2, max_length=160)
+    url: HttpUrl
+    category: str = Field(default="game_rewards", min_length=2, max_length=40)
+    terms_url: str = Field(default="", max_length=500)
+    country_notes: str = Field(default="", max_length=1000)
+    payment_notes: str = Field(default="", max_length=1000)
+
+
+class SourceReviewIn(BaseModel):
+    status: Literal["pending", "approved", "rejected"]
+    notes: str = Field(default="", max_length=1000)
 
 
 class VerificationIn(BaseModel):
@@ -245,6 +271,66 @@ def create_opportunity(data: OpportunityIn):
               payload["minimum_withdrawal_amount"], payload["withdrawal_currency"], payload["payout_methods"]))
         row = db.execute("SELECT * FROM opportunities WHERE id = ?", (cur.lastrowid,)).fetchone()
         return row_dict(row)
+
+
+@app.get("/api/sources")
+def list_sources(status: Literal["pending", "approved", "rejected"] | None = None):
+    sql = "SELECT * FROM sources"
+    params = ()
+    if status:
+        sql += " WHERE status = ?"
+        params = (status,)
+    sql += " ORDER BY discovered_at DESC, id DESC"
+    with connect() as db:
+        return [row_dict(row) for row in db.execute(sql, params).fetchall()]
+
+
+@app.post("/api/sources", status_code=201)
+def create_source(data: SourceIn):
+    payload = data.model_dump()
+    payload["url"] = normalize_url(str(payload["url"]))
+    if not safe_url(payload["url"]):
+        raise HTTPException(422, "Only public http/https source URLs are accepted.")
+    if payload["terms_url"]:
+        try:
+            payload["terms_url"] = normalize_url(payload["terms_url"])
+        except ValueError:
+            raise HTTPException(422, "Terms URL must be a safe http/https URL.")
+        if not safe_url(payload["terms_url"]):
+            raise HTTPException(422, "Terms URL must be a safe http/https URL.")
+    discovered_at = now()
+    with connect() as db:
+        try:
+            cur = db.execute("""
+                INSERT INTO sources
+                (name, url, category, terms_url, country_notes, payment_notes,
+                 status, discovered_at, review_notes)
+                VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, '')
+            """, (
+                payload["name"].strip(), payload["url"], payload["category"].strip().lower(),
+                payload["terms_url"], payload["country_notes"].strip(),
+                payload["payment_notes"].strip(), discovered_at,
+            ))
+        except sqlite3.IntegrityError:
+            raise HTTPException(409, "This source URL is already registered.")
+        return row_dict(db.execute(
+            "SELECT * FROM sources WHERE id = ?", (cur.lastrowid,)
+        ).fetchone())
+
+
+@app.patch("/api/sources/{source_id}/review")
+def review_source(source_id: int, data: SourceReviewIn):
+    with connect() as db:
+        row = db.execute("SELECT id FROM sources WHERE id = ?", (source_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "Source not found")
+        db.execute(
+            "UPDATE sources SET status = ?, review_notes = ? WHERE id = ?",
+            (data.status, data.notes.strip(), source_id),
+        )
+        return row_dict(db.execute(
+            "SELECT * FROM sources WHERE id = ?", (source_id,)
+        ).fetchone())
 
 
 @app.patch("/api/opportunities/{opportunity_id}/status")
