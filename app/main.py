@@ -624,11 +624,15 @@ OWNER_AUTH_FAILURE_WINDOW = timedelta(minutes=5)
 OWNER_AUTH_FAILURE_LIMIT = 10
 
 
+def _owner_auth_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
 def _record_owner_auth_failure(request: Request) -> bool:
     """Persist a bounded sliding-window counter per direct client address."""
     address = request.client.host if request.client else "unknown"
     source_hash = hashlib.sha256(address.encode("utf-8")).hexdigest()
-    attempted_at = datetime.now(timezone.utc)
+    attempted_at = _owner_auth_now()
     cutoff = (attempted_at - OWNER_AUTH_FAILURE_WINDOW).isoformat()
     try:
         with connect() as db:
