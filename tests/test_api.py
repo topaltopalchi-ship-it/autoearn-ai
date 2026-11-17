@@ -920,10 +920,25 @@ def test_owner_managed_discovery_feeds_require_review_and_batch_deduplicate(clie
     assert second.json()["inserted_count"] == 0
     assert second.json()["duplicate_count"] == 1
 
-    pending_sources = client.get("/api/sources?status=pending", headers=headers)
-    assert pending_sources.status_code == 200
+    pending_leads = client.get("/api/discovery/leads?status=pending", headers=headers)
+    assert pending_leads.status_code == 200
     assert any(item["url"] == "https://feed.example/tasks/one"
-               for item in pending_sources.json())
+               for item in pending_leads.json())
+
+    promoted = client.post(
+        f"/api/discovery/leads/{pending_leads.json()[0]['id']}/promote",
+        headers=headers,
+    )
+    assert promoted.status_code == 201
+    assert promoted.json()["opportunity"]["status"] == "discovered"
+    assert promoted.json()["opportunity"]["verification_status"] == "pending"
+
+    promoted_again = client.post(
+        f"/api/discovery/leads/{pending_leads.json()[0]['id']}/promote",
+        headers=headers,
+    )
+    assert promoted_again.status_code == 201
+    assert promoted_again.json()["already_promoted"] is True
 
 
 def test_discovery_feed_rejects_non_https_host_mismatch_and_wildcards(client):
@@ -956,3 +971,43 @@ def test_discovery_feed_review_missing_id_returns_404(client):
         json={"status": "approved"},
     )
     assert response.status_code == 404
+
+
+def test_discovery_lead_rejection_and_promotion_guards(client, monkeypatch):
+    from app import main
+    from autoearn.adapters import DiscoveredLead
+
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    class FakeFeed:
+        def __init__(self, **kwargs): pass
+        def discover(self):
+            return [DiscoveredLead(
+                title="Potential paid challenge", url="https://feed.example/challenge",
+                category="games_competitions", source_name="Public feed",
+                observed_at="2026-11-17T00:00:00+00:00",
+                summary="Prize details not yet verified",
+            )]
+    monkeypatch.setattr(main, "PublicRssAdapter", FakeFeed)
+    created = client.post("/api/discovery/rss", headers=headers, json={
+        "adapter_id":"test-feed", "display_name":"Public feed",
+        "feed_url":"https://feed.example/rss.xml",
+        "category":"games_competitions", "allowed_domains":["feed.example"],
+        "max_items":10,
+    })
+    assert created.status_code == 200
+    leads = client.get("/api/discovery/leads", headers=headers).json()
+    lead = next(item for item in leads if item["url"] == "https://feed.example/challenge")
+
+    rejected = client.patch(
+        f"/api/discovery/leads/{lead['id']}/review", headers=headers,
+        json={"status":"rejected", "notes":"No verifiable payout terms"},
+    )
+    assert rejected.status_code == 200
+    blocked = client.post(f"/api/discovery/leads/{lead['id']}/promote", headers=headers)
+    assert blocked.status_code == 409
+
+    missing = client.patch(
+        "/api/discovery/leads/9999/review", headers=headers,
+        json={"status":"rejected", "notes":""},
+    )
+    assert missing.status_code == 404
