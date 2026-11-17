@@ -185,12 +185,15 @@ def health():
 
 
 @app.get("/api/opportunities")
-def list_opportunities(status: str | None = None, q: str | None = Query(default=None, max_length=100)):
+def list_opportunities(status: str | None = None, verification_status: Literal["pending", "verified", "rejected"] | None = None, q: str | None = Query(default=None, max_length=100)):
     sql, params = "SELECT * FROM opportunities", []
     clauses = []
     if status:
         clauses.append("status = ?")
         params.append(status)
+    if verification_status:
+        clauses.append("verification_status = ?")
+        params.append(verification_status)
     if q:
         clauses.append("(title LIKE ? OR platform LIKE ? OR category LIKE ?)")
         params.extend([f"%{q}%"] * 3)
