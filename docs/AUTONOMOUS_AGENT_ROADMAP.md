@@ -75,12 +75,30 @@ Country eligibility and platform payout support do not prove that this particula
 - A dry-run never submits an entry or claims a score. Actual participation must use a competition's published rules and official integration.
 
 ### Phase 3 — supervised execution
-- Introduce task queue, dry-run, explicit capability registry, audit events, user approval gates, retry policy, and kill switch.
-- Start with reversible, low-risk actions and official APIs only.
+
+**Implemented foundations**
+- Owner-authenticated task and supervised-action queues with explicit approval, rejection, cancellation, completion evidence, and persistent audit events.
+- A competition strategy planner and dry-run history; dry-runs explicitly report that no external submission occurred.
+- Capability-scoped competition adapter registry with exact-host allowlisting, official-API and terms-permission requirements, and explicit owner confirmation.
+- A persistent, owner-controlled global emergency pause. It defaults to paused, is visible in the dashboard, and blocks competition submission before an adapter is called.
+
+**Still required before supervised execution is release-ready**
+- Per-adapter rate limiting and durable retry/backoff policy.
+- Per-source disable controls and a complete pause check around every future external-action adapter, not just the competition submission route.
+- Independent security review of approval/session handling and deployment configuration.
+- At least one platform-specific adapter with written permission, official API scopes, sandbox tests, and a documented rollback procedure. No adapter is installed by default, so real platform execution remains unavailable.
 
 ### Phase 4 — earnings reconciliation
-- Track estimated, earned, pending, payable, and paid amounts separately.
-- Support evidence/receipt records and manual reconciliation before attempting any payout integration.
+
+**Implemented foundation**
+- Currency-separated ledger states for estimated, earned, pending, withdrawable, and paid amounts.
+- Append-only state-transition history with actor, previous/new state, note, and timestamp; paid records are terminal.
+- Owner-supplied evidence/reference fields can be attached to ledger entries.
+
+**Still required**
+- Structured receipt/evidence uploads and validation.
+- Independent reconciliation against authoritative platform/payment evidence; current ledger entries are owner-entered claims and do not independently verify a payout.
+- Any payout integration must remain separately reviewed and explicitly user-confirmed.
 
 ## Release gates
 
