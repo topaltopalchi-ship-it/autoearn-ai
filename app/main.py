@@ -17,7 +17,7 @@ from typing import Literal
 from urllib.parse import urlparse
 
 
-from fastapi import FastAPI, HTTPException, Query, Depends, Header, UploadFile, File
+from fastapi import FastAPI, HTTPException, Query, Depends, Header, UploadFile, File, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, HttpUrl
@@ -284,6 +284,13 @@ def init_db() -> None:
         );
         CREATE INDEX IF NOT EXISTS idx_competition_adapter_requests_window
             ON competition_adapter_requests(adapter_id, requested_at);
+        CREATE TABLE IF NOT EXISTS owner_auth_failures (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source_hash TEXT NOT NULL,
+            attempted_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_owner_auth_failures_source_time
+            ON owner_auth_failures(source_hash, attempted_at);
         CREATE TABLE IF NOT EXISTS execution_control (
             id INTEGER PRIMARY KEY CHECK (id = 1),
             paused INTEGER NOT NULL DEFAULT 1,
@@ -613,15 +620,54 @@ class ExecutionControlIn(BaseModel):
     reason: str = Field(default="", max_length=500)
 
 
-def require_owner(x_autoearn_owner_token: str | None = Header(default=None)):
+OWNER_AUTH_FAILURE_WINDOW = timedelta(minutes=5)
+OWNER_AUTH_FAILURE_LIMIT = 10
+
+
+def _record_owner_auth_failure(request: Request) -> bool:
+    """Persist a bounded sliding-window counter per direct client address."""
+    address = request.client.host if request.client else "unknown"
+    source_hash = hashlib.sha256(address.encode("utf-8")).hexdigest()
+    attempted_at = datetime.now(timezone.utc)
+    cutoff = (attempted_at - OWNER_AUTH_FAILURE_WINDOW).isoformat()
+    try:
+        with connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            db.execute("DELETE FROM owner_auth_failures WHERE attempted_at < ?", (cutoff,))
+            db.execute(
+                "INSERT INTO owner_auth_failures (source_hash, attempted_at) VALUES (?, ?)",
+                (source_hash, attempted_at.isoformat()),
+            )
+            count = db.execute(
+                "SELECT COUNT(*) FROM owner_auth_failures WHERE source_hash = ? AND attempted_at >= ?",
+                (source_hash, cutoff),
+            ).fetchone()[0]
+    except sqlite3.Error as exc:
+        logging.getLogger(__name__).error(
+            "Owner authentication rate-limit storage failed (%s)", type(exc).__name__
+        )
+        raise HTTPException(503, "Owner authentication is temporarily unavailable.") from exc
+    return count > OWNER_AUTH_FAILURE_LIMIT
+
+
+def require_owner(
+    request: Request,
+    x_autoearn_owner_token: str | None = Header(default=None),
+):
     configured = OWNER_TOKEN
     if len(configured) < 32:
         raise HTTPException(503, "Owner actions are disabled: AUTOEARN_OWNER_TOKEN must contain at least 32 characters.")
-    if not x_autoearn_owner_token or not hmac.compare_digest(
+    if x_autoearn_owner_token and hmac.compare_digest(
         x_autoearn_owner_token.encode("utf-8"), configured.encode("utf-8")
     ):
-        raise HTTPException(401, "Owner authentication required.")
-    return "owner"
+        return "owner"
+    if _record_owner_auth_failure(request):
+        raise HTTPException(
+            429,
+            "Too many failed owner authentication attempts. Try again later.",
+            headers={"Retry-After": "300"},
+        )
+    raise HTTPException(401, "Owner authentication required.")
 
 
 def row_dict(row: sqlite3.Row) -> dict:
