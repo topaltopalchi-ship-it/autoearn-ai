@@ -264,6 +264,17 @@ class LoginIn(BaseModel):
     password: str = Field(min_length=1, max_length=200)
 
 
+_WALLET_PROVIDER_MARKERS = (
+    "wallet", "metamask", "trust wallet", "phantom", "ledger", "trezor",
+    "bitcoin core", "ethereum wallet", "solana wallet", "solflare",
+)
+
+
+def _is_wallet_provider(provider: str) -> bool:
+    normalized = provider.casefold().replace("_", " ").replace("-", " ")
+    return any(marker in normalized for marker in _WALLET_PROVIDER_MARKERS)
+
+
 class VaultCredentialIn(BaseModel):
     label: str = Field(min_length=1, max_length=80)
     provider: str = Field(min_length=1, max_length=80)
@@ -322,6 +333,12 @@ def vault_list_credentials():
 
 @app.post("/api/vault/credentials", status_code=201)
 def vault_add_credential(data: VaultCredentialIn):
+    if data.credential_type == "signing_key" and _is_wallet_provider(data.provider):
+        raise HTTPException(
+            422,
+            "کلید خصوصی کیف پول و عبارت بازیابی را در این خزانه ثبت نکنید؛ "
+            "فقط اسرار امضای API سرویس‌ها پشتیبانی می‌شوند.",
+        )
     try:
         return credential_vault.add_credential(
             label=data.label, provider=data.provider,
