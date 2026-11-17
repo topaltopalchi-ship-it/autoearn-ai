@@ -119,3 +119,8 @@ The first discovery priorities are game playtesting, puzzle solving, and IQ/reas
 ## Verified submission audit hardening
 
 Competition submissions now commit a write-ahead `submitting` audit record before invoking a non-idempotent official API adapter. This preserves an unresolved attempt if the process stops during the remote call. Ambiguous attempts require owner verification and are never automatically retried.
+
+
+## Dependency security verification
+
+The CI workflow audits the pinned requirements with `pip-audit` on Python 3.12. The November 17, 2026 verification found no known vulnerabilities after upgrading FastAPI, Starlette, pytest, and python-multipart while retaining Python 3.10 compatibility. The full test matrix remains Python 3.10, 3.12, and 3.14.
