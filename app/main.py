@@ -264,6 +264,30 @@ class LoginIn(BaseModel):
     password: str = Field(min_length=1, max_length=200)
 
 
+_WALLET_PROVIDER_MARKERS = (
+    "wallet", "metamask", "trust wallet", "phantom", "ledger", "trezor",
+    "bitcoin core", "ethereum wallet", "solana wallet", "solflare",
+)
+
+
+def _is_wallet_provider(provider: str) -> bool:
+    normalized = provider.casefold().replace("_", " ").replace("-", " ")
+    return any(marker in normalized for marker in _WALLET_PROVIDER_MARKERS)
+
+
+def _looks_like_recovery_phrase(secret: str) -> bool:
+    """Block common 12/24-word recovery phrases regardless of the selected field type."""
+    words = secret.strip().split()
+    return len(words) in {12, 24} and all(word.isascii() and word.isalpha() for word in words)
+
+
+def _looks_like_wallet_private_material(secret: str) -> bool:
+    """Conservative format guard for common raw hexadecimal wallet private keys."""
+    candidate = secret.strip()
+    hexadecimal = candidate[2:] if candidate.startswith(("0x", "0X")) else candidate
+    return len(hexadecimal) == 64 and all(char in "0123456789abcdefABCDEF" for char in hexadecimal)
+
+
 class VaultCredentialIn(BaseModel):
     label: str = Field(min_length=1, max_length=80)
     provider: str = Field(min_length=1, max_length=80)
@@ -322,6 +346,21 @@ def vault_list_credentials():
 
 @app.post("/api/vault/credentials", status_code=201)
 def vault_add_credential(data: VaultCredentialIn):
+    candidate_secret = data.secret.strip()
+    has_prefixed_wallet_key = (
+        candidate_secret.startswith(("0x", "0X"))
+        and _looks_like_wallet_private_material(candidate_secret)
+    )
+    if _looks_like_recovery_phrase(data.secret) or has_prefixed_wallet_key or (
+        data.credential_type == "signing_key" and (
+            _is_wallet_provider(data.provider) or _looks_like_wallet_private_material(data.secret)
+        )
+    ):
+        raise HTTPException(
+            422,
+            "کلید خصوصی کیف پول و عبارت بازیابی را در این خزانه ثبت نکنید؛ "
+            "فقط اسرار امضای API سرویس‌ها پشتیبانی می‌شوند.",
+        )
     try:
         return credential_vault.add_credential(
             label=data.label, provider=data.provider,

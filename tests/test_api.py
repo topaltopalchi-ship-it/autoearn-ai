@@ -631,3 +631,66 @@ def test_vault_api_replaces_secret_without_returning_plaintext(client, tmp_path,
     assert updated.status_code == 200
     assert "new-secret-value" not in updated.text
     assert vault.get_secret(created.json()["id"], "a-long-test-vault-passphrase") == "new-secret-value"
+
+
+def test_vault_rejects_wallet_private_signing_key_provider(client, tmp_path, monkeypatch):
+    from app import vault
+    monkeypatch.setattr(vault, "VAULT_DB", tmp_path / "vault-wallet-guard.db")
+    response = client.post("/api/vault/credentials", json={
+        "label": "Wallet signing key",
+        "provider": "MetaMask wallet",
+        "credential_type": "signing_key",
+        "secret": "not-a-real-private-key",
+        "passphrase": "a-long-test-vault-passphrase",
+    })
+    assert response.status_code == 422
+    assert "کلید خصوصی کیف پول" in response.text
+    assert vault.list_credentials() == []
+
+
+def test_vault_rejects_wallet_key_material_even_with_generic_provider(client):
+    response = client.post("/api/vault/credentials", json={
+        "label": "Service signing key",
+        "provider": "Generic API",
+        "credential_type": "signing_key",
+        "secret": "0x" + "a" * 64,
+        "passphrase": "a-long-test-vault-passphrase",
+    })
+    assert response.status_code == 422
+    assert "کلید خصوصی کیف پول" in response.text
+
+
+def test_vault_rejects_recovery_phrase_even_with_generic_provider(client):
+    response = client.post("/api/vault/credentials", json={
+        "label": "Service signing key",
+        "provider": "Generic API",
+        "credential_type": "signing_key",
+        "secret": "alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima",
+        "passphrase": "a-long-test-vault-passphrase",
+    })
+    assert response.status_code == 422
+
+
+
+def test_vault_rejects_recovery_phrase_even_when_mislabelled_as_api_key(client):
+    response = client.post("/api/vault/credentials", json={
+        "label": "API credential",
+        "provider": "Generic API",
+        "credential_type": "api_key",
+        "secret": "alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima",
+        "passphrase": "a-long-test-vault-passphrase",
+    })
+    assert response.status_code == 422
+    assert "عبارت بازیابی" in response.text
+
+
+def test_vault_rejects_prefixed_wallet_private_key_mislabelled_as_api_key(client):
+    response = client.post("/api/vault/credentials", json={
+        "label": "API credential",
+        "provider": "Generic API",
+        "credential_type": "api_key",
+        "secret": "0x" + "b" * 64,
+        "passphrase": "a-long-test-vault-passphrase",
+    })
+    assert response.status_code == 422
+    assert "کلید خصوصی کیف پول" in response.text
