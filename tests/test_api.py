@@ -1624,12 +1624,13 @@ def test_discovery_batch_continues_after_one_feed_failure(client, monkeypatch):
     assert tuple(healthy) == (0, 1, 1)
 
 
-def test_dashboard_defaults_to_users_iran_residence_country(client):
+def test_dashboard_requires_explicit_country_for_ranking_and_eligibility(client):
     response = client.get("/")
     assert response.status_code == 200
     page = response.text
-    assert 'id="rank-country" value="Iran"' in page
-    assert page.count('name="country" value="Iran"') == 2
+    assert 'id="rank-country" value="Iran"' not in page
+    assert 'name="country" value="Iran"' not in page
+    assert page.count('name="country"') == 2
     assert "Azerbaijan" not in page
 
 
