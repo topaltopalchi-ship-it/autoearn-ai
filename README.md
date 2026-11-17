@@ -20,6 +20,7 @@ The first release is a local-first MVP. It helps users record opportunity metada
 - Backward-compatible SQLite schema migration for the new eligibility and payout fields.
 - Explainable 0–100 scoring using reward clarity, terms clarity, source trust, region fit, and effort fit.
 - Automated pytest coverage for API routes, evaluator, adapters, RSS parsing, and supervised action persistence.
+- Persistent global emergency pause, enabled by default, with an owner-only dashboard control that blocks official competition submissions until the owner explicitly lifts the pause.
 - GitHub Actions workflow to run unit tests on pushes and pull requests.
 
 ## Source review API
@@ -74,6 +75,10 @@ The target product covers prize competitions, surveys/microtasks, freelancing/di
 ### Human-supervised action lifecycle
 
 The core `SupervisionQueue` models action requests, explicit human approval/rejection, cancellation, completion evidence, and an audit-event trail. Requests are rejected unless the opportunity is eligible, the source has been approved, and supporting evidence is fresh. Even sensitive actions (applications, accepting terms, publishing, sharing personal data, spending, and withdrawals) remain pending until a human approves them. The HTTP layer exposes this state machine through owner-authenticated routes; it records workflow state only and does not execute platform actions.
+
+### Global execution emergency pause
+
+The SQLite-backed `execution_control` record starts in the paused state on first initialization. The owner-only `GET /api/execution-control` endpoint reports the current state; `PATCH /api/execution-control` changes it and records the actor, timestamp, and reason. The dashboard exposes the same control with a confirmation prompt. Competition submissions check this global pause after readiness validation and before calling an adapter; a paused submission returns HTTP 423. Lifting the pause does not install or authorize an adapter: exact-host allowlisting, official API permission, terms review, readiness checks, and explicit owner confirmation still apply. No competition adapter is installed by default.
 
 ### Durable supervision and audit storage
 
