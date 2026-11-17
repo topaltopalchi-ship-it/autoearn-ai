@@ -58,7 +58,7 @@ jobs:
       - name: Check dependency consistency
         run: .venv/bin/python -m pip check
       - name: Check Python syntax
-        run: .venv/bin/python -m compileall -q app autoearn tests
+        run: .venv/bin/python -m compileall -q app autoearn tests scripts
       - name: Check dashboard JavaScript syntax
         run: node --check static/app.js
       - name: Run test suite
