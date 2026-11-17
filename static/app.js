@@ -261,6 +261,18 @@ $("evaluation-form").onsubmit=async e=>{
   for(const field of ["estimated_cost","payout_fee_fixed","payout_fee_percent","conversion_fee_percent"])
     data[field]=Number(data[field]||0);
   data.evidence=String(data.evidence||"").split("\n").map(x=>x.trim()).filter(Boolean);
+  const form=e.target;
+  const aiFields=[
+    "requires_physical_presence","requires_personal_experience",
+    "requires_identity_attestation","requires_captcha",
+    "requires_live_human_interaction","contains_sensitive_personal_data",
+    "repetitive_information_processing","output_is_objectively_verifiable",
+    "human_signoff_required"
+  ];
+  data.ai_task_profile={title:opportunities.find(o=>o.id===data.opportunity_id)?.title||"Opportunity task",
+    ai_permission:data.ai_permission||"unknown"};
+  for(const field of aiFields)data.ai_task_profile[field]=form.elements[field].checked;
+  delete data.ai_permission;
   try{
     const result=await api("/api/opportunities/"+data.opportunity_id+"/evaluate",{method:"POST",body:JSON.stringify(data)});
     const value=result.evaluation;
@@ -274,6 +286,8 @@ $("evaluation-form").onsubmit=async e=>{
       "\nکارمزد تبدیل تخمینی: "+money(value.conversion_fee_estimate,value.currency)+
       "\nوضعیت حداقل برداشت: "+(value.withdrawal_threshold_currency_mismatch?"نامشخص؛ ارز متفاوت است":value.withdrawal_reachable_estimate===null?"حداقل برداشت قابل محاسبه نیست":value.withdrawal_reachable_estimate?"قابل دستیابی":"کمتر از حداقل برداشت")+
       "\nآمادگی اجرا: "+(value.execution_allowed?"پیش‌نیازها فراهم است":"مسدود است")+
+      "\nارزیابی AI: "+(value.ai_task_assessment?value.ai_task_assessment.suitability:"ثبت نشده")+
+      "\nنقش مجاز AI: "+(value.ai_task_assessment?.permitted_ai_role||"—")+
       "\n\nهشدارها:\n"+(value.risk_flags.map(riskFlagFa).join("\n")||"بدون هشدار")+
       "\n\nهیچ اقدامی در پلتفرم انجام نشد.");
   }catch(err){toast(err.message)}
