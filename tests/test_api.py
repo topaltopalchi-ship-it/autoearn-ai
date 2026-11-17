@@ -568,6 +568,7 @@ def test_opportunity_evaluation_applies_payout_fees_and_currency_safe_threshold(
     mismatch_evaluation = mismatch.json()["evaluation"]
     assert mismatch_evaluation["withdrawal_reachable_estimate"] is None
     assert mismatch_evaluation["withdrawal_threshold_currency_mismatch"] is True
+    assert mismatch_evaluation["execution_allowed"] is False
     assert any("different currency" in flag
                for flag in mismatch_evaluation["risk_flags"])
 
