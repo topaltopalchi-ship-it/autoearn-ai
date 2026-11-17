@@ -27,7 +27,7 @@ Calculation: sum of (workstream weight × verified completion). Values are conse
 
 ## Latest verification
 
-- Latest verified implementation commit: `cbea356eb69102ebae27ece1bd1f5e44cb5bdbe4`.
-- GitHub Actions run [44152881086](https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44152881086): **260 passed, 58 warnings**, dependency consistency, Python syntax and dashboard JavaScript syntax successful.
+- Latest verified implementation commit: `3e4311174a518294cff7cc4793a9f075a0359789`.
+- GitHub Actions run [44153612502](https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44153612502): **261 passed on each of Python 3.10, 3.12 and 3.14**; dependency consistency, Python syntax and dashboard JavaScript syntax passed in all three jobs.
 - Later documentation-only updates must receive their own CI verification before release.
 - `main` remains unchanged; PR #47 remains draft and unmerged; repository visibility remains public.
