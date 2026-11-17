@@ -778,3 +778,76 @@ def test_rss_discovery_skips_opportunities_already_in_catalog(client, monkeypatc
     assert result["inserted_count"] == 0
     assert result["duplicate_count"] == 1
     assert owner_get(client, "/api/sources").json() == []
+def test_competition_agent_plans_and_dry_runs_without_external_submission(client):
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    payload = {
+        "title": "Open logic contest",
+        "url": "https://contest.example.com/event",
+        "rules_url": "https://contest.example.com/rules",
+        "task_type": "logic",
+        "country": "Germany",
+        "eligibility": "eligible",
+        "terms_verified": True,
+        "automated_agents_allowed": True,
+        "official_api": True,
+        "prize_amount": 100,
+        "prize_currency": "EUR",
+    }
+    assert client.post("/api/competitions", json=payload).status_code == 401
+    created = client.post("/api/competitions", headers=headers, json=payload)
+    assert created.status_code == 201
+    competition_id = created.json()["id"]
+
+    planned = client.post(
+        f"/api/competitions/{competition_id}/plan",
+        headers=headers,
+        json={"objective": "Solve the official logic puzzle"},
+    )
+    assert planned.status_code == 200
+    assert planned.json()["plan"]["provider"] == "heuristic-baseline"
+    assert planned.json()["plan"]["steps"]
+
+    dry_run = client.post(f"/api/competitions/{competition_id}/dry-run", headers=headers)
+    assert dry_run.status_code == 200
+    assert dry_run.json()["external_submission"] is False
+    assert dry_run.json()["status"] == "dry_run_only"
+    assert "adapter" in " ".join(dry_run.json()["blockers"])
+
+    history = client.get(f"/api/competitions/{competition_id}/history", headers=headers)
+    assert history.status_code == 200
+    assert len(history.json()) == 1
+    assert history.json()[0]["mode"] == "dry_run"
+
+
+def test_competition_submission_is_blocked_without_registered_official_adapter(client):
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    payload = {
+        "title": "Open coding contest",
+        "url": "https://contest.example.com/event",
+        "rules_url": "https://contest.example.com/rules",
+        "task_type": "coding",
+        "country": "Germany",
+        "eligibility": "eligible",
+        "terms_verified": True,
+        "automated_agents_allowed": True,
+        "official_api": True,
+    }
+    created = client.post("/api/competitions", headers=headers, json=payload).json()
+    response = client.post(
+        f"/api/competitions/{created['id']}/submit",
+        headers=headers,
+        json={"adapter_id": "not-installed", "payload": {"answer": "42"}, "owner_confirmed": True},
+    )
+    assert response.status_code == 409
+    assert "adapter" in response.json()["detail"].lower()
+
+
+def test_competition_requires_https_rules_and_event_urls(client):
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    response = client.post("/api/competitions", headers=headers, json={
+        "title": "Insecure contest", "url": "http://contest.example.com/event",
+        "rules_url": "https://contest.example.com/rules", "country": "Germany",
+    })
+    assert response.status_code == 422
+
+
