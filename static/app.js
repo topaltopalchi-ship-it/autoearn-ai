@@ -41,15 +41,26 @@ let discoveryFeeds=[];
 let discoveryLeads=[];
 let discoveryScheduler={};
 let discoveryHealth={};
+let executionControl={paused:true,updated_at:null,updated_by:"system",reason:"Paused by default"};
 async function refresh(){
-  const [dash,opps,tasks,earnings,sourceRows,competitionRows,feedRows,leadRows,schedulerState,healthState]=await Promise.all([api("/api/dashboard"),api("/api/opportunities"),api("/api/tasks"),api("/api/earnings"),api("/api/sources"),api("/api/competitions"),api("/api/discovery/feeds"),api("/api/discovery/leads"),api("/api/discovery/scheduler"),api("/api/discovery/health")]);
-  opportunities=opps;sources=sourceRows;competitions=competitionRows;discoveryFeeds=feedRows;discoveryLeads=leadRows;discoveryScheduler=schedulerState;discoveryHealth=healthState;
+  const [dash,opps,tasks,earnings,sourceRows,competitionRows,feedRows,leadRows,schedulerState,healthState,executionState]=await Promise.all([api("/api/dashboard"),api("/api/opportunities"),api("/api/tasks"),api("/api/earnings"),api("/api/sources"),api("/api/competitions"),api("/api/discovery/feeds"),api("/api/discovery/leads"),api("/api/discovery/scheduler"),api("/api/discovery/health"),api("/api/execution-control")]);
+  opportunities=opps;sources=sourceRows;competitions=competitionRows;discoveryFeeds=feedRows;discoveryLeads=leadRows;discoveryScheduler=schedulerState;discoveryHealth=healthState;executionControl=executionState;
   $("stat-opps").textContent=dash.opportunities;$("stat-tasks").textContent=dash.tasks;
   $("stat-approval").textContent=dash.awaiting_approval;$("stat-paid").textContent=ledgerTotals(dash.earnings_totals,["paid"]);
   $("stat-pending").textContent="در جریان: "+ledgerTotals(dash.earnings_totals,["estimated","earned","pending","withdrawable"]);
-  renderOpportunities();renderSources();renderDiscoveryFeeds();renderDiscoveryScheduler();renderDiscoveryHealth();renderDiscoveryLeads();renderCompetitions();renderTasks(tasks);renderEarnings(earnings);fillRewardOptions();
+  renderExecutionControl();renderOpportunities();renderSources();renderDiscoveryFeeds();renderDiscoveryScheduler();renderDiscoveryHealth();renderDiscoveryLeads();renderCompetitions();renderTasks(tasks);renderEarnings(earnings);fillRewardOptions();
   // Keep the research-priority queue current whenever the owner dashboard refreshes.
   loadPrioritizedDiscovery().catch(()=>{});
+}
+function renderExecutionControl(){
+  const status=$("execution-control-status");
+  const button=$("toggle-execution-pause");
+  if(!status||!button)return;
+  status.textContent=executionControl.paused
+    ?"توقف اضطراری فعال است؛ هرگونه ارسال خارجی مسدود است."
+    :"توقف اضطراری غیرفعال است؛ فقط آداپتور رسمیِ تأییدشده و اقدام تأییدشدهٔ مالک امکان‌پذیر است.";
+  button.textContent=executionControl.paused?"برداشتن توقف اضطراری":"فعال‌کردن توقف اضطراری";
+  button.className=executionControl.paused?"primary":"secondary";
 }
 function renderOpportunities(){
   const q=$("search").value.toLowerCase(),status=$("filter").value,verification=$("verification-filter").value;
@@ -421,5 +432,19 @@ $("evaluation-form").onsubmit=async e=>{
 };
 $("reward-form").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));data.opportunity_id=data.opportunity_id?Number(data.opportunity_id):null;data.amount=Number(data.amount);try{await api("/api/earnings",{method:"POST",body:JSON.stringify(data)});e.target.closest("dialog").close();e.target.reset();toast("درآمد در دفتر درآمد ذخیره شد");refresh()}catch(err){toast(err.message)}};
 $("prioritize-discovery").onclick=loadPrioritizedDiscovery;$("rank-opportunities").onclick=loadRankedOpportunities;$("source-filter").onchange=renderSources;$("search").oninput=renderOpportunities;$("filter").onchange=renderOpportunities;$("verification-filter").onchange=renderOpportunities;
+$("toggle-execution-pause").onclick=async()=>{
+  const paused=!executionControl.paused;
+  const confirmation=paused
+    ?"توقف اضطراری فعال شود؟ تمام ارسال‌های خارجی مسدود خواهند شد."
+    :"توقف اضطراری برداشته شود؟ ارسال فقط با آداپتور رسمی تأییدشده و تأیید صریح مالک ممکن است.";
+  if(!confirm(confirmation))return;
+  try{
+    executionControl=await api("/api/execution-control",{method:"PATCH",body:JSON.stringify({
+      paused,reason:paused?"Owner activated emergency pause":"Owner explicitly lifted emergency pause"
+    })});
+    renderExecutionControl();
+    toast(paused?"توقف اضطراری فعال شد":"توقف اضطراری برداشته شد");
+  }catch(error){toast(error.message)}
+};
 refresh().catch(e=>toast(e.message));
 setInterval(()=>refresh().catch(()=>{}),60000);
