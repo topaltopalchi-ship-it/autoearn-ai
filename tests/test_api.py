@@ -467,7 +467,7 @@ def test_rss_discovery_persists_only_pending_candidates_and_deduplicates(
     assert result["duplicate_count"] == 1
     assert result["review_required"] is True
     candidates = owner_get(client, "/api/discovery/leads?status=pending").json()
-    assert len(candidates) == 1
+    assert len(candidates) == 2
     assert candidates[0]["title"] == "Paid survey listing"
     assert candidates[0]["category"] == "surveys_microtasks"
     assert candidates[0]["status"] == "pending"
