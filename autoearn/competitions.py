@@ -11,6 +11,9 @@ from dataclasses import dataclass
 import json
 import os
 import re
+from collections import deque
+from threading import Lock
+from time import monotonic
 from typing import Literal, Protocol
 from urllib.error import URLError
 from urllib.parse import urlsplit
@@ -299,6 +302,8 @@ class CompetitionAdapterRegistry:
 
     def __init__(self) -> None:
         self._adapters: dict[str, CompetitionAdapter] = {}
+        self._rate_lock = Lock()
+        self._request_times: dict[str, deque[float]] = {}
 
     def get_manifest(self, adapter_id: str) -> CompetitionAdapterManifest | None:
         adapter = self._adapters.get(adapter_id)
@@ -339,6 +344,19 @@ class CompetitionAdapterRegistry:
             raise PermissionError("adapter is not allowed to submit entries")
         if not isinstance(payload, dict) or len(str(payload)) > 20000:
             raise ValueError("entry payload must be a bounded object")
+        # Enforce the manifest's per-adapter rolling-minute limit across
+        # concurrent requests in this process. Reserve before the network call
+        # so failed attempts are also throttled and cannot create retry storms.
+        current = monotonic()
+        with self._rate_lock:
+            requests = self._request_times.setdefault(adapter_id, deque())
+            while requests and current - requests[0] >= 60:
+                requests.popleft()
+            if len(requests) >= manifest.requests_per_minute:
+                raise PermissionError(
+                    "adapter rate limit exceeded; wait before submitting again"
+                )
+            requests.append(current)
         receipt = adapter.submit_entry(competition, payload)
         if not isinstance(receipt, SubmissionReceipt) or not receipt.external_entry_id.strip():
             raise RuntimeError("adapter returned an invalid submission receipt")
