@@ -95,6 +95,22 @@ def init_db() -> None:
             last_checked_at TEXT,
             last_error TEXT NOT NULL DEFAULT ''
         );
+        CREATE TABLE IF NOT EXISTS discovery_leads (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source_feed_id INTEGER REFERENCES discovery_feeds(id) ON DELETE SET NULL,
+            source_name TEXT NOT NULL,
+            title TEXT NOT NULL,
+            url TEXT NOT NULL UNIQUE,
+            category TEXT NOT NULL,
+            summary TEXT NOT NULL DEFAULT '',
+            terms_url TEXT NOT NULL DEFAULT '',
+            observed_at TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at TEXT NOT NULL,
+            last_seen_at TEXT NOT NULL,
+            review_notes TEXT NOT NULL DEFAULT '',
+            opportunity_id INTEGER REFERENCES opportunities(id) ON DELETE SET NULL
+        );
         CREATE TABLE IF NOT EXISTS tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             opportunity_id INTEGER NOT NULL REFERENCES opportunities(id) ON DELETE CASCADE,
@@ -303,6 +319,11 @@ class DiscoveryFeedIn(BaseModel):
     category: Literal["games_competitions", "surveys_microtasks", "freelancing_services", "ai_content_products", "other"]
     allowed_domains: list[str] = Field(min_length=1, max_length=10)
     max_items: int = Field(default=30, ge=1, le=50)
+
+
+class DiscoveryLeadReviewIn(BaseModel):
+    status: Literal["pending", "rejected"]
+    notes: str = Field(default="", max_length=1000)
 
 
 class DiscoveryFeedReviewIn(BaseModel):
@@ -849,32 +870,124 @@ def discover_rss_sources(data: RssDiscoveryIn, actor: str = Depends(require_owne
     with connect() as db:
         for lead in leads:
             canonical_url = normalize_url(lead.url)
-            # RSS candidates and manually registered opportunities share the
-            # same conceptual URL namespace even though they live in separate
-            # tables. Avoid re-importing an opportunity already in the main
-            # opportunity catalog.
-            existing_opportunity = db.execute(
-                "SELECT id FROM opportunities WHERE url = ?", (canonical_url,)
+            exists = db.execute(
+                "SELECT id FROM opportunities WHERE url = ? UNION SELECT id FROM discovery_leads WHERE url = ? LIMIT 1",
+                (canonical_url, canonical_url),
             ).fetchone()
-            if existing_opportunity:
+            if exists:
+                db.execute(
+                    "UPDATE discovery_leads SET last_seen_at = ? WHERE url = ?",
+                    (now(), canonical_url),
+                )
                 duplicates += 1
                 continue
             try:
                 cursor = db.execute(
-                    """INSERT INTO sources
-                       (name, url, category, terms_url, country_notes, payment_notes,
-                        status, discovered_at, review_notes)
-                       VALUES (?, ?, ?, ?, '', ?, 'pending', ?, '')""",
-                    (lead.title[:160], canonical_url, lead.category,
-                     lead.terms_url, lead.summary[:1000], lead.observed_at),
+                    """INSERT INTO discovery_leads
+                       (source_feed_id, source_name, title, url, category, summary,
+                        terms_url, observed_at, status, created_at, last_seen_at)
+                       VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)""",
+                    (data.display_name, lead.title[:160], canonical_url, lead.category,
+                     lead.summary[:1000], lead.terms_url, lead.observed_at, now(), now()),
                 )
-                inserted.append({"id": cursor.lastrowid, "title": lead.title, "url": lead.url,
-                                 "category": lead.category, "status": "pending"})
+                inserted.append({"id": cursor.lastrowid, "title": lead.title,
+                                 "url": lead.url, "category": lead.category,
+                                 "status": "pending"})
             except sqlite3.IntegrityError:
                 duplicates += 1
     return {"adapter_id": data.adapter_id, "discovered_count": len(leads),
             "inserted_count": len(inserted), "duplicate_count": duplicates,
             "candidates": inserted, "review_required": True}
+
+
+@app.get("/api/discovery/leads")
+def list_discovery_leads(status: Literal["pending", "converted", "rejected"] | None = None,
+                         actor: str = Depends(require_owner)):
+    sql = "SELECT * FROM discovery_leads"
+    params = ()
+    if status:
+        sql += " WHERE status = ?"
+        params = (status,)
+    sql += " ORDER BY last_seen_at DESC, id DESC"
+    with connect() as db:
+        return [row_dict(row) for row in db.execute(sql, params).fetchall()]
+
+
+@app.patch("/api/discovery/leads/{lead_id}/review")
+def review_discovery_lead(lead_id: int, data: DiscoveryLeadReviewIn,
+                          actor: str = Depends(require_owner)):
+    with connect() as db:
+        row = db.execute("SELECT * FROM discovery_leads WHERE id = ?", (lead_id,)).fetchone()
+        if row is None:
+            raise HTTPException(404, "Discovery lead not found.")
+        if row["status"] == "converted":
+            raise HTTPException(409, "A converted lead cannot be rejected.")
+        db.execute(
+            "UPDATE discovery_leads SET status = ?, review_notes = ? WHERE id = ?",
+            (data.status, data.notes.strip(), lead_id),
+        )
+        return row_dict(db.execute(
+            "SELECT * FROM discovery_leads WHERE id = ?", (lead_id,)
+        ).fetchone())
+
+
+@app.post("/api/discovery/leads/{lead_id}/promote", status_code=201)
+def promote_discovery_lead(lead_id: int, actor: str = Depends(require_owner)):
+    with connect() as db:
+        lead = db.execute("SELECT * FROM discovery_leads WHERE id = ?", (lead_id,)).fetchone()
+        if lead is None:
+            raise HTTPException(404, "Discovery lead not found.")
+        if lead["status"] == "rejected":
+            raise HTTPException(409, "Rejected leads cannot be promoted.")
+        if lead["opportunity_id"] is not None:
+            existing = db.execute(
+                "SELECT * FROM opportunities WHERE id = ?", (lead["opportunity_id"],)
+            ).fetchone()
+            if existing is not None:
+                return {"lead": row_dict(lead), "opportunity": row_dict(existing), "already_promoted": True}
+        host = (urlparse(lead["url"]).hostname or "").casefold()
+        if not host:
+            raise HTTPException(422, "Discovered lead URL has no valid hostname.")
+        category_map = {
+            "games_competitions": "game",
+            "surveys_microtasks": "survey",
+            "freelancing_services": "freelance",
+            "ai_content_products": "digital_product",
+            "other": "other",
+        }
+        try:
+            cursor = db.execute(
+                """INSERT INTO opportunities
+                   (title, platform, url, category, reward_description, eligibility,
+                    terms_url, status, score, notes, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, 'discovered', 0, ?, ?)""",
+                (lead["title"][:160], host[:100], lead["url"],
+                 category_map.get(lead["category"], "other"),
+                 lead["summary"][:500], "شرایط کشور، پاداش و پرداخت هنوز باید بررسی شود.",
+                 lead["terms_url"], "کشف خودکار از منبع: " + lead["source_name"],
+                 now()),
+            )
+        except sqlite3.IntegrityError:
+            existing = db.execute(
+                "SELECT * FROM opportunities WHERE url = ?", (lead["url"],)
+            ).fetchone()
+            if existing is None:
+                raise HTTPException(409, "Could not promote this discovery lead.")
+            opportunity_id = existing["id"]
+        else:
+            opportunity_id = cursor.lastrowid
+        db.execute(
+            "UPDATE discovery_leads SET status = 'converted', opportunity_id = ? WHERE id = ?",
+            (opportunity_id, lead_id),
+        )
+        opportunity = db.execute(
+            "SELECT * FROM opportunities WHERE id = ?", (opportunity_id,)
+        ).fetchone()
+        updated_lead = db.execute(
+            "SELECT * FROM discovery_leads WHERE id = ?", (lead_id,)
+        ).fetchone()
+        return {"lead": row_dict(updated_lead), "opportunity": row_dict(opportunity),
+                "already_promoted": False}
 
 
 @app.post("/api/discovery/feeds", status_code=201)
@@ -977,20 +1090,25 @@ def run_approved_discovery(actor: str = Depends(require_owner)):
                 for lead in leads:
                     canonical_url = normalize_url(lead.url)
                     exists = db.execute(
-                        "SELECT id FROM opportunities WHERE url = ? UNION SELECT id FROM sources WHERE url = ? LIMIT 1",
+                        "SELECT id FROM opportunities WHERE url = ? UNION SELECT id FROM discovery_leads WHERE url = ? LIMIT 1",
                         (canonical_url, canonical_url),
                     ).fetchone()
                     if exists:
+                        db.execute(
+                            "UPDATE discovery_leads SET last_seen_at = ? WHERE url = ?",
+                            (now(), canonical_url),
+                        )
                         feed_duplicates += 1
                         continue
                     try:
                         db.execute(
-                            """INSERT INTO sources
-                               (name, url, category, terms_url, country_notes, payment_notes,
-                                status, discovered_at, review_notes)
-                               VALUES (?, ?, ?, ?, '', ?, 'pending', ?, '')""",
-                            (lead.title[:160], canonical_url, lead.category,
-                             lead.terms_url, lead.summary[:1000], lead.observed_at),
+                            """INSERT INTO discovery_leads
+                               (source_feed_id, source_name, title, url, category, summary,
+                                terms_url, observed_at, status, created_at, last_seen_at)
+                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)""",
+                            (feed_id, feed["name"], lead.title[:160], canonical_url,
+                             lead.category, lead.summary[:1000], lead.terms_url,
+                             lead.observed_at, now(), now()),
                         )
                         feed_inserted += 1
                     except sqlite3.IntegrityError:
