@@ -1612,3 +1612,56 @@ def test_dashboard_defaults_to_users_iran_residence_country(client):
     assert 'id="rank-country" value="Iran"' in page
     assert page.count('name="country" value="Iran"') == 2
     assert "Azerbaijan" not in page
+
+
+def test_execution_control_is_owner_only_and_paused_by_default(client):
+    assert client.get("/api/execution-control").status_code == 401
+    initial = owner_get(client, "/api/execution-control")
+    assert initial.status_code == 200
+    assert initial.json()["paused"] is True
+    assert client.patch("/api/execution-control", json={"paused": False}).status_code == 401
+
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    updated = client.patch(
+        "/api/execution-control",
+        headers=headers,
+        json={"paused": False, "reason": "Owner explicitly enabled reviewed execution"},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["paused"] is False
+    assert updated.json()["updated_by"] == "owner"
+    assert owner_get(client, "/api/execution-control").json()["paused"] is False
+
+
+def test_global_emergency_pause_blocks_registered_competition_submission(client, monkeypatch):
+    from types import SimpleNamespace
+    from app import main
+
+    class RegisteredButNeverCalled:
+        def get_manifest(self, adapter_id):
+            return SimpleNamespace(allowed_actions=("submit_entry",))
+
+        def submit(self, *args, **kwargs):
+            raise AssertionError("emergency pause must block before adapter submission")
+
+    monkeypatch.setattr(main, "competition_adapters", RegisteredButNeverCalled())
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    created = client.post("/api/competitions", headers=headers, json={
+        "title": "Open coding contest",
+        "url": "https://contest.example.com/event",
+        "rules_url": "https://contest.example.com/rules",
+        "task_type": "coding",
+        "country": "Germany",
+        "eligibility": "eligible",
+        "terms_verified": True,
+        "automated_agents_allowed": True,
+        "official_api": True,
+    })
+    assert created.status_code == 201
+    response = client.post(
+        f"/api/competitions/{created.json()['id']}/submit",
+        headers=headers,
+        json={"adapter_id": "reviewed-adapter", "payload": {"answer": "42"}, "owner_confirmed": True},
+    )
+    assert response.status_code == 423
+    assert "emergency pause" in response.json()["detail"].lower()
