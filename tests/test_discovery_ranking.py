@@ -44,6 +44,8 @@ def test_country_payout_and_ai_permissions_remain_unknown():
     assert item["payout_availability"] == "unknown"
     assert item["ai_permission"] == "unknown"
     assert item["financial_evaluation_status"] == "not_evaluated"
+    assert len(item["next_research_actions"]) == 5
+    assert any("برداشت پول" in action for action in item["next_research_actions"])
     assert item["execution_authorized"] is False
 
 
