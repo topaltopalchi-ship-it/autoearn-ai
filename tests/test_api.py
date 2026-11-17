@@ -1436,3 +1436,39 @@ def test_discovery_track_assignment_is_persistent_and_category_scoped(client):
     persisted = client.get("/api/discovery/leads", headers=headers).json()
     saved = next(item for item in persisted if item["id"] == lead_id)
     assert saved["track_review_status"] == "needs_review"
+
+
+def test_discovery_lease_fencing_prevents_stale_worker_releasing_new_lease(client):
+    from app import main
+    from datetime import datetime, timedelta, timezone
+
+    first_token = main._acquire_discovery_lease(force=True)
+    assert first_token
+    with main.connect() as db:
+        expired = (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
+        db.execute(
+            "UPDATE discovery_scheduler SET lease_until = ? WHERE id = 1",
+            (expired,),
+        )
+
+    second_token = main._acquire_discovery_lease(force=True)
+    assert second_token
+    assert second_token != first_token
+
+    # The old worker may finish late, but it must not clear or overwrite the
+    # lease now owned by the newer worker.
+    assert main._finish_discovery_lease(first_token, error="stale worker") is False
+    state = client.get(
+        "/api/discovery/scheduler",
+        headers={"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"},
+    ).json()
+    assert state["lease_until"] is not None
+
+    assert main._finish_discovery_lease(second_token, result={"inserted_count": 7}) is True
+    state = client.get(
+        "/api/discovery/scheduler",
+        headers={"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"},
+    ).json()
+    assert state["lease_until"] is None
+    assert state["last_result"]["inserted_count"] == 7
+    assert state["last_error"] == ""

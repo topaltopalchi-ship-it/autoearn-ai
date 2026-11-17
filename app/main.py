@@ -6,6 +6,7 @@ import os
 import hmac
 import ipaddress
 import sqlite3
+import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone, timedelta
 from dataclasses import asdict
@@ -146,6 +147,7 @@ def init_db() -> None:
             enabled INTEGER NOT NULL DEFAULT 1,
             interval_minutes INTEGER NOT NULL DEFAULT 360,
             lease_until TEXT,
+            lease_token TEXT NOT NULL DEFAULT '',
             last_started_at TEXT,
             last_completed_at TEXT,
             last_result_json TEXT NOT NULL DEFAULT '{}',
@@ -259,6 +261,9 @@ def init_db() -> None:
         for name, definition in {"track_key": "TEXT NOT NULL DEFAULT ''", "track_review_status": "TEXT NOT NULL DEFAULT 'needs_review'"}.items():
             if name not in lead_columns:
                 db.execute(f"ALTER TABLE discovery_leads ADD COLUMN {name} {definition}")
+        scheduler_columns = {row["name"] for row in db.execute("PRAGMA table_info(discovery_scheduler)")}
+        if "lease_token" not in scheduler_columns:
+            db.execute("ALTER TABLE discovery_scheduler ADD COLUMN lease_token TEXT NOT NULL DEFAULT ''")
         feed_columns = {row["name"] for row in db.execute("PRAGMA table_info(discovery_feeds)")}
         feed_migrations = {
             "last_success_at": "TEXT",
@@ -1578,8 +1583,10 @@ def _run_approved_discovery_batch():
 
 
 
-def _acquire_discovery_lease(*, force: bool = False) -> bool:
+def _acquire_discovery_lease(*, force: bool = False) -> str | None:
+    """Acquire a fenced lease; each owner gets a unique token."""
     current = datetime.now(timezone.utc)
+    token = uuid.uuid4().hex
     with connect() as db:
         db.execute("BEGIN IMMEDIATE")
         state = db.execute("SELECT * FROM discovery_scheduler WHERE id = 1").fetchone()
@@ -1592,49 +1599,53 @@ def _acquire_discovery_lease(*, force: bool = False) -> bool:
         if lease_until:
             try:
                 if datetime.fromisoformat(lease_until) > current:
-                    return False
+                    return None
             except ValueError:
                 pass
         if not force:
             if not state["enabled"]:
-                return False
+                return None
             if state["last_completed_at"]:
                 try:
                     completed = datetime.fromisoformat(state["last_completed_at"])
                     if completed.tzinfo is None:
                         completed = completed.replace(tzinfo=timezone.utc)
                     if current - completed < timedelta(minutes=state["interval_minutes"]):
-                        return False
+                        return None
                 except ValueError:
                     pass
         lease = (current + timedelta(minutes=30)).isoformat()
         db.execute(
-            "UPDATE discovery_scheduler SET lease_until = ?, last_started_at = ?, last_error = '' WHERE id = 1",
-            (lease, current.isoformat()),
+            "UPDATE discovery_scheduler SET lease_until = ?, lease_token = ?, last_started_at = ?, last_error = '' WHERE id = 1",
+            (lease, token, current.isoformat()),
         )
-    return True
+    return token
 
 
-def _finish_discovery_lease(result: dict | None = None, error: str = "") -> None:
+def _finish_discovery_lease(lease_token: str, result: dict | None = None,
+                            error: str = "") -> bool:
+    """Finish only the lease still owned by this worker (fencing token)."""
     with connect() as db:
-        db.execute(
+        cursor = db.execute(
             """UPDATE discovery_scheduler
-               SET lease_until = NULL, last_completed_at = ?,
+               SET lease_until = NULL, lease_token = '', last_completed_at = ?,
                    last_result_json = ?, last_error = ?
-               WHERE id = 1""",
-            (now(), json.dumps(result or {}, ensure_ascii=False), error[:500]),
+               WHERE id = 1 AND lease_token = ?""",
+            (now(), json.dumps(result or {}, ensure_ascii=False), error[:500], lease_token),
         )
+        return cursor.rowcount == 1
 
 
 def _run_discovery_once(*, force: bool = False) -> dict | None:
-    if not _acquire_discovery_lease(force=force):
+    lease_token = _acquire_discovery_lease(force=force)
+    if lease_token is None:
         return None
     try:
         result = _run_approved_discovery_batch()
-        _finish_discovery_lease(result=result)
+        _finish_discovery_lease(lease_token, result=result)
         return result
     except Exception as exc:
-        _finish_discovery_lease(error=str(exc))
+        _finish_discovery_lease(lease_token, error=str(exc))
         raise
 
 
