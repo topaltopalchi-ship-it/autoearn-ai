@@ -29,6 +29,20 @@
     <section class="panel" id="sources">
       <div class="section-head"><div><span class="eyebrow">ثبت و بررسی انسانی</span><h2>منابع پیشنهادی</h2></div><div class="section-actions"><button class="secondary" id="discover-rss" type="button">دریافت یک‌باره خبرخوان</button><button class="secondary" id="add-discovery-feed" type="button">+ ثبت خبرخوان پایدار</button><button class="primary" id="run-discovery" type="button">بررسی همهٔ منابع تأییدشده</button><button class="primary" id="add-source">+ افزودن منبع</button></div></div>
       <div id="discovery-feed-list" class="empty">هنوز خبرخوان پایداری ثبت نشده است.</div>
+      <div class="toolbar" id="discovery-scheduler-controls">
+        <label><input id="discovery-scheduler-enabled" type="checkbox" checked> فعال‌سازی کشف خودکار</label>
+        <label>فاصلهٔ بررسی
+          <select id="discovery-scheduler-interval">
+            <option value="60">هر ۱ ساعت</option>
+            <option value="180">هر ۳ ساعت</option>
+            <option value="360">هر ۶ ساعت</option>
+            <option value="720">هر ۱۲ ساعت</option>
+            <option value="1440">هر ۲۴ ساعت</option>
+          </select>
+        </label>
+        <button class="secondary" id="save-discovery-scheduler" type="button">ذخیرهٔ زمان‌بندی</button>
+        <small id="discovery-scheduler-status">وضعیت زمان‌بندی پس از اتصال نمایش داده می‌شود.</small>
+      </div>
       <div class="toolbar"><select id="source-filter"><option value="">همهٔ وضعیت‌های منبع</option><option value="pending">در انتظار بررسی</option><option value="approved">تأییدشده</option><option value="rejected">ردشده</option></select></div>
       <div id="source-list" class="empty">هنوز منبعی ثبت نشده است. یک منبع عمومی برای بررسی دستی اضافه کنید.</div>
     </section>
