@@ -1175,19 +1175,41 @@ def list_discovery_leads(status: Literal["pending", "converted", "rejected"] | N
 
 
 @app.get("/api/discovery/leads/prioritized")
-def prioritized_discovery_leads(actor: str = Depends(require_owner)):
-    """Return a research-first queue; never implies country or payout eligibility."""
+def prioritized_discovery_leads(
+    country: str = Query(default="Azerbaijan", min_length=2, max_length=80),
+    actor: str = Depends(require_owner),
+):
+    """Return a research-first queue with the owner's saved country-specific review state."""
+    normalized_country = country.strip()
     with connect() as db:
         rows = db.execute(
             """SELECT l.*, f.status AS feed_status,
                       f.total_checks, f.total_successes,
-                      f.consecutive_failures, f.last_success_at
+                      f.consecutive_failures, f.last_success_at,
+                      dr.country_status AS research_country_status,
+                      dr.payout_status AS research_payout_status,
+                      dr.ai_permission AS research_ai_permission,
+                      dr.api_status AS research_api_status,
+                      dr.updated_at AS research_updated_at
                FROM discovery_leads l
                LEFT JOIN discovery_feeds f ON f.id = l.source_feed_id
+               LEFT JOIN discovery_research dr
+                 ON dr.lead_id = l.id AND lower(trim(dr.country)) = lower(trim(?))
                WHERE l.status = 'pending'
-               ORDER BY l.last_seen_at DESC, l.id DESC"""
+               ORDER BY l.last_seen_at DESC, l.id DESC""",
+            (normalized_country,),
         ).fetchall()
     result = prioritize_discovery_leads([row_dict(row) for row in rows])
+    for item in result["items"]:
+        item["research_country"] = normalized_country
+        item["research_status"] = {
+            "country": item.pop("research_country_status", None) or "unknown",
+            "payout": item.pop("research_payout_status", None) or "unknown",
+            "ai_permission": item.pop("research_ai_permission", None) or "unknown",
+            "api": item.pop("research_api_status", None) or "unknown",
+        }
+        item["research_updated_at"] = item.pop("research_updated_at", None)
+        item["execution_authorized"] = False
     return result
 
 
