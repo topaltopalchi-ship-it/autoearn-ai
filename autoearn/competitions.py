@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 import os
+import re
 from typing import Literal, Protocol
 from urllib.error import URLError
 from urllib.parse import urlsplit
@@ -168,6 +169,7 @@ def _openai_strategy(
         ),
         "input": prompt,
         "max_output_tokens": 900,
+        "store": False,
     }).encode("utf-8")
     request = Request(
         "https://api.openai.com/v1/responses",
@@ -263,8 +265,13 @@ class CompetitionAdapterManifest:
     def __post_init__(self) -> None:
         if not self.adapter_id.strip() or not self.exact_host.strip():
             raise ValueError("adapter id and exact host are required")
-        if self.exact_host != self.exact_host.casefold() or "*" in self.exact_host:
-            raise ValueError("adapter host must be an exact lowercase hostname")
+        labels = self.exact_host.split(".")
+        if (
+            self.exact_host != self.exact_host.casefold()
+            or len(labels) < 2
+            or any(not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label) for label in labels)
+        ):
+            raise ValueError("adapter host must be an exact lowercase public hostname")
         if not self.official_api or not self.automated_agents_allowed:
             raise ValueError("competition adapters require an official API and explicit agent permission")
         if "submit_entry" not in self.allowed_actions:
@@ -296,6 +303,9 @@ class CompetitionAdapterRegistry:
     def get_manifest(self, adapter_id: str) -> CompetitionAdapterManifest | None:
         adapter = self._adapters.get(adapter_id)
         return adapter.manifest if adapter else None
+
+    def list_manifests(self) -> tuple[CompetitionAdapterManifest, ...]:
+        return tuple(self._adapters[key].manifest for key in sorted(self._adapters))
 
     def register(self, adapter: CompetitionAdapter) -> None:
         manifest = adapter.manifest
