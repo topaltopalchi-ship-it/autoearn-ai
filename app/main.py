@@ -39,6 +39,7 @@ OWNER_TOKEN = os.getenv("AUTOEARN_OWNER_TOKEN", "")
 STATIC_DIR = ROOT / "static"
 EVIDENCE_DIR = Path(os.getenv("AUTOEARN_EVIDENCE_DIR", ROOT / "private_evidence"))
 MAX_EVIDENCE_BYTES = 5 * 1024 * 1024
+DISCOVERY_FEED_MIN_INTERVAL_SECONDS = 60
 EVIDENCE_TYPES = {
     "application/pdf": (b"%PDF-", ".pdf"),
     "image/png": (b"\\x89PNG\\r\\n\\x1a\\n", ".png"),
@@ -1665,6 +1666,25 @@ def _run_approved_discovery_batch():
     successful_feeds = 0
     for feed in feeds:
         feed_id = feed["id"]
+        last_checked_at = feed["last_checked_at"]
+        if last_checked_at:
+            try:
+                previous_check = datetime.fromisoformat(last_checked_at)
+                if previous_check.tzinfo is None:
+                    previous_check = previous_check.replace(tzinfo=timezone.utc)
+                elapsed = (datetime.now(timezone.utc) - previous_check).total_seconds()
+                if 0 <= elapsed < DISCOVERY_FEED_MIN_INTERVAL_SECONDS:
+                    feed_results.append({
+                        "feed_id": feed_id, "name": feed["name"],
+                        "status": "rate_limited", "inserted": 0, "duplicates": 0,
+                        "retry_after_seconds": max(
+                            1, int(DISCOVERY_FEED_MIN_INTERVAL_SECONDS - elapsed)
+                        ),
+                    })
+                    continue
+            except (TypeError, ValueError):
+                # A malformed legacy timestamp must not permanently disable a feed.
+                pass
         try:
             adapter = PublicRssAdapter(
                 adapter_id=f"stored-feed-{feed_id}",
