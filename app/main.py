@@ -220,10 +220,15 @@ def create_opportunity(data: OpportunityIn):
     for field in ("eligible_countries", "excluded_countries", "payout_methods"):
         payload[field] = json.dumps(clean_list(payload[field], field), ensure_ascii=False)
     payload["withdrawal_currency"] = payload["withdrawal_currency"].strip().upper()
-    score = 0
-    score += 25 if payload["terms_url"] else 0
-    score += 20 if payload["eligibility"] else 0
-    score += 15 if payload["reward_description"] else 0
+    # API completeness score: normalize the three metadata fields available
+    # in this form to a 0-100 scale (40 + 30 + 30). This is distinct from
+    # autoearn.opportunities.score_opportunity(), which scores five explicit
+    # user-assessed dimensions.
+    score = (
+        (40 if payload["terms_url"] else 0)
+        + (30 if payload["eligibility"] else 0)
+        + (30 if payload["reward_description"] else 0)
+    )
     with connect() as db:
         existing = db.execute("SELECT id FROM opportunities WHERE url = ?", (payload["url"],)).fetchone()
         if existing:
