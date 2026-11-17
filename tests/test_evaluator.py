@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
 
+import pytest
+
 from autoearn.evaluator import OpportunityCandidate, evaluate_candidate
 
 
