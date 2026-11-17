@@ -1268,6 +1268,19 @@ def test_discovery_research_requires_official_https_evidence_and_is_owner_only(c
     })
     assert insecure_evidence.status_code == 422
 
+    for unsafe_url in (
+        "https://localhost/eligibility",
+        "https://service.local/internal",
+        "https://127.0.0.1/eligibility",
+        "https://10.0.0.8/payouts",
+        "https://user:pass@official.example/terms",
+    ):
+        rejected = client.put(path, headers=headers, json={
+            "country": "Azerbaijan", "country_status": "verified",
+            "country_evidence_url": unsafe_url,
+        })
+        assert rejected.status_code == 422, unsafe_url
+
     payload = {
         "country": "Azerbaijan",
         "country_status": "verified",
@@ -1288,6 +1301,10 @@ def test_discovery_research_requires_official_https_evidence_and_is_owner_only(c
     assert body["ai_permission"] == "allowed"
     assert body["api_status"] == "available"
     assert body["execution_authorized"] is False
+    assert body["evidence_validation_note"] == (
+        "Only HTTPS URL shape and public-host checks are performed; "
+        "page authenticity and contents require owner review."
+    )
 
     loaded = client.get(path, headers=headers, params={"country": "Azerbaijan"})
     assert loaded.status_code == 200
