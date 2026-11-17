@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: autoearn-ai
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    autoDeploy: false
+    disk:
+      name: autoearn-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: AUTOEARN_DB
+        value: /var/data/autoearn.db
+      - key: AUTOEARN_OWNER_TOKEN
+        generateValue: true
