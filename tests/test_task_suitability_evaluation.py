@@ -1,3 +1,19 @@
+import pytest
+from fastapi.testclient import TestClient
+
+from app.main import app
+
+
+@pytest.fixture()
+def client(tmp_path, monkeypatch):
+    from app import main
+    monkeypatch.setattr(main, "DB_PATH", tmp_path / "test.db")
+    monkeypatch.setattr(main, "OWNER_TOKEN", "test-owner-secret-0123456789-abcdef")
+    main.init_db()
+    with TestClient(app) as test_client:
+        yield test_client
+
+
 def _ready_official_api_opportunity(client):
     headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
     opportunity = client.post("/api/opportunities", headers=headers, json={
