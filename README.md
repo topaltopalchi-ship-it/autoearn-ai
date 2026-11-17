@@ -61,6 +61,19 @@ Run the tests:
 python -m pytest -q
 ```
 
+Run the local dashboard (Linux/macOS shell):
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+export AUTOEARN_OWNER_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Open `http://127.0.0.1:8000` and enter the owner token in the dashboard. Keep the service bound to loopback for local use; do not expose this single-owner-token setup directly to the public internet. The SQLite database defaults to `autoearn.db`; private receipt files default to `private_evidence/`. Set `AUTOEARN_DB` and `AUTOEARN_EVIDENCE_DIR` to change those locations. Both are excluded from Git.
+
+
 ## Scoring notes
 
 The API dashboard completeness score is normalized to 0–100 from three recorded fields: terms clarity (40 points), eligibility information (30 points), and reward description (30 points). The separate `score_opportunity()` helper uses five explicit user-assessed dimensions (reward clarity, terms clarity, source trust, region fit, and effort fit). Neither score proves that a platform is legitimate or that a reward will be paid. Users must verify eligibility, regional restrictions, and platform terms before participating.
