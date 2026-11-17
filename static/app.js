@@ -4,12 +4,13 @@ const api = async (path, options={}) => {
   const headers = {"Content-Type":"application/json", ...(options.headers || {})};
   if (ownerToken()) headers["X-AutoEarn-Owner-Token"] = ownerToken();
   const response = await fetch(path, {...options, headers});
-  const body = await response.json().catch(()=>({detail:"پاسخ غیرمنتظره از سرور"}));
-  if (!response.ok) throw new Error(body.detail || "درخواست ناموفق بود");
+  const body = await response.json().catch(()=>({}));
+  if (!response.ok) throw new Error("انجام درخواست با خطا روبه‌رو شد. اطلاعات و دسترسی را بررسی کنید.");
   return body;
 };
-const statusFa = (v) => ({discovered:"کشف‌شده",reviewing:"در حال بررسی",eligible:"مجاز",ineligible:"غیرمجاز",archived:"بایگانی‌شده",pending:"در انتظار",approved:"تأییدشده",rejected:"ردشده",verified:"تأییدشده",pending_approval:"در انتظار تأیید",confirmed:"تأییدشده",paid:"پرداخت‌شده",manual:"دستی",assist:"با کمک دستیار",official_api:"رابط رسمی برنامه‌نویسی",games_competitions:"بازی و مسابقه",surveys_microtasks:"نظرسنجی و کارهای کوچک",freelancing_services:"فریلنسری و خدمات",ai_content_products:"محتوای هوش مصنوعی و محصولات دیجیتال",other:"سایر"})[v]||v;
-const money = (n,c="USD") => new Intl.NumberFormat(undefined,{style:"currency",currency:c}).format(n);
+const statusFa = (v) => ({game_rewards:"پاداش بازی",survey_rewards:"پاداش نظرسنجی",microtasks:"کارهای کوچک",freelance_jobs:"کارهای آزاد",digital_products:"محصولات دیجیتال",discovered:"کشف‌شده",reviewing:"در حال بررسی",eligible:"مجاز",ineligible:"غیرمجاز",archived:"بایگانی‌شده",pending:"در انتظار",approved:"تأییدشده",rejected:"ردشده",verified:"تأییدشده",pending_approval:"در انتظار تأیید",confirmed:"تأییدشده",paid:"پرداخت‌شده",manual:"دستی",assist:"با کمک دستیار",official_api:"رابط رسمی برنامه‌نویسی",games_competitions:"بازی و مسابقه",surveys_microtasks:"نظرسنجی و کارهای کوچک",freelancing_services:"فریلنسری و خدمات",ai_content_products:"محتوای هوش مصنوعی و محصولات دیجیتال",other:"سایر"})[v]||v;
+const currencyFa = (c) => ({EUR:"یورو",USD:"دلار آمریکا",GBP:"پوند",TRY:"لیر",IRR:"ریال",CAD:"دلار کانادا",AUD:"دلار استرالیا"})[String(c||"").toUpperCase()] || "واحد پول";
+const money = (n,c="EUR") => new Intl.NumberFormat("fa-IR",{maximumFractionDigits:2}).format(Number(n||0))+" "+currencyFa(c);
 function toast(message){const el=$("toast");el.textContent=message;el.classList.add("show");setTimeout(()=>el.classList.remove("show"),2600)}
 function esc(s=""){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 $("owner-token").value = ownerToken();
@@ -39,7 +40,7 @@ async function showEvaluationHistory(id){
     if(!rows.length){toast("هنوز سابقه‌ای برای ارزیابی ثبت نشده است");return}
     const summary=rows.map((row,index)=>{
       const e=row.evaluation||{};
-      return `#${index+1} · ${new Date(row.created_at).toLocaleString()}\nکشور: ${row.country}\nوضعیت صلاحیت: ${e.eligibility||"نامشخص"}\nامتیاز: ${e.ranking_score??"—"}/100\nپاداش خالص: ${e.net_reward_estimate??"نامشخص"} ${e.currency||""}\nروش مشارکت: ${row.execution_mode}`;
+      return `#${index+1} · ${new Date(row.created_at).toLocaleString("fa-IR")}\nکشور: ${row.country}\nوضعیت صلاحیت: ${e.eligibility||"نامشخص"}\nامتیاز: ${e.ranking_score??"—"}/100\nپاداش خالص: ${e.net_reward_estimate??"نامشخص"} ${e.currency?currencyFa(e.currency):""}\nروش مشارکت: ${statusFa(row.execution_mode)}`;
     }).join("\n\n");
     alert("سوابق ارزیابی\n\n"+summary);
   }catch(e){toast(e.message)}
@@ -77,7 +78,7 @@ function renderTasks(tasks){$("task-list").innerHTML=tasks.length?tasks.map(t=>`
   $("task-list").querySelectorAll("[data-approve]").forEach(b=>b.onclick=async()=>{if(!confirm("این کار را تأیید می‌کنید؟ مسئولیت رعایت قوانین پلتفرم همچنان با شماست."))return;try{await api(`/api/tasks/${b.dataset.approve}/approve`,{method:"POST"});toast("کار تأیید شد")}catch(e){toast(e.message)}refresh()});
   $("task-list").querySelectorAll("[data-complete]").forEach(b=>b.onclick=async()=>{try{await api(`/api/tasks/${b.dataset.complete}/complete`,{method:"POST"});toast("کار به‌عنوان تکمیل‌شده ثبت شد")}catch(e){toast(e.message)}refresh()});
 }
-function renderRewards(rows){$("reward-list").innerHTML=rows.length?rows.map(r=>`<div class="item"><div><h3>${money(r.amount,r.currency)} <span class="pill">${esc(statusFa(r.status))}</span></h3><p>${esc(r.opportunity_title||"درآمد بدون پیوند")} · ${esc(r.reference)}</p></div></div>`).join(""):'<div class="empty">هنوز درآمدی ثبت نشده است.</div>'}
+function renderRewards(rows){$("reward-list").innerHTML=rows.length?rows.map(r=>`<div class="item"><div><h3>${money(r.amount,r.currency)} <span class="pill">${esc(statusFa(r.status))}</span></h3><p>${esc(r.opportunity_title||"درآمد بدون پیوند")} · ${esc(r.reference||"بدون توضیح")}</p></div></div>`).join(""):'<div class="empty">هنوز درآمدی ثبت نشده است.</div>'}
 function fillRewardOptions(){$("reward-opportunity").innerHTML='<option value="">بدون پیوند به فرصت</option>'+opportunities.map(o=>'<option value="'+o.id+'">'+esc(o.title)+'</option>').join("")}
 $("add-opportunity").onclick=()=>$("opportunity-dialog").showModal();
 $("add-source").onclick=()=>$("source-dialog").showModal();
@@ -93,7 +94,7 @@ $("discover-rss").onclick=async()=>{
   if(!category){toast("شماره‌ای بین ۱ تا ۵ وارد کنید");return;}
   try{
     const result=await api("/api/discovery/rss",{method:"POST",body:JSON.stringify({
-      adapter_id:"manual-rss-"+Date.now(),display_name:"RSS feed: "+feed_url,
+      adapter_id:"manual-feed-"+Date.now(),display_name:"فهرست خبرخوان: "+feed_url,
       feed_url,category,allowed_domains:domains.split(",").map(x=>x.trim()).filter(Boolean)
     })});
     toast("تعداد موارد پیدا‌شده: "+result.discovered_count+" مورد؛ ذخیره‌شده به‌عنوان منبع در انتظار بررسی: "+result.inserted_count+"");
@@ -121,7 +122,7 @@ $("evaluation-form").onsubmit=async e=>{
       "\nمیزان اطمینان: "+value.confidence+"/100"+
       "\nامتیاز رتبه‌بندی: "+value.ranking_score+"/100"+
       "\nپاداش خالص تخمینی: "+(value.net_reward_estimate==null?"نامشخص":value.net_reward_estimate+" "+value.currency)+
-      "\nدرآمد خالص ساعتی تخمینی: "+(value.net_hourly_estimate==null?"نامشخص":value.net_hourly_estimate+" "+value.currency+"/h")+
+      "\nدرآمد خالص ساعتی تخمینی: "+(value.net_hourly_estimate==null?"نامشخص":value.net_hourly_estimate+" "+value.currency+" در ساعت")+
       "\nآمادگی اجرا: "+(value.execution_allowed?"پیش‌نیازها فراهم است":"مسدود است")+
       "\n\nهشدارها:\n"+(value.risk_flags.join("\n")||"بدون هشدار")+
       "\n\nهیچ اقدامی در پلتفرم انجام نشد.");
