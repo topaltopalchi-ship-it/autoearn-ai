@@ -2128,3 +2128,72 @@ def test_competition_adapter_rate_limit_persists_across_registry_restarts(client
             "SELECT COUNT(*) FROM competition_adapter_requests"
         ).fetchone()[0]
     assert reservations == 2
+
+
+def test_concurrent_competition_submissions_share_persistent_rate_window(client, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event, Lock
+    from types import SimpleNamespace
+    import time
+    from app import main
+
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    created = client.post("/api/competitions", headers=headers, json={
+        "title": "Concurrent official contest",
+        "url": "https://contest.example.com/event",
+        "rules_url": "https://contest.example.com/rules",
+        "task_type": "coding",
+        "country": "Germany",
+        "eligibility": "eligible",
+        "terms_verified": True,
+        "automated_agents_allowed": True,
+        "official_api": True,
+    })
+    assert created.status_code == 201
+    competition_id = created.json()["id"]
+    assert client.patch(
+        "/api/execution-control", headers=headers,
+        json={"paused": False, "reason": "concurrency test"},
+    ).status_code == 200
+
+    entered = Event()
+    release = Event()
+    calls = []
+    calls_lock = Lock()
+
+    class BlockingRegistry:
+        def get_manifest(self, adapter_id):
+            return SimpleNamespace(
+                allowed_actions=("submit_entry",), requests_per_minute=1
+            )
+        def submit(self, *args, **kwargs):
+            with calls_lock:
+                calls.append("submit")
+            entered.set()
+            assert release.wait(timeout=5)
+            return SimpleNamespace(
+                status="submitted", external_entry_id="entry-concurrent", evidence={}
+            )
+
+    monkeypatch.setattr(main, "competition_adapters", BlockingRegistry())
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(
+            client.post, f"/api/competitions/{competition_id}/submit",
+            headers=headers,
+            json={"adapter_id": "concurrent-limit", "payload": {"answer": "42"},
+                  "owner_confirmed": True},
+        )
+        assert entered.wait(timeout=5)
+        second = pool.submit(
+            client.post, f"/api/competitions/{competition_id}/submit",
+            headers=headers,
+            json={"adapter_id": "concurrent-limit", "payload": {"answer": "43"},
+                  "owner_confirmed": True},
+        )
+        time.sleep(0.1)
+        assert not second.done()
+        release.set()
+        assert first.result(timeout=5).status_code == 200
+        assert second.result(timeout=5).status_code == 429
+
+    assert calls == ["submit"]
