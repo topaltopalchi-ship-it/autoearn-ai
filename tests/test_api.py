@@ -178,3 +178,15 @@ def test_verification_returns_404_for_missing_opportunity(client):
         "status": "verified"
     })
     assert response.status_code == 404
+
+
+def test_opportunities_can_be_filtered_by_verification_status(client):
+    item = opportunity(client)
+    assert len(client.get("/api/opportunities?verification_status=pending").json()) == 1
+    client.patch(f"/api/opportunities/{item['id']}/verification", json={
+        "status": "verified", "notes": "Manually checked"
+    })
+    assert client.get("/api/opportunities?verification_status=pending").json() == []
+    verified = client.get("/api/opportunities?verification_status=verified").json()
+    assert len(verified) == 1
+    assert verified[0]["id"] == item["id"]
