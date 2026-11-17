@@ -3,7 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1020">
   <meta name="description" content="فضای هوشمند شناسایی و ارزیابی فرصت‌های درآمدزایی با تأیید کاربر">
+  <link rel="manifest" href="/static/manifest.webmanifest">
+  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
   <title>اتوایرن هوشمند</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
@@ -14,12 +17,12 @@
     <div class="sidebar-note"><b>کنترل همیشه دست شماست</b><p>پیش از هرگونه مشارکت، قوانین هر پلتفرم را بررسی و هر کار را شخصاً تأیید کنید.</p></div>
   </aside>
   <main>
-    <header><div><span class="eyebrow">فضای مدیریت فرصت‌های درآمدزایی شما</span><h1>نمای کلی</h1><p>فرصت‌های درآمدزایی را پیدا کنید، شرایط و ریسک را بسنجید و نتایج را پیگیری کنید.</p></div><div class="owner-access"><label for="owner-token">رمز مالک</label><input id="owner-token" type="password" autocomplete="off" placeholder="کلید دسترسی فقط برای این نشست"><button class="secondary" id="save-owner-token" type="button">اتصال</button></div><span class="status"><i></i> فضای کاری محلی</span></header>
+    <header><div><span class="eyebrow">فضای مدیریت فرصت‌های درآمدزایی شما</span><h1>نمای کلی</h1><p>فرصت‌های درآمدزایی را پیدا کنید، شرایط و ریسک را بسنجید و نتایج را پیگیری کنید.</p></div><div class="owner-access"><label for="owner-token">رمز مالک</label><input id="owner-token" type="password" autocomplete="off" placeholder="کلید دسترسی فقط برای این نشست"><button class="secondary" id="save-owner-token" type="button">اتصال</button></div><span class="status"><i></i> <span id="connection-label">در حال بررسی اتصال</span></span></header>
     <section class="stats" id="overview">
       <article><span>فرصت‌های درآمدزایی</span><strong id="stat-opps">0</strong><small>پلتفرم‌های پیگیری‌شده</small></article>
       <article><span>کارهای ثبت‌شده</span><strong id="stat-tasks">0</strong><small>فرایندهای تحت نظارت</small></article>
       <article><span>نیازمند تأیید شما</span><strong id="stat-approval">0</strong><small>هیچ کاری بدون اجازهٔ شما انجام نمی‌شود</small></article>
-      <article><span>درآمد پرداخت‌شده</span><strong id="stat-paid">$0.00</strong><small id="stat-pending">در انتظار: $0.00</small></article>
+      <article><span>درآمد پرداخت‌شده</span><strong id="stat-paid">۰ یورو</strong><small id="stat-pending">در انتظار: ۰ یورو</small></article>
     </section>
     <section class="panel" id="opportunities">
       <div class="section-head"><div><span class="eyebrow">کشف و بررسی دقیق</span><h2>فرصت‌های درآمدزایی</h2></div><button class="primary" id="add-opportunity">+ افزودن فرصت</button></div>
@@ -39,7 +42,7 @@
       <div class="section-head"><div><span class="eyebrow">دفتر شفاف درآمد</span><h2>پیگیری درآمد</h2><button class="secondary" id="add-reward">+ ثبت درآمد</button></div></div>
       <div id="reward-list" class="empty">هنوز درآمدی ثبت نشده است.</div>
     </section>
-    <footer>اتوایرن هوشمند · نسخهٔ آزمایشی ۰٫۱ · هیچ درآمدی تضمین‌شده نیست. همیشه قوانین هر پلتفرم را رعایت کنید.</footer>
+    <footer>اتوایرن هوشمند · نسخهٔ آزمایشی وب · پوستهٔ برنامه برای بازشدن دوباره در دسترس می‌ماند؛ داده‌ها و عملیات به اتصال سرور نیاز دارند. هیچ درآمدی تضمین‌شده نیست.</footer>
   </main>
   <dialog id="opportunity-dialog"><form id="opportunity-form" method="dialog"><div class="dialog-head"><h2>افزودن فرصت</h2><button type="button" class="icon-btn" data-close>×</button></div>
     <label>عنوان فرصت<input name="title" required minlength="2" placeholder="چالش روزانهٔ معما"></label>
@@ -65,7 +68,6 @@
     <label>یادداشت‌های پرداخت<textarea name="payment_notes" maxlength="1000" placeholder="روش‌های پرداخت اعلام‌شده؛ هنوز تأیید نشده‌اند"></textarea></label>
     <button class="primary" type="submit">ذخیره برای بررسی</button>
   </form></dialog>
-
   <dialog id="evaluation-dialog"><form id="evaluation-form" method="dialog"><div class="dialog-head"><h2>ارزیابی فرصت</h2><button type="button" class="icon-btn" data-close>×</button></div>
     <input type="hidden" name="opportunity_id">
     <label>منبع بررسی‌شده<select name="source_id" id="evaluation-source" required></select></label>
@@ -92,11 +94,7 @@
     <label>مدرک یا توضیح<textarea name="evidence" maxlength="1000" placeholder="نشانی رسید یا توضیح مدرک"></textarea></label><button class="primary" type="submit">ذخیره در دفتر درآمد</button>
   </form></dialog>
   <dialog id="earnings-history-dialog"><div class="dialog-head"><h2>سوابق تغییر درآمد</h2><button type="button" class="icon-btn" data-close>×</button></div><div id="earnings-history-list"></div><button type="button" class="secondary" data-close>بستن</button></dialog>
-  <dialog id="evaluation-history-dialog">
-    <div class="dialog-head"><h2>سوابق ارزیابی</h2><button type="button" class="icon-btn" data-close>×</button></div>
-    <div id="evaluation-history-list"></div>
-    <button type="button" class="secondary" data-close>بستن</button>
-  </dialog>
+  <dialog id="evaluation-history-dialog"><div class="dialog-head"><h2>سوابق ارزیابی</h2><button type="button" class="icon-btn" data-close>×</button></div><div id="evaluation-history-list"></div><button type="button" class="secondary" data-close>بستن</button></dialog>
   <div id="toast" role="status"></div>
   <script src="/static/app.js"></script>
 </body></html>
