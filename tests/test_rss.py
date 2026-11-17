@@ -3,6 +3,18 @@ import pytest
 from autoearn.rss import PublicRssAdapter
 
 
+@pytest.fixture(autouse=True)
+def public_dns_for_reserved_test_domains(monkeypatch):
+    # The tests use reserved .example hostnames; resolve them to a documentation
+    # public address without making network/DNS access part of the test suite.
+    monkeypatch.setattr(
+        "autoearn.rss.socket.getaddrinfo",
+        lambda host, port, type=None: [
+            (2, 1, 6, "", ("93.184.216.34", port or 443))
+        ],
+    )
+
+
 RSS = b"""<?xml version="1.0"?>
 <rss version="2.0"><channel>
 <item><title>Remote paid task</title><link>https://feed.example/tasks/42</link>
@@ -64,3 +76,9 @@ def test_atom_feed_is_supported():
     lead = adapter(fetcher=lambda url: payload).discover()[0]
     assert lead.title == "Design brief"
     assert lead.summary == "Paid design work"
+
+
+def test_feed_rejects_dtd_and_entity_declarations():
+    payload = b'<!DOCTYPE rss [<!ENTITY x "expanded">]><rss><channel></channel></rss>'
+    with pytest.raises(ValueError, match="DTD/entities"):
+        adapter(fetcher=lambda url: payload).discover()
