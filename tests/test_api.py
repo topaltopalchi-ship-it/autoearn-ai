@@ -1227,7 +1227,7 @@ def test_prioritized_discovery_endpoint_is_owner_only_and_marks_unknowns(client)
     assert item["country_eligibility"] == "unknown"
     assert item["payout_availability"] == "unknown"
     assert item["ai_permission"] == "unknown"
-    assert item["research_country"] == "Azerbaijan"
+    assert item["research_country"] == "Iran"
     assert item["research_status"] == {
         "country": "unknown", "payout": "unknown",
         "ai_permission": "unknown", "api": "unknown",
@@ -1239,12 +1239,12 @@ def test_prioritized_discovery_endpoint_is_owner_only_and_marks_unknowns(client)
             """INSERT INTO discovery_research
                (lead_id, country, country_status, payout_status, ai_permission,
                 api_status, updated_at)
-               VALUES (?, 'Azerbaijan', 'verified', 'unavailable', 'prohibited',
+               VALUES (?, 'Iran', 'verified', 'unavailable', 'prohibited',
                        'available', ?)""",
             (item["id"], main.now()),
         )
     reviewed = owner_get(
-        client, "/api/discovery/leads/prioritized?country=Azerbaijan"
+        client, "/api/discovery/leads/prioritized?country=Iran"
     ).json()["items"][0]
     assert reviewed["research_status"] == {
         "country": "verified", "payout": "unavailable",
