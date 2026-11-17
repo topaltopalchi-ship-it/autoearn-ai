@@ -94,11 +94,13 @@ def create_backup(
             "evidence_directory": "private_evidence",
             "evidence_files": evidence_entries,
         }
-        (staging / "manifest.json").write_text(
+        manifest_path = staging / "manifest.json"
+        manifest_path.write_text(
             json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
         if os.name == "posix":
+            os.chmod(manifest_path, 0o600)
             os.chmod(evidence_copy, 0o700)
             os.chmod(staging, 0o700)
         os.replace(staging, destination)
