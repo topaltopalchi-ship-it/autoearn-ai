@@ -1868,7 +1868,12 @@ def test_earning_evidence_upload_is_private_validated_and_downloadable(client, t
     assert metadata["media_type"] == "application/pdf"
     assert metadata["size_bytes"] == len(payload)
     assert metadata["sha256"] == hashlib.sha256(payload).hexdigest()
-    assert list((tmp_path / "private-evidence").iterdir())
+    stored_files = list((tmp_path / "private-evidence").iterdir())
+    assert len(stored_files) == 1
+    if os.name == "posix":
+        import stat
+        assert stat.S_IMODE((tmp_path / "private-evidence").stat().st_mode) == 0o700
+        assert stat.S_IMODE(stored_files[0].stat().st_mode) == 0o600
 
     listed = client.get(
         f"/api/earnings/{earning['id']}/evidence", headers=headers
