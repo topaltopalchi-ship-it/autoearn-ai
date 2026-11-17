@@ -203,7 +203,7 @@ async function assignDiscoveryTrack(leadId,category){
   try{
     const options=await api("/api/discovery/tracks?category="+encodeURIComponent(category));
     if(!options.length){toast("برای این دسته مسیر تخصصی تعریف نشده است");return}
-    const promptText=options.map((item,index)=>(index+1)+". "+item.label+" ("+item.key+")\\n   "+item.execution_guidance+" — "+item.description).join("\n");
+    const promptText=options.map((item,index)=>(index+1)+". "+item.label+" ("+item.key+")\n   "+item.execution_guidance+" — "+item.description).join("\n");
     const choice=prompt("مسیر تخصصی را انتخاب کنید؛ شماره یا کلید را وارد کنید:\n"+promptText+"\nبرای پاک‌کردن انتخاب، خالی بگذارید.");
     if(choice===null)return;
     const trimmed=choice.trim();
