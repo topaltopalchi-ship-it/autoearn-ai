@@ -247,3 +247,55 @@ def test_feed_rejects_nonstandard_https_port():
             feed_url="https://feed.example:8443/rss.xml",
             category="other", allowed_domains=("feed.example",),
         )
+
+
+def test_rss_uses_etag_and_last_modified_and_skips_unchanged_feed(monkeypatch):
+    monkeypatch.setattr(
+        "autoearn.rss._resolve_public_addresses",
+        lambda host, port: ("93.184.216.34",),
+    )
+    calls = {}
+
+    class FakeResponse:
+        status = 304
+
+        def getheader(self, name):
+            return {
+                "ETag": '"feed-v2"',
+                "Last-Modified": "Tue, 17 Nov 2026 19:00:00 GMT",
+            }.get(name)
+
+        def read(self, limit):
+            raise AssertionError("304 responses must not read a feed body")
+
+    class FakeConnection:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def request(self, method, path, headers):
+            calls["headers"] = headers
+
+        def getresponse(self):
+            return FakeResponse()
+
+        def close(self):
+            calls["closed"] = True
+
+    monkeypatch.setattr("autoearn.rss._PinnedHTTPSConnection", FakeConnection)
+    feed = PublicRssAdapter(
+        adapter_id="conditional-feed",
+        display_name="Conditional feed",
+        feed_url="https://feed.example/rss.xml",
+        category="other",
+        allowed_domains=("feed.example",),
+        etag='"feed-v1"',
+        last_modified="Mon, 16 Nov 2026 19:00:00 GMT",
+    )
+
+    assert feed.discover() == []
+    assert calls["headers"]["If-None-Match"] == '"feed-v1"'
+    assert calls["headers"]["If-Modified-Since"] == "Mon, 16 Nov 2026 19:00:00 GMT"
+    assert feed.not_modified is True
+    assert feed.etag == '"feed-v2"'
+    assert feed.last_modified == "Tue, 17 Nov 2026 19:00:00 GMT"
+    assert calls["closed"] is True
