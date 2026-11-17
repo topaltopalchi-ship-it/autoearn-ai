@@ -1,5 +1,20 @@
-def test_task_suitability_assessment_api_is_owner_only_and_never_authorizes_execution(client):
+import pytest
+from fastapi.testclient import TestClient
+
+from app.main import app
+
+
+@pytest.fixture()
+def client(tmp_path, monkeypatch):
     from app import main
+    monkeypatch.setattr(main, "DB_PATH", tmp_path / "test.db")
+    monkeypatch.setattr(main, "OWNER_TOKEN", "test-owner-secret-0123456789-abcdef")
+    main.init_db()
+    with TestClient(app) as test_client:
+        yield test_client
+
+
+def test_task_suitability_assessment_api_is_owner_only_and_never_authorizes_execution(client):
 
     payload = {
         "title": "Format public catalog data",
