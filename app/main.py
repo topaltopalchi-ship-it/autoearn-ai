@@ -982,7 +982,14 @@ def upload_earning_evidence(
         raise HTTPException(415, "File content does not match its declared evidence type.")
     digest = hashlib.sha256(payload).hexdigest()
     stored_name = f"{uuid.uuid4().hex}{extension}"
+    # Do not follow a pre-existing symlink for private financial evidence.
+    # Check both sides of mkdir: the first rejects configured symlinks, while
+    # the second also catches a path replaced during directory creation.
+    if EVIDENCE_DIR.is_symlink():
+        raise HTTPException(409, "Evidence storage directory must not be a symbolic link.")
     EVIDENCE_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if EVIDENCE_DIR.is_symlink():
+        raise HTTPException(409, "Evidence storage directory must not be a symbolic link.")
     # Receipt files contain potentially sensitive financial information. Keep
     # the directory owner-only even when it already existed with loose modes.
     if os.name == "posix":
