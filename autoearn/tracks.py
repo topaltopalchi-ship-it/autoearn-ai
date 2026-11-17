@@ -90,6 +90,11 @@ def get_track(key: str) -> OpportunityTrack | None:
     return _TRACK_BY_KEY.get(key)
 
 
+def tracks_for_category(category: str) -> tuple[OpportunityTrack, ...]:
+    """Return compatible tracks; multiple matches must remain ambiguous."""
+    return tuple(track for track in TRACKS if track.parent_category == category)
+
+
 def track_matches_category(key: str, category: str) -> bool:
     """Check that a track belongs to the adapter's declared parent category."""
     track = get_track(key)
