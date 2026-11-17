@@ -7,6 +7,7 @@ from .opportunities import Opportunity, normalize_url, score_opportunity
 from .registry import SourceRegistry
 from .rss import PublicRssAdapter
 from .supervision import AuditEvent, SupervisedAction, SupervisionError, SupervisionQueue
+from .supervision_store import SQLiteSupervisionStore
 
 __all__ = [
     "AdapterManifest",
@@ -18,6 +19,7 @@ __all__ = [
     "PublicRssAdapter",
     "SourceCandidate",
     "SourceRegistry",
+    "SQLiteSupervisionStore",
     "SupervisedAction",
     "SupervisionError",
     "SupervisionQueue",
