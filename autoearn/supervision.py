@@ -117,7 +117,7 @@ class SupervisionQueue:
         request = self._get(request_id)
         if request.status != "pending_approval":
             raise SupervisionError("only pending requests can be approved")
-        if not actor.strip() or actor == "system":
+        if not actor.strip() or actor.strip() == "system":
             raise SupervisionError("approval must be attributed to a human actor")
         request.status = "approved"
         request.approved_at = _timestamp()
@@ -128,13 +128,15 @@ class SupervisionQueue:
         request = self._get(request_id)
         if request.status != "pending_approval":
             raise SupervisionError("only pending requests can be rejected")
-        if not actor.strip() or actor == "system":
+        if not actor.strip() or actor.strip() == "system":
             raise SupervisionError("decision must be attributed to a human actor")
         request.status = "rejected"
         self._event(request, "rejected", actor, reason)
         return request
 
     def complete(self, request_id: str, *, actor: str, evidence: str) -> SupervisedAction:
+        if not actor.strip() or actor.strip() == "system":
+            raise SupervisionError("decision must be attributed to a human actor")
         request = self._get(request_id)
         if request.status != "approved":
             raise SupervisionError("only approved requests can be marked complete")
@@ -146,6 +148,8 @@ class SupervisionQueue:
         return request
 
     def cancel(self, request_id: str, *, actor: str, reason: str = "") -> SupervisedAction:
+        if not actor.strip() or actor.strip() == "system":
+            raise SupervisionError("decision must be attributed to a human actor")
         request = self._get(request_id)
         if request.status in ("completed", "rejected", "cancelled"):
             raise SupervisionError("terminal requests cannot be cancelled")
