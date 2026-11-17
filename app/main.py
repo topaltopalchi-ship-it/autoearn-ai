@@ -2255,20 +2255,48 @@ def submit_competition_entry(competition_id: int, data: CompetitionSubmitIn,
             "INSERT INTO competition_adapter_requests (adapter_id, requested_at) VALUES (?, ?)",
             (data.adapter_id, timestamp),
         )
+        # Write-ahead audit: persist the attempt intent before invoking an
+        # external, non-idempotent API. If the process crashes during the
+        # network call, history still shows an unresolved "submitting" record.
+        intent = {
+            "status": "submitting",
+            "external_submission": "unknown",
+            "message": "Submission started; verify the remote platform if no final result is recorded.",
+        }
+        attempt_cursor = db.execute(
+            "INSERT INTO competition_attempts (competition_id, mode, status, result_json, created_at) VALUES (?, 'official_api', 'submitting', ?, ?)",
+            (competition_id, json.dumps(intent, ensure_ascii=False), now()),
+        )
+        attempt_id = attempt_cursor.lastrowid
+        db.commit()
+
+        # Reacquire the write lock after persisting intent. If an emergency
+        # pause won the gap, mark the intent blocked; otherwise keep the lock
+        # through the adapter call so a successful pause waits for in-flight
+        # external work to finish.
+        db.execute("BEGIN IMMEDIATE")
+        control = db.execute(
+            "SELECT paused FROM execution_control WHERE id = 1"
+        ).fetchone()
+        if control is None or control["paused"]:
+            blocked = {
+                "status": "blocked", "external_submission": False,
+                "message": "Emergency pause became active before the adapter call.",
+            }
+            db.execute(
+                "UPDATE competition_attempts SET status = 'blocked', result_json = ? WHERE id = ?",
+                (json.dumps(blocked, ensure_ascii=False), attempt_id),
+            )
+            db.commit()
+            raise HTTPException(423, "Global emergency pause became active; external submission was blocked.")
+
         try:
             receipt = competition_adapters.submit(
                 data.adapter_id, competition, data.payload, owner_confirmed=True
             )
-            result = {"status": receipt.status, "external_entry_id": receipt.external_entry_id,
-                      "evidence": receipt.evidence, "external_submission": True}
-            db.execute(
-                "INSERT INTO competition_attempts (competition_id, mode, status, result_json, created_at) VALUES (?, 'official_api', ?, ?, ?)",
-                (competition_id, receipt.status, json.dumps(result, ensure_ascii=False), now()),
-            )
         except Exception as exc:
-            # Persist the reservation and an audit record even when the
-            # adapter errors. The remote outcome may be ambiguous, so never
-            # auto-retry this non-idempotent submission.
+            # The remote outcome may be ambiguous. Preserve the reservation
+            # and the already committed intent; never auto-retry this action.
             adapter_error = type(exc).__name__
             failure = {
                 "status": "failed", "error_type": adapter_error,
@@ -2276,8 +2304,15 @@ def submit_competition_entry(competition_id: int, data: CompetitionSubmitIn,
                 "message": "Adapter failed; verify the remote platform before any manual retry.",
             }
             db.execute(
-                "INSERT INTO competition_attempts (competition_id, mode, status, result_json, created_at) VALUES (?, 'official_api', 'failed', ?, ?)",
-                (competition_id, json.dumps(failure, ensure_ascii=False), now()),
+                "UPDATE competition_attempts SET status = 'failed', result_json = ? WHERE id = ?",
+                (json.dumps(failure, ensure_ascii=False), attempt_id),
+            )
+        else:
+            result = {"status": receipt.status, "external_entry_id": receipt.external_entry_id,
+                      "evidence": receipt.evidence, "external_submission": True}
+            db.execute(
+                "UPDATE competition_attempts SET status = ?, result_json = ? WHERE id = ?",
+                (receipt.status, json.dumps(result, ensure_ascii=False), attempt_id),
             )
     if adapter_error:
         raise HTTPException(
