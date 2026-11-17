@@ -851,3 +851,108 @@ def test_competition_requires_https_rules_and_event_urls(client):
     assert response.status_code == 422
 
 
+
+
+def test_owner_managed_discovery_feeds_require_review_and_batch_deduplicate(client, monkeypatch):
+    from app import main
+    from autoearn.adapters import DiscoveredLead
+
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    payload = {
+        "name": "Trusted public feed",
+        "feed_url": "https://feed.example/rss.xml",
+        "category": "freelancing_services",
+        "allowed_domains": ["feed.example"],
+        "max_items": 12,
+    }
+
+    assert client.get("/api/discovery/feeds").status_code == 401
+    created = client.post("/api/discovery/feeds", headers=headers, json=payload)
+    assert created.status_code == 201
+    feed = created.json()
+    assert feed["status"] == "pending"
+    assert feed["allowed_domains"] == ["feed.example"]
+
+    duplicate = client.post("/api/discovery/feeds", headers=headers, json=payload)
+    assert duplicate.status_code == 409
+
+    # Pending feeds must never be fetched by a batch run.
+    class NeverFetch:
+        def __init__(self, **kwargs):
+            raise AssertionError("pending feed must not be fetched")
+    monkeypatch.setattr(main, "PublicRssAdapter", NeverFetch)
+    skipped = client.post("/api/discovery/run", headers=headers)
+    assert skipped.status_code == 200
+    assert skipped.json()["approved_feed_count"] == 0
+
+    approved = client.patch(
+        f"/api/discovery/feeds/{feed['id']}/review", headers=headers,
+        json={"status": "approved"},
+    )
+    assert approved.status_code == 200
+    assert approved.json()["status"] == "approved"
+
+    class FakeFeed:
+        def __init__(self, **kwargs):
+            self.feed_url = kwargs["feed_url"]
+        def discover(self):
+            return [
+                DiscoveredLead(
+                    title="Paid remote task", url="https://feed.example/tasks/one",
+                    category="freelancing_services", source_name="Trusted public feed",
+                    observed_at="2026-11-17T00:00:00+00:00",
+                    summary="Terms need manual review",
+                    evidence=("Public RSS feed: https://feed.example/rss.xml",),
+                )
+            ]
+    monkeypatch.setattr(main, "PublicRssAdapter", FakeFeed)
+
+    first = client.post("/api/discovery/run", headers=headers)
+    assert first.status_code == 200
+    result = first.json()
+    assert result["approved_feed_count"] == 1
+    assert result["successful_feed_count"] == 1
+    assert result["inserted_count"] == 1
+    assert result["review_required"] is True
+
+    second = client.post("/api/discovery/run", headers=headers)
+    assert second.status_code == 200
+    assert second.json()["inserted_count"] == 0
+    assert second.json()["duplicate_count"] == 1
+
+    pending_sources = client.get("/api/sources?status=pending", headers=headers)
+    assert pending_sources.status_code == 200
+    assert any(item["url"] == "https://feed.example/tasks/one"
+               for item in pending_sources.json())
+
+
+def test_discovery_feed_rejects_non_https_host_mismatch_and_wildcards(client):
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    base = {
+        "name": "Feed source", "category": "other",
+        "allowed_domains": ["feed.example"],
+    }
+    http = client.post("/api/discovery/feeds", headers=headers, json={
+        **base, "feed_url": "http://feed.example/rss.xml",
+    })
+    assert http.status_code == 422
+
+    mismatch = client.post("/api/discovery/feeds", headers=headers, json={
+        **base, "feed_url": "https://other.example/rss.xml",
+    })
+    assert mismatch.status_code == 422
+
+    wildcard = client.post("/api/discovery/feeds", headers=headers, json={
+        **base, "feed_url": "https://feed.example/rss.xml",
+        "allowed_domains": ["*.example"],
+    })
+    assert wildcard.status_code == 422
+
+
+def test_discovery_feed_review_missing_id_returns_404(client):
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    response = client.patch(
+        "/api/discovery/feeds/9999/review", headers=headers,
+        json={"status": "approved"},
+    )
+    assert response.status_code == 404
