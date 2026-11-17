@@ -116,11 +116,7 @@ def test_configured_openai_responses_provider_builds_validated_strategy(monkeypa
     }
 
     class FakeResponse:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *args):
-            return False
+        status = 200
 
         def read(self, limit):
             return json.dumps({
@@ -135,23 +131,36 @@ def test_configured_openai_responses_provider_builds_validated_strategy(monkeypa
 
     captured = {}
 
-    def fake_urlopen(request, timeout):
-        captured["url"] = request.full_url
-        captured["timeout"] = timeout
-        captured["authorization"] = request.get_header("Authorization")
-        return FakeResponse()
+    class FakeConnection:
+        def __init__(self, host, timeout, context):
+            captured["host"] = host
+            captured["timeout"] = timeout
+
+        def request(self, method, path, body, headers):
+            captured["method"] = method
+            captured["path"] = path
+            captured["authorization"] = headers["Authorization"]
+
+        def getresponse(self):
+            return FakeResponse()
+
+        def close(self):
+            captured["closed"] = True
 
     monkeypatch.setenv("AUTOEARN_OPENAI_API_KEY", "test-only-secret")
     monkeypatch.setenv("AUTOEARN_OPENAI_MODEL", "test-model")
-    monkeypatch.setattr(competitions, "urlopen", fake_urlopen)
+    monkeypatch.setattr(competitions.http.client, "HTTPSConnection", FakeConnection)
 
     plan = competitions.build_strategy(3, "logic", "Find the winning answer")
     assert plan.provider == "test-model"
     assert plan.confidence == 62
     assert len(plan.steps) == 3
-    assert captured["url"] == "https://api.openai.com/v1/responses"
+    assert captured["host"] == "api.openai.com"
+    assert captured["path"] == "/v1/responses"
+    assert captured["method"] == "POST"
     assert captured["authorization"] == "Bearer test-only-secret"
     assert captured["timeout"] == 30
+    assert captured["closed"] is True
 
 
 def test_configured_ai_provider_rejects_invalid_model_output(monkeypatch):
@@ -159,11 +168,7 @@ def test_configured_ai_provider_rejects_invalid_model_output(monkeypatch):
     from autoearn import competitions
 
     class FakeResponse:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *args):
-            return False
+        status = 200
 
         def read(self, limit):
             return json.dumps({"output": [{
@@ -171,8 +176,21 @@ def test_configured_ai_provider_rejects_invalid_model_output(monkeypatch):
                 "content": [{"type": "output_text", "text": '{"approach":"bad"}'}],
             }]}).encode("utf-8")
 
+    class FakeConnection:
+        def __init__(self, host, timeout, context):
+            pass
+
+        def request(self, method, path, body, headers):
+            pass
+
+        def getresponse(self):
+            return FakeResponse()
+
+        def close(self):
+            pass
+
     monkeypatch.setenv("AUTOEARN_OPENAI_API_KEY", "test-only-secret")
-    monkeypatch.setattr(competitions, "urlopen", lambda request, timeout: FakeResponse())
+    monkeypatch.setattr(competitions.http.client, "HTTPSConnection", FakeConnection)
     with pytest.raises(competitions.AIProviderError, match="invalid strategy format"):
         competitions.build_strategy(4, "coding")
 
