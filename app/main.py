@@ -1176,7 +1176,7 @@ def list_discovery_leads(status: Literal["pending", "converted", "rejected"] | N
 
 @app.get("/api/discovery/leads/prioritized")
 def prioritized_discovery_leads(
-    country: str = Query(default="Azerbaijan", min_length=2, max_length=80),
+    country: str = Query(default="Iran", min_length=2, max_length=80),
     actor: str = Depends(require_owner),
 ):
     """Return a research-first queue with the owner's saved country-specific review state."""
