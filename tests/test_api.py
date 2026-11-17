@@ -62,6 +62,39 @@ def test_owner_routes_reject_invalid_token_without_reflecting_it(client):
     assert response.json()["detail"] == "Owner authentication required."
 
 
+def test_state_changing_api_rejects_cross_origin_requests(client):
+    response = client.post(
+        "/api/opportunities",
+        headers={
+            "Origin": "https://attacker.example",
+            "X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef",
+        },
+        json={"title": "Cross origin", "platform": "Example", "url": "https://example.com"},
+    )
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Cross-origin state-changing requests are not allowed."
+
+
+def test_state_changing_api_accepts_same_origin_requests(client):
+    response = client.post(
+        "/api/opportunities",
+        headers={
+            "Origin": "http://testserver",
+            "X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef",
+        },
+        json={"title": "Same origin", "platform": "Example", "url": "https://example.com"},
+    )
+    assert response.status_code == 201
+
+
+def test_safe_api_reads_do_not_require_origin_header(client):
+    response = client.get(
+        "/api/opportunities",
+        headers={"Origin": "https://attacker.example"},
+    )
+    assert response.status_code == 401
+
+
 def test_owner_routes_fail_closed_when_server_token_is_too_short(client, monkeypatch):
     from app import main
 
