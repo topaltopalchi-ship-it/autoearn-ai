@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import hmac
+import hashlib
 import ipaddress
 import sqlite3
 import uuid
@@ -14,7 +15,7 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
 
-from fastapi import FastAPI, HTTPException, Query, Depends, Header
+from fastapi import FastAPI, HTTPException, Query, Depends, Header, UploadFile, File
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, HttpUrl
@@ -36,6 +37,13 @@ ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.getenv("AUTOEARN_DB", ROOT / "autoearn.db"))
 OWNER_TOKEN = os.getenv("AUTOEARN_OWNER_TOKEN", "")
 STATIC_DIR = ROOT / "static"
+EVIDENCE_DIR = Path(os.getenv("AUTOEARN_EVIDENCE_DIR", ROOT / "private_evidence"))
+MAX_EVIDENCE_BYTES = 5 * 1024 * 1024
+EVIDENCE_TYPES = {
+    "application/pdf": (b"%PDF-", ".pdf"),
+    "image/png": (b"\\x89PNG\\r\\n\\x1a\\n", ".png"),
+    "image/jpeg": (b"\\xff\\xd8\\xff", ".jpg"),
+}
 competition_adapters = CompetitionAdapterRegistry()
 
 
@@ -198,6 +206,18 @@ def init_db() -> None:
         );
         CREATE INDEX IF NOT EXISTS idx_earnings_events_ledger
             ON earnings_ledger_events(ledger_id, created_at, id);
+        CREATE TABLE IF NOT EXISTS earnings_evidence (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ledger_id INTEGER NOT NULL REFERENCES earnings_ledger(id) ON DELETE CASCADE,
+            stored_name TEXT NOT NULL UNIQUE,
+            media_type TEXT NOT NULL,
+            size_bytes INTEGER NOT NULL CHECK(size_bytes > 0 AND size_bytes <= 5242880),
+            sha256 TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_earnings_evidence_ledger
+            ON earnings_evidence(ledger_id, created_at, id);
+
         CREATE TABLE IF NOT EXISTS evaluation_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             opportunity_id INTEGER NOT NULL REFERENCES opportunities(id) ON DELETE CASCADE,
@@ -917,6 +937,93 @@ def update_earning_state(ledger_id: int, data: EarningsStateIn,
         return row_dict(db.execute(
             "SELECT * FROM earnings_ledger WHERE id = ?", (ledger_id,)
         ).fetchone())
+
+
+@app.post("/api/earnings/{ledger_id}/evidence", status_code=201)
+def upload_earning_evidence(
+    ledger_id: int,
+    upload: UploadFile = File(...),
+    actor: str = Depends(require_owner),
+):
+    allowed = EVIDENCE_TYPES.get(upload.content_type or "")
+    if allowed is None:
+        raise HTTPException(415, "Only PDF, PNG, and JPEG evidence files are accepted.")
+    payload = upload.file.read(MAX_EVIDENCE_BYTES + 1)
+    if not payload or len(payload) > MAX_EVIDENCE_BYTES:
+        raise HTTPException(413, "Evidence file must be between 1 byte and 5 MiB.")
+    magic, extension = allowed
+    if not payload.startswith(magic):
+        raise HTTPException(415, "File content does not match its declared evidence type.")
+    digest = hashlib.sha256(payload).hexdigest()
+    stored_name = f"{uuid.uuid4().hex}{extension}"
+    EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
+    target = (EVIDENCE_DIR / stored_name).resolve()
+    if target.parent != EVIDENCE_DIR.resolve():
+        raise HTTPException(400, "Invalid evidence storage path.")
+    with connect() as db:
+        if not db.execute(
+            "SELECT id FROM earnings_ledger WHERE id = ?", (ledger_id,)
+        ).fetchone():
+            raise HTTPException(404, "Earning record not found.")
+        count = db.execute(
+            "SELECT COUNT(*) FROM earnings_evidence WHERE ledger_id = ?", (ledger_id,)
+        ).fetchone()[0]
+        if count >= 10:
+            raise HTTPException(409, "An earning record can have at most 10 evidence files.")
+        target.write_bytes(payload)
+        try:
+            cur = db.execute(
+                """INSERT INTO earnings_evidence
+                   (ledger_id, stored_name, media_type, size_bytes, sha256, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (ledger_id, stored_name, upload.content_type, len(payload), digest, now()),
+            )
+        except Exception:
+            target.unlink(missing_ok=True)
+            raise
+        return {
+            "id": cur.lastrowid, "ledger_id": ledger_id,
+            "media_type": upload.content_type, "size_bytes": len(payload),
+            "sha256": digest, "created_at": now(),
+        }
+
+
+@app.get("/api/earnings/{ledger_id}/evidence")
+def list_earning_evidence(ledger_id: int, actor: str = Depends(require_owner)):
+    with connect() as db:
+        if not db.execute(
+            "SELECT id FROM earnings_ledger WHERE id = ?", (ledger_id,)
+        ).fetchone():
+            raise HTTPException(404, "Earning record not found.")
+        rows = db.execute(
+            """SELECT id, ledger_id, media_type, size_bytes, sha256, created_at
+               FROM earnings_evidence WHERE ledger_id = ? ORDER BY created_at, id""",
+            (ledger_id,),
+        ).fetchall()
+        return [row_dict(row) for row in rows]
+
+
+@app.get("/api/earnings/{ledger_id}/evidence/{evidence_id}")
+def download_earning_evidence(
+    ledger_id: int, evidence_id: int, actor: str = Depends(require_owner)
+):
+    with connect() as db:
+        row = db.execute(
+            """SELECT stored_name, media_type FROM earnings_evidence
+               WHERE id = ? AND ledger_id = ?""",
+            (evidence_id, ledger_id),
+        ).fetchone()
+        if row is None:
+            raise HTTPException(404, "Evidence file not found.")
+        path = (EVIDENCE_DIR / row["stored_name"]).resolve()
+        if path.parent != EVIDENCE_DIR.resolve() or not path.is_file():
+            raise HTTPException(404, "Evidence file is unavailable.")
+        suffix = EVIDENCE_TYPES[row["media_type"]][1]
+        return FileResponse(
+            path, media_type=row["media_type"],
+            filename=f"earning-evidence-{evidence_id}{suffix}",
+            headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+        )
 
 
 @app.get("/api/earnings/{ledger_id}/history")
