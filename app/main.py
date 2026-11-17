@@ -346,7 +346,7 @@ def create_source(data: SourceIn):
 
 
 @app.patch("/api/sources/{source_id}/review")
-def review_source(source_id: int, data: SourceReviewIn):
+def review_source(source_id: int, data: SourceReviewIn, actor: str = Depends(require_owner)):
     with connect() as db:
         row = db.execute("SELECT id FROM sources WHERE id = ?", (source_id,)).fetchone()
         if not row:
@@ -361,7 +361,7 @@ def review_source(source_id: int, data: SourceReviewIn):
 
 
 @app.patch("/api/opportunities/{opportunity_id}/status")
-def update_opportunity_status(opportunity_id: int, status: Literal["discovered", "reviewing", "eligible", "ineligible", "archived"]):
+def update_opportunity_status(opportunity_id: int, status: Literal["discovered", "reviewing", "eligible", "ineligible", "archived"], actor: str = Depends(require_owner)):
     with connect() as db:
         cur = db.execute("UPDATE opportunities SET status = ? WHERE id = ?", (status, opportunity_id))
         if not cur.rowcount:
@@ -370,7 +370,7 @@ def update_opportunity_status(opportunity_id: int, status: Literal["discovered",
 
 
 @app.patch("/api/opportunities/{opportunity_id}/verification")
-def update_opportunity_verification(opportunity_id: int, data: VerificationIn):
+def update_opportunity_verification(opportunity_id: int, data: VerificationIn, actor: str = Depends(require_owner)):
     """Record a human review decision; only explicit verification sets verified_at."""
     with connect() as db:
         row = db.execute("SELECT id FROM opportunities WHERE id = ?", (opportunity_id,)).fetchone()
