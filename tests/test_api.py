@@ -499,6 +499,8 @@ def test_opportunity_evaluation_uses_reviewed_source_country_and_evidence(client
         "url": "https://example.com/task/7",
         "eligible_countries": ["Germany"],
         "excluded_countries": ["United States"],
+        "minimum_withdrawal_amount": 5,
+        "withdrawal_currency": "EUR",
     }).json()
     source = client.post("/api/sources", headers=headers, json={
         "name": "Example official source", "url": "https://example.com/source"
