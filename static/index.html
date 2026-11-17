@@ -23,7 +23,7 @@
     </section>
     <section class="panel" id="opportunities">
       <div class="section-head"><div><span class="eyebrow">DISCOVERY & DUE DILIGENCE</span><h2>Opportunities</h2></div><button class="primary" id="add-opportunity">+ Add opportunity</button></div>
-      <div class="toolbar"><input id="search" placeholder="Search platform or opportunity…"><select id="filter"><option value="">All statuses</option><option>discovered</option><option>reviewing</option><option>eligible</option><option>ineligible</option><option>archived</option></select></div>
+      <div class="toolbar"><input id="search" placeholder="Search platform or opportunity…"><select id="filter"><option value="">All statuses</option><option>discovered</option><option>reviewing</option><option>eligible</option><option>ineligible</option><option>archived</option></select><select id="verification-filter"><option value="">All review states</option><option value="pending">Awaiting verification</option><option value="verified">Verified</option><option value="rejected">Rejected</option></select></div>
       <div id="opportunity-list" class="empty">No opportunities yet. Add a platform you want to evaluate.</div>
     </section>
     <section class="panel" id="tasks">
@@ -43,6 +43,11 @@
     <label>Category<select name="category"><option value="game">Game</option><option value="mobile">Mobile app</option><option value="skill">Skill / competition</option><option value="survey">Survey / offer</option><option value="other">Other</option></select></label>
     <label>Advertised reward<textarea name="reward_description" placeholder="Describe the advertised reward; do not assume it is guaranteed."></textarea></label>
     <label>Eligibility / country restrictions<textarea name="eligibility"></textarea></label>
+    <label>Eligible countries (comma-separated)<input name="eligible_countries" placeholder="Germany, France"></label>
+    <label>Excluded countries (comma-separated)<input name="excluded_countries" placeholder="United States"></label>
+    <label>Minimum withdrawal amount<input name="minimum_withdrawal_amount" type="number" min="0" step="0.01" placeholder="e.g. 10"></label>
+    <label>Withdrawal currency<input name="withdrawal_currency" value="USD" maxlength="8"></label>
+    <label>Payout methods (comma-separated)<input name="payout_methods" placeholder="PayPal, bank transfer"></label>
     <label>Terms URL<input name="terms_url" type="url" placeholder="https://example.com/terms"></label>
     <label>Notes<textarea name="notes"></textarea></label><button class="primary" type="submit">Save opportunity</button>
   </form></dialog>
