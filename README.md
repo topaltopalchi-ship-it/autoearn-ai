@@ -37,6 +37,7 @@ The first release is a local-first MVP. It helps users record opportunity metada
 - `PATCH /api/earnings/{id}/state` applies only allowed forward state transitions. Paid records are terminal.
 - `GET /api/earnings/{id}/history` returns the append-only state-change audit trail, including actor, prior state, new state, note, and timestamp.
 - Every ledger route requires the owner token. The ledger records claims and evidence supplied by the owner; it does not independently verify payments or initiate withdrawals.
+- Owner-only receipt uploads accept PDF, PNG, and JPEG files up to 5 MiB (maximum 10 per earning record), verify file signatures, store files outside the public static directory, and retain SHA-256 metadata. Uploaded evidence is not independently authenticated as proof of payment.
 
 ## Discovery adapter contract
 
