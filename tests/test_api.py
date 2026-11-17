@@ -2035,3 +2035,96 @@ def test_legacy_discovery_feed_schema_migrates_retry_schedule(tmp_path, monkeypa
         columns = {row["name"] for row in db.execute("PRAGMA table_info(discovery_feeds)")}
     assert {"last_success_at", "consecutive_failures", "total_checks",
             "total_successes", "next_retry_at"}.issubset(columns)
+
+
+def test_competition_adapter_rate_limit_persists_across_registry_restarts(client, monkeypatch):
+    from types import SimpleNamespace
+    from app import main
+
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    created = client.post("/api/competitions", headers=headers, json={
+        "title": "Official API contest",
+        "url": "https://contest.example.com/event",
+        "rules_url": "https://contest.example.com/rules",
+        "task_type": "coding",
+        "country": "Germany",
+        "eligibility": "eligible",
+        "terms_verified": True,
+        "automated_agents_allowed": True,
+        "official_api": True,
+    })
+    assert created.status_code == 201
+    competition_id = created.json()["id"]
+    assert client.patch(
+        "/api/execution-control", headers=headers,
+        json={"paused": False, "reason": "rate-limit test"},
+    ).status_code == 200
+
+    class FakeRegistry:
+        def __init__(self, fail=False):
+            self.fail = fail
+            self.calls = 0
+        def get_manifest(self, adapter_id):
+            return SimpleNamespace(
+                allowed_actions=("submit_entry",), requests_per_minute=1
+            )
+        def submit(self, *args, **kwargs):
+            self.calls += 1
+            if self.fail:
+                raise TimeoutError("upstream timed out")
+            return SimpleNamespace(
+                status="submitted", external_entry_id="entry-1", evidence={}
+            )
+
+    first_registry = FakeRegistry()
+    monkeypatch.setattr(main, "competition_adapters", first_registry)
+    first = client.post(
+        f"/api/competitions/{competition_id}/submit", headers=headers,
+        json={"adapter_id": "persistent-limit", "payload": {"answer": "42"},
+              "owner_confirmed": True},
+    )
+    assert first.status_code == 200
+    assert first_registry.calls == 1
+
+    # Simulate an application/worker restart: the in-memory registry is new,
+    # while the SQLite request window must still enforce the previous call.
+    replacement_registry = FakeRegistry()
+    monkeypatch.setattr(main, "competition_adapters", replacement_registry)
+    limited = client.post(
+        f"/api/competitions/{competition_id}/submit", headers=headers,
+        json={"adapter_id": "persistent-limit", "payload": {"answer": "43"},
+              "owner_confirmed": True},
+    )
+    assert limited.status_code == 429
+    assert replacement_registry.calls == 0
+
+    failing_registry = FakeRegistry(fail=True)
+    monkeypatch.setattr(main, "competition_adapters", failing_registry)
+    failed = client.post(
+        f"/api/competitions/{competition_id}/submit", headers=headers,
+        json={"adapter_id": "unstable-limit", "payload": {"answer": "44"},
+              "owner_confirmed": True},
+    )
+    assert failed.status_code == 502
+    assert failing_registry.calls == 1
+
+    recovered_registry = FakeRegistry()
+    monkeypatch.setattr(main, "competition_adapters", recovered_registry)
+    still_limited = client.post(
+        f"/api/competitions/{competition_id}/submit", headers=headers,
+        json={"adapter_id": "unstable-limit", "payload": {"answer": "45"},
+              "owner_confirmed": True},
+    )
+    assert still_limited.status_code == 429
+    assert recovered_registry.calls == 0
+
+    history = client.get(
+        f"/api/competitions/{competition_id}/history", headers=headers
+    )
+    assert history.status_code == 200
+    assert any(item["status"] == "failed" for item in history.json())
+    with main.connect() as db:
+        reservations = db.execute(
+            "SELECT COUNT(*) FROM competition_adapter_requests"
+        ).fetchone()[0]
+    assert reservations == 2
