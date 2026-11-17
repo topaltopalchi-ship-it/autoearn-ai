@@ -1227,7 +1227,35 @@ def test_prioritized_discovery_endpoint_is_owner_only_and_marks_unknowns(client)
     assert item["country_eligibility"] == "unknown"
     assert item["payout_availability"] == "unknown"
     assert item["ai_permission"] == "unknown"
+    assert item["research_country"] == "Azerbaijan"
+    assert item["research_status"] == {
+        "country": "unknown", "payout": "unknown",
+        "ai_permission": "unknown", "api": "unknown",
+    }
     assert item["execution_authorized"] is False
+
+    with main.connect() as db:
+        db.execute(
+            """INSERT INTO discovery_research
+               (lead_id, country, country_status, payout_status, ai_permission,
+                api_status, updated_at)
+               VALUES (?, 'Azerbaijan', 'verified', 'unavailable', 'prohibited',
+                       'available', ?)""",
+            (item["id"], main.now()),
+        )
+    reviewed = owner_get(
+        client, "/api/discovery/leads/prioritized?country=Azerbaijan"
+    ).json()["items"][0]
+    assert reviewed["research_status"] == {
+        "country": "verified", "payout": "unavailable",
+        "ai_permission": "prohibited", "api": "available",
+    }
+    assert reviewed["execution_authorized"] is False
+
+    other_country = owner_get(
+        client, "/api/discovery/leads/prioritized?country=Germany"
+    ).json()["items"][0]
+    assert other_country["research_status"]["country"] == "unknown"
 
 
 def test_discovery_research_requires_official_https_evidence_and_is_owner_only(client):
