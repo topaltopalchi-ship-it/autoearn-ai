@@ -8,7 +8,7 @@ const api = async (path, options={}) => {
   if (!response.ok) throw new Error("انجام درخواست با خطا روبه‌رو شد. اطلاعات و دسترسی را بررسی کنید.");
   return body;
 };
-const statusFa = (v) => ({game_rewards:"پاداش بازی",survey_rewards:"پاداش نظرسنجی",microtasks:"کارهای کوچک",freelance_jobs:"کارهای آزاد",digital_products:"محصولات دیجیتال",discovered:"کشف‌شده",reviewing:"در حال بررسی",eligible:"مجاز",ineligible:"غیرمجاز",archived:"بایگانی‌شده",pending:"در انتظار",approved:"تأییدشده",rejected:"ردشده",verified:"تأییدشده",pending_approval:"در انتظار تأیید",confirmed:"تأییدشده",paid:"پرداخت‌شده",manual:"دستی",assist:"با کمک دستیار",official_api:"رابط رسمی برنامه‌نویسی",games_competitions:"بازی و مسابقه",surveys_microtasks:"نظرسنجی و کارهای کوچک",freelancing_services:"فریلنسری و خدمات",ai_content_products:"محتوای هوش مصنوعی و محصولات دیجیتال",other:"سایر","unknown":"نامشخص"})[v]||"نامشخص";
+const statusFa = (v) => ({game_rewards:"پاداش بازی",survey_rewards:"پاداش نظرسنجی",microtasks:"کارهای کوچک",freelance_jobs:"کارهای آزاد",digital_products:"محصولات دیجیتال",discovered:"کشف‌شده",reviewing:"در حال بررسی",eligible:"مجاز",ineligible:"غیرمجاز",archived:"بایگانی‌شده",pending:"در انتظار",approved:"تأییدشده",rejected:"ردشده",verified:"تأییدشده",pending_approval:"در انتظار تأیید",confirmed:"تأییدشده",paid:"پرداخت‌شده",estimated:"تخمینی",earned:"کسب‌شده",withdrawable:"قابل برداشت",manual:"دستی",assist:"با کمک دستیار",official_api:"رابط رسمی برنامه‌نویسی",games_competitions:"بازی و مسابقه",surveys_microtasks:"نظرسنجی و کارهای کوچک",freelancing_services:"فریلنسری و خدمات",ai_content_products:"محتوای هوش مصنوعی و محصولات دیجیتال",other:"سایر","unknown":"نامشخص"})[v]||"نامشخص";
 const currencyFa = (c) => ({EUR:"یورو",USD:"دلار آمریکا",GBP:"پوند",TRY:"لیر",IRR:"ریال",CAD:"دلار کانادا",AUD:"دلار استرالیا"})[String(c||"").toUpperCase()] || "واحد پول";
 const money = (n,c="EUR") => new Intl.NumberFormat("fa-IR",{maximumFractionDigits:2}).format(Number(n||0))+" "+currencyFa(c);
 const riskFlagFa = (v) => ({
@@ -34,12 +34,12 @@ $("owner-token").value = ownerToken();
 let opportunities=[];
 let sources=[];
 async function refresh(){
-  const [dash,opps,tasks,rewards,sourceRows]=await Promise.all([api("/api/dashboard"),api("/api/opportunities"),api("/api/tasks"),api("/api/rewards"),api("/api/sources")]);
+  const [dash,opps,tasks,earnings,sourceRows]=await Promise.all([api("/api/dashboard"),api("/api/opportunities"),api("/api/tasks"),api("/api/earnings"),api("/api/sources")]);
   opportunities=opps;sources=sourceRows;
   $("stat-opps").textContent=dash.opportunities;$("stat-tasks").textContent=dash.tasks;
   $("stat-approval").textContent=dash.awaiting_approval;$("stat-paid").textContent=money(dash.paid_total);
   $("stat-pending").textContent="در انتظار: "+money(dash.pending_total);
-  renderOpportunities();renderSources();renderTasks(tasks);renderRewards(rewards);fillRewardOptions();
+  renderOpportunities();renderSources();renderTasks(tasks);renderEarnings(earnings);fillRewardOptions();
 }
 function renderOpportunities(){
   const q=$("search").value.toLowerCase(),status=$("filter").value,verification=$("verification-filter").value;
@@ -103,7 +103,24 @@ function renderTasks(tasks){$("task-list").innerHTML=tasks.length?tasks.map(t=>`
   $("task-list").querySelectorAll("[data-approve]").forEach(b=>b.onclick=async()=>{if(!confirm("این کار را تأیید می‌کنید؟ مسئولیت رعایت قوانین پلتفرم همچنان با شماست."))return;try{await api(`/api/tasks/${b.dataset.approve}/approve`,{method:"POST"});toast("کار تأیید شد")}catch(e){toast(e.message)}refresh()});
   $("task-list").querySelectorAll("[data-complete]").forEach(b=>b.onclick=async()=>{try{await api(`/api/tasks/${b.dataset.complete}/complete`,{method:"POST"});toast("کار به‌عنوان تکمیل‌شده ثبت شد")}catch(e){toast(e.message)}refresh()});
 }
-function renderRewards(rows){$("reward-list").innerHTML=rows.length?rows.map(r=>`<div class="item"><div><h3>${money(r.amount,r.currency)} <span class="pill">${esc(statusFa(r.status))}</span></h3><p>${esc(r.opportunity_title||"درآمد بدون پیوند")} · ${esc(r.reference||"بدون توضیح")}</p></div></div>`).join(""):'<div class="empty">هنوز درآمدی ثبت نشده است.</div>'}
+function renderEarnings(rows){
+  const next={estimated:["earned","pending"],earned:["pending","withdrawable"],pending:["withdrawable"],withdrawable:["paid"],paid:[]};
+  const labels={earned:"ثبت کسب درآمد",pending:"در انتظار پرداخت",withdrawable:"قابل برداشت",paid:"ثبت پرداخت"};
+  $("reward-list").innerHTML=rows.length?rows.map(r=>\`<div class="item"><div><h3>\${money(r.amount,r.currency)} <span class="pill">\${esc(statusFa(r.state))}</span></h3><p>\${esc(r.opportunity_title||"درآمد بدون پیوند")} · \${esc(r.reference||"بدون توضیح")}<br>\${r.evidence?"مدرک: "+esc(r.evidence):"مدرکی پیوست نشده است"}</p></div><div class="item-actions">\${next[r.state].map(s=>'<button class="secondary" data-earning-state="'+r.id+'" data-next-state="'+s+'">'+labels[s]+'</button>').join("")}<button class="secondary" data-earning-history="\${r.id}">سوابق</button></div></div>\`).join(""):'<div class="empty">هنوز درآمدی ثبت نشده است.</div>';
+  $("reward-list").querySelectorAll("[data-earning-state]").forEach(b=>b.onclick=()=>setEarningState(Number(b.dataset.earningState),b.dataset.nextState));
+  $("reward-list").querySelectorAll("[data-earning-history]").forEach(b=>b.onclick=()=>showEarningHistory(Number(b.dataset.earningHistory)));
+}
+async function setEarningState(id,state){
+  const note=prompt("یادداشت این تغییر را وارد کنید (اختیاری):")||"";
+  try{await api(\`/api/earnings/\${id}/state\`,{method:"PATCH",body:JSON.stringify({state,note})});toast("وضعیت درآمد به‌روزرسانی شد");refresh()}catch(e){toast(e.message)}
+}
+async function showEarningHistory(id){
+  try{
+    const rows=await api(\`/api/earnings/\${id}/history\`);
+    $("earnings-history-list").innerHTML=rows.length?rows.map(r=>\`<div class="item"><div><b>\${esc(statusFa(r.to_state))}</b><p>\${esc(r.note||"بدون یادداشت")} · \${esc(new Date(r.created_at).toLocaleString("fa-IR"))}</p></div></div>\`).join(""):'<div class="empty">سابقه‌ای ثبت نشده است.</div>';
+    $("earnings-history-dialog").showModal();
+  }catch(e){toast(e.message)}
+}
 function fillRewardOptions(){$("reward-opportunity").innerHTML='<option value="">بدون پیوند به فرصت</option>'+opportunities.map(o=>'<option value="'+o.id+'">'+esc(o.title)+'</option>').join("")}
 $("add-opportunity").onclick=()=>$("opportunity-dialog").showModal();
 $("add-source").onclick=()=>$("source-dialog").showModal();
@@ -153,6 +170,6 @@ $("evaluation-form").onsubmit=async e=>{
       "\n\nهیچ اقدامی در پلتفرم انجام نشد.");
   }catch(err){toast(err.message)}
 };
-$("reward-form").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));data.opportunity_id=data.opportunity_id?Number(data.opportunity_id):null;data.amount=Number(data.amount);try{await api("/api/rewards",{method:"POST",body:JSON.stringify(data)});e.target.closest("dialog").close();e.target.reset();toast("درآمد ثبت شد");refresh()}catch(err){toast(err.message)}};
+$("reward-form").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));data.opportunity_id=data.opportunity_id?Number(data.opportunity_id):null;data.amount=Number(data.amount);try{await api("/api/earnings",{method:"POST",body:JSON.stringify(data)});e.target.closest("dialog").close();e.target.reset();toast("درآمد در دفتر درآمد ذخیره شد");refresh()}catch(err){toast(err.message)}};
 $("source-filter").onchange=renderSources;$("search").oninput=renderOpportunities;$("filter").onchange=renderOpportunities;$("verification-filter").onchange=renderOpportunities;
 refresh().catch(e=>toast(e.message));
