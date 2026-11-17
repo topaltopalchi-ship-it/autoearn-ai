@@ -96,15 +96,15 @@ def tracks_for_category(category: str) -> tuple[OpportunityTrack, ...]:
 
 
 _TRACK_KEYWORDS = {
-    "game_playtesting": ("playtest", "game testing", "test a game"),
-    "puzzle_solving": ("puzzle", "logic puzzle", "brain teaser"),
-    "iq_reasoning": ("iq test", "reasoning test", "logic test"),
-    "skill_competitions": ("skill contest", "skill competition", "tournament"),
-    "bug_testing": ("bug bounty", "bug report", "report a bug"),
-    "software_qa": ("software testing", "qa testing", "test software"),
-    "ai_data_tasks": ("data annotation", "ai training", "label data"),
-    "microtasks": ("microtask", "small task", "paid survey"),
-    "freelance_projects": ("freelance project", "client project", "contract work"),
+    "game_playtesting": ("playtest", "game testing", "test a game", "تست بازی", "آزمایش بازی"),
+    "puzzle_solving": ("puzzle", "logic puzzle", "brain teaser", "پازل", "معما"),
+    "iq_reasoning": ("iq test", "reasoning test", "logic test", "آزمون هوش", "تست هوش", "آزمون استدلال"),
+    "skill_competitions": ("skill contest", "skill competition", "tournament", "مسابقه مهارتی", "رقابت مهارتی"),
+    "bug_testing": ("bug bounty", "bug report", "report a bug", "گزارش باگ", "یافتن باگ"),
+    "software_qa": ("software testing", "qa testing", "test software", "تست نرم افزار", "آزمایش نرم افزار"),
+    "ai_data_tasks": ("data annotation", "ai training", "label data", "برچسب گذاری داده", "ارزیابی داده"),
+    "microtasks": ("microtask", "small task", "paid survey", "ماموریت خرد", "وظیفه خرد", "نظرسنجی پولی"),
+    "freelance_projects": ("freelance project", "client project", "contract work", "پروژه فریلنسری", "پروژه دورکاری"),
 }
 
 
