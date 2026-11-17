@@ -108,7 +108,7 @@ async function loadRankedOpportunities(){
   try{
     const result=await api("/api/opportunities/ranked?country="+encodeURIComponent(country));
     if(!result.total){host.innerHTML='<div class="empty">برای این کشور هنوز ارزیابی ثبت نشده است. ابتدا فرصت‌ها را ارزیابی کنید.</div>';return}
-    const tierLabels={priority_candidate:"اولویت بالاتر",needs_review:"نیازمند بررسی بیشتر",low_priority:"اولویت پایین"};
+    const tierLabels={priority_candidate:"اولویت بالاتر",needs_review:"نیازمند بررسی بیشتر",blocked_pending_research:"مسدود تا تأیید کشور، پرداخت و مجوز AI",blocked_api_unverified:"API رسمی هنوز تأیید نشده",low_priority:"اولویت پایین"};
     const aiLabels={bounded_ai_draft_candidate:"مناسب تهیهٔ پیش‌نویس با AI",policy_blocked:"استفاده از AI مسدود",human_review_or_policy_check:"نیازمند بررسی انسانی یا قوانین"};
     host.innerHTML=result.groups.map(group=>'<div class="rank-currency"><h3>گروه '+esc(currencyFa(group.currency))+' · '+group.count+' فرصت</h3>'+
       group.items.map(item=>{
@@ -120,6 +120,8 @@ async function loadRankedOpportunities(){
           ' · ساعتی مورد انتظار: '+(e.expected_net_hourly_estimate==null?"نامشخص":esc(e.expected_net_hourly_estimate)+" "+esc(currencyFa(e.currency)))+'<br>'+
           'احتمال پرداخت: '+(e.payment_probability_percent==null?"نامشخص":esc(e.payment_probability_percent)+"٪")+'<br>'+
           'تناسب AI: '+esc(aiLabels[item.ai_fit]||item.ai_fit)+' · مجوز اقدام واقعی: خیر<br>'+
+          'تحقیق کشور: '+esc(item.research_status?.country||"نامشخص")+' · برداشت: '+esc(item.research_status?.payout||"نامشخص")+' · مجوز AI: '+esc(item.research_status?.ai_permission||"نامشخص")+
+          (item.execution_mode==="official_api"?' · API: '+(item.api_research_ready?"تأییدشده":"تأییدنشده"):"")+'<br>'+
           'هشدارها: '+(Array.isArray(e.risk_flags)?e.risk_flags.length:0)+'</p>'+
           '<a href="'+esc(item.url)+'" target="_blank" rel="noopener noreferrer">بازکردن فرصت ↗</a></div></article>';
       }).join("")+'</div>').join("")+'<p class="muted">'+esc(result.comparison_note)+'</p>';
