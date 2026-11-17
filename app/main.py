@@ -53,7 +53,10 @@ def init_db() -> None:
             excluded_countries TEXT NOT NULL DEFAULT '[]',
             minimum_withdrawal_amount REAL,
             withdrawal_currency TEXT NOT NULL DEFAULT 'USD',
-            payout_methods TEXT NOT NULL DEFAULT '[]'
+            payout_methods TEXT NOT NULL DEFAULT '[]',
+            verification_status TEXT NOT NULL DEFAULT 'pending',
+            verified_at TEXT,
+            verification_notes TEXT NOT NULL DEFAULT ''
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_opportunities_url ON opportunities(url);
         CREATE TABLE IF NOT EXISTS tasks (
@@ -83,6 +86,9 @@ def init_db() -> None:
             "minimum_withdrawal_amount": "REAL",
             "withdrawal_currency": "TEXT NOT NULL DEFAULT 'USD'",
             "payout_methods": "TEXT NOT NULL DEFAULT '[]'",
+            "verification_status": "TEXT NOT NULL DEFAULT 'pending'",
+            "verified_at": "TEXT",
+            "verification_notes": "TEXT NOT NULL DEFAULT ''",
         }
         for name, definition in migrations.items():
             if name not in columns:
@@ -118,6 +124,11 @@ class OpportunityIn(BaseModel):
     minimum_withdrawal_amount: float | None = Field(default=None, ge=0)
     withdrawal_currency: str = Field(default="USD", min_length=3, max_length=8)
     payout_methods: list[str] = Field(default_factory=list, max_length=30)
+
+
+class VerificationIn(BaseModel):
+    status: Literal["pending", "verified", "rejected"]
+    notes: str = Field(default="", max_length=1000)
 
 
 class TaskIn(BaseModel):
@@ -217,8 +228,9 @@ def create_opportunity(data: OpportunityIn):
         cur = db.execute("""
             INSERT INTO opportunities
             (title, platform, url, category, reward_description, eligibility, terms_url, notes, score, created_at,
-             eligible_countries, excluded_countries, minimum_withdrawal_amount, withdrawal_currency, payout_methods)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             eligible_countries, excluded_countries, minimum_withdrawal_amount, withdrawal_currency, payout_methods,
+             verification_status, verified_at, verification_notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NULL, '')
         """, (payload["title"], payload["platform"], payload["url"], payload["category"],
               payload["reward_description"], payload["eligibility"], payload["terms_url"],
               payload["notes"], score, now(), payload["eligible_countries"], payload["excluded_countries"],
@@ -234,6 +246,24 @@ def update_opportunity_status(opportunity_id: int, status: Literal["discovered",
         if not cur.rowcount:
             raise HTTPException(404, "Opportunity not found")
         return row_dict(db.execute("SELECT * FROM opportunities WHERE id = ?", (opportunity_id,)).fetchone())
+
+
+@app.patch("/api/opportunities/{opportunity_id}/verification")
+def update_opportunity_verification(opportunity_id: int, data: VerificationIn):
+    """Record a human review decision; only explicit verification sets verified_at."""
+    with connect() as db:
+        row = db.execute("SELECT id FROM opportunities WHERE id = ?", (opportunity_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "Opportunity not found")
+        verified_at = now() if data.status == "verified" else None
+        db.execute("""
+            UPDATE opportunities
+            SET verification_status = ?, verified_at = ?, verification_notes = ?
+            WHERE id = ?
+        """, (data.status, verified_at, data.notes.strip(), opportunity_id))
+        return row_dict(db.execute(
+            "SELECT * FROM opportunities WHERE id = ?", (opportunity_id,)
+        ).fetchone())
 
 
 @app.post("/api/tasks", status_code=201)
