@@ -175,3 +175,37 @@ def test_configured_ai_provider_rejects_invalid_model_output(monkeypatch):
     monkeypatch.setattr(competitions, "urlopen", lambda request, timeout: FakeResponse())
     with pytest.raises(competitions.AIProviderError, match="invalid strategy format"):
         competitions.build_strategy(4, "coding")
+
+
+def test_competition_adapter_enforces_manifest_requests_per_minute(monkeypatch):
+    from autoearn import competitions as module
+
+    class LimitedAdapter(FakeAdapter):
+        manifest = CompetitionAdapterManifest(
+            adapter_id="limited-official", exact_host="contest.example.com",
+            official_api=True, automated_agents_allowed=True,
+            allowed_actions=("submit_entry",), requests_per_minute=1,
+        )
+
+    clock = {"value": 100.0}
+    monkeypatch.setattr(module, "monotonic", lambda: clock["value"])
+    registry = CompetitionAdapterRegistry()
+    adapter = LimitedAdapter()
+    registry.register(adapter)
+
+    first = registry.submit(
+        "limited-official", competition(), {"answer": 1}, owner_confirmed=True
+    )
+    assert first.status == "accepted"
+    with pytest.raises(PermissionError, match="rate limit exceeded"):
+        registry.submit(
+            "limited-official", competition(), {"answer": 2}, owner_confirmed=True
+        )
+    assert adapter.calls == 1
+
+    clock["value"] += 60
+    second = registry.submit(
+        "limited-official", competition(), {"answer": 3}, owner_confirmed=True
+    )
+    assert second.status == "accepted"
+    assert adapter.calls == 2
