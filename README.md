@@ -47,6 +47,10 @@ Implementations must register a local Python adapter with an explicit `AdapterMa
 
 `autoearn.evaluator.evaluate_candidate()` keeps missing country evidence as `unknown`, marks explicit country mismatches as `ineligible`, and flags stale or incomplete evidence. Ranking values are estimates, not proof of payment. Execution is only marked eligible for a tightly scoped official-API integration with complete current evidence; actual platform execution is not implemented by this evaluator.
 
+## Release readiness
+
+The weighted acceptance matrix and outstanding release blockers are maintained in [`docs/RELEASE_ACCEPTANCE_MATRIX.md`](docs/RELEASE_ACCEPTANCE_MATRIX.md). A passing CI run does not mean the project is production-ready; real platform adapters, independent payment reconciliation, and independent security review remain explicit release gates.
+
 ## Development
 
 Requires Python 3.10 or newer.
