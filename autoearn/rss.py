@@ -7,10 +7,10 @@ host allowlists are accepted. No page scraping or platform actions occur.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import http.client
 from html.parser import HTMLParser
-from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+import ssl
 import ipaddress
 import socket
 import xml.etree.ElementTree as ET
@@ -44,7 +44,28 @@ def _plain_text(value: str, limit: int = 600) -> str:
     return " ".join(parser.parts)[:limit]
 
 
-def _validate_public_https(url: str, allowed_domains: tuple[str, ...]) -> str:
+def _resolve_public_addresses(host: str, port: int) -> tuple[str, ...]:
+    """Resolve once and reject every non-public answer before any connection."""
+    try:
+        literal = ipaddress.ip_address(host)
+    except ValueError:
+        try:
+            answers = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+        except OSError as dns_error:
+            raise ValueError("feed hostname could not be resolved") from dns_error
+        if not answers:
+            raise ValueError("feed hostname did not resolve to a public address")
+        addresses = tuple(dict.fromkeys(ipaddress.ip_address(item[4][0]).compressed for item in answers))
+    else:
+        addresses = (literal.compressed,)
+    if any(not ipaddress.ip_address(address).is_global for address in addresses):
+        raise ValueError("feed host resolves to a non-public address")
+    return addresses
+
+
+def _validate_public_https_target(
+    url: str, allowed_domains: tuple[str, ...]
+) -> tuple[str, str]:
     canonical = normalize_url(url)
     parsed = urlsplit(canonical)
     host = (parsed.hostname or "").casefold()
@@ -52,25 +73,30 @@ def _validate_public_https(url: str, allowed_domains: tuple[str, ...]) -> str:
         raise ValueError("RSS feed URLs must use HTTPS")
     if not allowed_domains or host not in {d.casefold() for d in allowed_domains}:
         raise ValueError("feed host must be explicitly allowlisted")
-    try:
-        ip = ipaddress.ip_address(host)
-        if not ip.is_global:
-            raise ValueError("non-public feed IPs are not allowed")
-    except ValueError as exc:
-        if "not allowed" in str(exc):
-            raise
-        # A non-IP hostname is resolved and private/local answers are rejected.
+    addresses = _resolve_public_addresses(host, parsed.port or 443)
+    return canonical, addresses[0]
+
+
+def _validate_public_https(url: str, allowed_domains: tuple[str, ...]) -> str:
+    return _validate_public_https_target(url, allowed_domains)[0]
+
+
+class _PinnedHTTPSConnection(http.client.HTTPSConnection):
+    """TLS connection pinned to a validated IP while preserving hostname SNI."""
+
+    def __init__(self, host: str, pinned_ip: str, **kwargs):
+        super().__init__(host, **kwargs)
+        self._pinned_ip = pinned_ip
+
+    def connect(self) -> None:
+        raw_socket = socket.create_connection(
+            (self._pinned_ip, self.port), self.timeout, self.source_address
+        )
         try:
-            addresses = socket.getaddrinfo(host, parsed.port or 443, type=socket.SOCK_STREAM)
-        except OSError as dns_error:
-            raise ValueError("feed hostname could not be resolved") from dns_error
-        if not addresses:
-            raise ValueError("feed hostname did not resolve to a public address")
-        for address in addresses:
-            resolved = ipaddress.ip_address(address[4][0])
-            if not resolved.is_global:
-                raise ValueError("feed host resolves to a non-public address")
-    return canonical
+            self.sock = self._context.wrap_socket(raw_socket, server_hostname=self.host)
+        except Exception:
+            raw_socket.close()
+            raise
 
 
 class PublicRssAdapter:
@@ -92,7 +118,7 @@ class PublicRssAdapter:
             raise ValueError("timeout_seconds must be between 1 and 20")
         if not 1 <= max_items <= 100:
             raise ValueError("max_items must be between 1 and 100")
-        self.feed_url = _validate_public_https(feed_url, allowed_domains)
+        self.feed_url, self._pinned_ip = _validate_public_https_target(feed_url, allowed_domains)
         self.category = category
         self.allowed_domains = allowed_domains
         self.fetcher = fetcher or self._fetch
@@ -113,17 +139,34 @@ class PublicRssAdapter:
         return self._manifest
 
     def _fetch(self, url: str) -> bytes:
-        request = Request(url, headers={"User-Agent": "AutoEarnAI-Discovery/1.0", "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml"})
-        opener = build_opener(_NoRedirect())
+        parsed = urlsplit(url)
+        path = parsed.path or "/"
+        if parsed.query:
+            path += "?" + parsed.query
+        connection = _PinnedHTTPSConnection(
+            parsed.hostname or "", self._pinned_ip,
+            port=parsed.port or 443, timeout=self.timeout_seconds,
+            context=ssl.create_default_context(),
+        )
         try:
-            with opener.open(request, timeout=self.timeout_seconds) as response:
-                if response.status != 200:
-                    raise ValueError(f"feed returned HTTP {response.status}")
-                data = response.read(MAX_FEED_BYTES + 1)
-        except HTTPError as exc:
-            raise ValueError(f"feed request rejected with HTTP {exc.code}") from exc
-        except URLError as exc:
+            connection.request(
+                "GET", path,
+                headers={
+                    "Host": parsed.netloc,
+                    "User-Agent": "AutoEarnAI-Discovery/1.0",
+                    "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml",
+                    "Connection": "close",
+                },
+            )
+            response = connection.getresponse()
+            if response.status != 200:
+                # Redirects are intentionally not followed.
+                raise ValueError(f"feed request rejected with HTTP {response.status}")
+            data = response.read(MAX_FEED_BYTES + 1)
+        except (OSError, ssl.SSLError, http.client.HTTPException) as exc:
             raise ValueError("feed request failed") from exc
+        finally:
+            connection.close()
         if len(data) > MAX_FEED_BYTES:
             raise ValueError("feed exceeds the 1 MB size limit")
         return data

@@ -137,3 +137,31 @@ def test_feed_rejects_private_ip_literal():
             feed_url="https://127.0.0.1/rss",
             category="other", allowed_domains=("127.0.0.1",),
         )
+
+
+def test_feed_fetch_uses_pinned_public_ip_and_hostname_tls(monkeypatch):
+    from autoearn.rss import _PinnedHTTPSConnection
+
+    calls = {}
+    class FakeTlsContext:
+        def wrap_socket(self, raw_socket, server_hostname):
+            calls["server_hostname"] = server_hostname
+            return "tls-socket"
+
+    monkeypatch.setattr(
+        "autoearn.rss.socket.create_connection",
+        lambda address, timeout, source_address: calls.update(
+            address=address, timeout=timeout
+        ) or object(),
+    )
+    monkeypatch.setattr(
+        _PinnedHTTPSConnection, "_context", FakeTlsContext(), raising=False
+    )
+    connection = _PinnedHTTPSConnection(
+        "feed.example", "93.184.216.34", port=443, timeout=8
+    )
+    connection._context = FakeTlsContext()
+    connection.connect()
+    assert calls["address"] == ("93.184.216.34", 443)
+    assert calls["server_hostname"] == "feed.example"
+    assert connection.sock == "tls-socket"
