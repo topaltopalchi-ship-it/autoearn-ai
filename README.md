@@ -33,7 +33,7 @@ The first release is a local-first MVP. It helps users record opportunity metada
 
 ## Local data backup
 
-Before moving devices, updating the application, or performing maintenance, create a local backup of the SQLite database and private receipt files:
+Stop the AutoEarn service first, then create a local backup of the SQLite database and private receipt files before moving devices, updating the application, or performing maintenance. Stopping the service prevents a receipt upload from changing the database and evidence directory at different moments:
 
 ```bash
 python scripts/backup.py
