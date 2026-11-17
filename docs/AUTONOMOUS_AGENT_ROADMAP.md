@@ -56,7 +56,9 @@ A high score is not a guarantee. Missing or stale evidence lowers confidence and
 ### Phase 2 — discovery adapters
 - Start with official/public metadata endpoints and curated source registries across all four initial categories.
 - Add source-specific rate limits, caching, provenance, and adapter health status.
-- Do not enable broad crawling by default.
+- Approved RSS/Atom feeds can now be checked automatically on a configurable schedule (default: every 6 hours); the owner can pause or change the interval from the dashboard.
+- A SQLite-backed lease prevents overlapping scheduled/manual scans across app workers. Only owner-approved feeds are fetched; newly found items stay in the pending review queue and are never promoted or executed automatically.
+- Manual batch discovery remains available. No broad crawling is enabled.
 
 ### Competition agent implementation (first vertical slice)
 - Added a transparent baseline strategy planner for logic, coding, chess, strategy, and general competitions.
