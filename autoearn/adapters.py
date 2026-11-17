@@ -14,6 +14,7 @@ import re
 
 from .discovery import SourceCandidate
 from .opportunities import normalize_url
+from .tracks import get_track, track_matches_category, tracks_for_category
 
 Category = Literal[
     "games_competitions",
@@ -79,6 +80,7 @@ class DiscoveredLead:
     summary: str = ""
     terms_url: str = ""
     evidence: tuple[str, ...] = ()
+    track_key: str = ""
 
     def __post_init__(self) -> None:
         if not self.title.strip() or not self.source_name.strip():
@@ -88,6 +90,8 @@ class DiscoveredLead:
             normalize_url(self.terms_url)
         if not self.observed_at.strip():
             raise ValueError("observed_at timestamp is required")
+        if self.track_key and not track_matches_category(self.track_key, self.category):
+            raise ValueError("track_key must match the lead category")
 
 
 class DiscoveryAdapter(Protocol):
@@ -161,4 +165,6 @@ def source_candidate_from_lead(lead: DiscoveredLead) -> SourceCandidate:
         payment_notes=lead.summary,
         status="pending",
         discovered_at=lead.observed_at,
+        track_key=lead.track_key,
+        track_review_status="matched" if lead.track_key else "needs_review",
     )

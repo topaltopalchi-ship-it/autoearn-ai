@@ -143,3 +143,36 @@ def test_platform_actions_require_terms_permission_and_user_approval():
             terms_permit_automation=True,
             requires_user_approval=False,
         )
+
+
+def test_lead_rejects_track_from_unrelated_parent_category():
+    with pytest.raises(ValueError, match="track_key"):
+        DiscoveredLead(
+            title="Puzzle",
+            url="https://example.com/puzzle",
+            category="surveys_microtasks",
+            source_name="Demo",
+            observed_at="2026-11-17T10:00:00+00:00",
+            track_key="puzzle_solving",
+        )
+
+
+def test_broad_category_lead_is_flagged_for_track_review():
+    lead = DemoAdapter().discover()[0]
+    source = source_candidate_from_lead(lead)
+    assert source.track_key == ""
+    assert source.track_review_status == "needs_review"
+
+
+def test_explicit_valid_track_is_preserved_as_matched():
+    lead = DiscoveredLead(
+        title="Puzzle challenge",
+        url="https://example.com/puzzle",
+        category="games_competitions",
+        source_name="Demo",
+        observed_at="2026-11-17T10:00:00+00:00",
+        track_key="puzzle_solving",
+    )
+    source = source_candidate_from_lead(lead)
+    assert source.track_key == "puzzle_solving"
+    assert source.track_review_status == "matched"

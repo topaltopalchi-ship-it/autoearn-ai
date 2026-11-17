@@ -1227,7 +1227,40 @@ def test_prioritized_discovery_endpoint_is_owner_only_and_marks_unknowns(client)
     assert item["country_eligibility"] == "unknown"
     assert item["payout_availability"] == "unknown"
     assert item["ai_permission"] == "unknown"
+    assert item["research_country"] == "Iran"
+    assert item["research_status"] == {
+        "country": "unknown", "payout": "unknown",
+        "ai_permission": "unknown", "api": "unknown",
+    }
     assert item["execution_authorized"] is False
+
+    with main.connect() as db:
+        db.execute(
+            """INSERT INTO discovery_research
+               (lead_id, country, country_status, payout_status, ai_permission,
+                api_status, updated_at)
+               VALUES (?, 'Iran', 'verified', 'unavailable', 'prohibited',
+                       'available', ?)""",
+            (item["id"], main.now()),
+        )
+    reviewed = owner_get(
+        client, "/api/discovery/leads/prioritized?country=Iran"
+    ).json()["items"][0]
+    assert reviewed["research_status"] == {
+        "country": "verified", "payout": "unavailable",
+        "ai_permission": "prohibited", "api": "available",
+    }
+    assert reviewed["country_eligibility"] == "eligible"
+    assert reviewed["payout_availability"] == "unavailable"
+    assert reviewed["participation_readiness"] == "blocked_payout"
+    assert reviewed["participation_readiness_score"] == 0
+    assert reviewed["automation_policy"] == "manual_only"
+    assert reviewed["execution_authorized"] is False
+
+    other_country = owner_get(
+        client, "/api/discovery/leads/prioritized?country=Germany"
+    ).json()["items"][0]
+    assert other_country["research_status"]["country"] == "unknown"
 
 
 def test_discovery_research_requires_official_https_evidence_and_is_owner_only(client):
@@ -1310,3 +1343,236 @@ def test_discovery_research_requires_official_https_evidence_and_is_owner_only(c
     assert loaded.status_code == 200
     assert loaded.json()["country_evidence_url"] == payload["country_evidence_url"]
     assert loaded.json()["notes"] == payload["notes"]
+
+
+
+def test_opportunity_evaluation_requires_explicit_country_payout_support_for_readiness(client):
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    opp = opportunity(client)
+    source_response = client.post("/api/sources", headers=headers, json={
+        "name": "Example review", "url": "https://example.com/review",
+        "terms_url": "https://example.com/terms",
+    })
+    assert source_response.status_code == 201
+    source = source_response.json()
+    client.patch(f"/api/sources/{source['id']}/review", headers=headers,
+                 json={"status": "approved", "notes": "Reviewed"})
+    client.patch(f"/api/opportunities/{opp['id']}/verification", headers=headers,
+                 json={"status": "verified", "notes": "Reviewed"})
+    payload = {
+        "source_id": source["id"], "country": "Iran", "execution_mode": "official_api",
+        "reward_amount": 12, "reward_currency": "EUR", "estimated_minutes": 30,
+        "payment_probability": 90, "acceptance_probability": 80,
+        "payout_reliability": 75, "risk_score": 5,
+        "evidence": ["Official terms reviewed"],
+        "ai_task_profile": {"title": "Data task", "ai_permission": "allowed",
+                            "repetitive_information_processing": True,
+                            "output_is_objectively_verifiable": True},
+    }
+    unknown = client.post(f"/api/opportunities/{opp['id']}/evaluate", headers=headers, json=payload)
+    assert unknown.status_code == 200
+    assert unknown.json()["evaluation"]["execution_allowed"] is False
+    assert unknown.json()["evaluation"]["payout_supported"] is None
+    payload["payout_supported"] = False
+    blocked = client.post(f"/api/opportunities/{opp['id']}/evaluate", headers=headers, json=payload)
+    assert blocked.status_code == 200
+    assert blocked.json()["evaluation"]["execution_allowed"] is False
+    payload["payout_supported"] = True
+    verified = client.post(f"/api/opportunities/{opp['id']}/evaluate", headers=headers, json=payload)
+    assert verified.status_code == 200
+    assert verified.json()["evaluation"]["payout_supported"] is True
+    assert verified.json()["evaluation"]["combined_success_probability_percent"] == 54
+    assert verified.json()["evaluation"]["expected_net_reward_estimate"] == 6.48
+    assert verified.json()["execution_authorized"] is False
+
+
+def test_discovery_track_assignment_is_persistent_and_category_scoped(client):
+    from app import main
+
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    assert client.get("/api/discovery/tracks?category=games_competitions").status_code == 401
+    assert client.put("/api/discovery/leads/1/track", headers=headers,
+                      json={"track_key": "puzzle_solving"}).status_code == 404
+
+    with main.connect() as db:
+        lead_id = db.execute(
+            """INSERT INTO discovery_leads
+               (source_name, title, url, category, observed_at, created_at, last_seen_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            ("Public feed", "Logic puzzle", "https://example.com/logic",
+             "games_competitions", main.now(), main.now(), main.now()),
+        ).lastrowid
+
+    options = owner_get(client, "/api/discovery/tracks?category=games_competitions")
+    assert options.status_code == 200
+    assert "puzzle_solving" in [item["key"] for item in options.json()]
+    puzzle = next(item for item in options.json() if item["key"] == "puzzle_solving")
+    assert puzzle["execution_guidance"] == "assist_if_permitted"
+    assert "اجازه" in puzzle["description"]
+
+    assigned = client.put(
+        f"/api/discovery/leads/{lead_id}/track", headers=headers,
+        json={"track_key": "puzzle_solving"},
+    )
+    assert assigned.status_code == 200
+    assert assigned.json()["track_key"] == "puzzle_solving"
+    assert assigned.json()["track_review_status"] == "matched"
+    assert assigned.json()["execution_authorized"] is False
+
+    mismatch = client.put(
+        f"/api/discovery/leads/{lead_id}/track", headers=headers,
+        json={"track_key": "microtasks"},
+    )
+    assert mismatch.status_code == 422
+
+    unassigned = client.put(
+        f"/api/discovery/leads/{lead_id}/track", headers=headers,
+        json={"track_key": ""},
+    )
+    assert unassigned.status_code == 200
+    assert unassigned.json()["track_key"] == ""
+    assert unassigned.json()["track_review_status"] == "needs_review"
+
+    persisted = client.get("/api/discovery/leads", headers=headers).json()
+    saved = next(item for item in persisted if item["id"] == lead_id)
+    assert saved["track_review_status"] == "needs_review"
+
+
+def test_discovery_lease_fencing_prevents_stale_worker_releasing_new_lease(client):
+    from app import main
+    from datetime import datetime, timedelta, timezone
+
+    first_token = main._acquire_discovery_lease(force=True)
+    assert first_token
+    with main.connect() as db:
+        expired = (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
+        db.execute(
+            "UPDATE discovery_scheduler SET lease_until = ? WHERE id = 1",
+            (expired,),
+        )
+
+    second_token = main._acquire_discovery_lease(force=True)
+    assert second_token
+    assert second_token != first_token
+
+    # The old worker may finish late, but it must not clear or overwrite the
+    # lease now owned by the newer worker.
+    assert main._finish_discovery_lease(first_token, error="stale worker") is False
+    state = client.get(
+        "/api/discovery/scheduler",
+        headers={"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"},
+    ).json()
+    assert state["lease_until"] is not None
+
+    assert main._finish_discovery_lease(second_token, result={"inserted_count": 7}) is True
+    state = client.get(
+        "/api/discovery/scheduler",
+        headers={"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"},
+    ).json()
+    assert state["lease_until"] is None
+    assert state["last_result"]["inserted_count"] == 7
+    assert state["last_error"] == ""
+
+
+
+def test_discovery_scheduler_migrates_existing_database_with_legacy_lease_schema(tmp_path, monkeypatch):
+    import sqlite3
+    from app import main
+
+    legacy_db = tmp_path / "legacy.db"
+    with sqlite3.connect(legacy_db) as db:
+        db.execute(
+            """CREATE TABLE discovery_scheduler (
+                id INTEGER PRIMARY KEY CHECK(id = 1),
+                enabled INTEGER NOT NULL DEFAULT 1,
+                interval_minutes INTEGER NOT NULL DEFAULT 360,
+                lease_until TEXT,
+                last_started_at TEXT,
+                last_completed_at TEXT,
+                last_result_json TEXT NOT NULL DEFAULT '{}',
+                last_error TEXT NOT NULL DEFAULT ''
+            )"""
+        )
+        db.execute(
+            "INSERT INTO discovery_scheduler (id, enabled, interval_minutes) VALUES (1, 1, 360)"
+        )
+
+    monkeypatch.setattr(main, "DB_PATH", legacy_db)
+    main.init_db()
+    with main.connect() as db:
+        columns = {row["name"] for row in db.execute("PRAGMA table_info(discovery_scheduler)")}
+        state = db.execute("SELECT lease_token FROM discovery_scheduler WHERE id = 1").fetchone()
+    assert "lease_token" in columns
+    assert state["lease_token"] == ""
+
+
+def test_discovery_worker_does_not_report_success_after_lease_loss(client, monkeypatch):
+    from app import main
+
+    monkeypatch.setattr(main, "_acquire_discovery_lease", lambda force=False: "old-worker-token")
+    monkeypatch.setattr(main, "_run_approved_discovery_batch", lambda: {"inserted_count": 2})
+    monkeypatch.setattr(main, "_finish_discovery_lease", lambda *args, **kwargs: False)
+
+    assert main._run_discovery_once(force=True) is None
+
+
+def test_discovery_batch_continues_after_one_feed_failure(client, monkeypatch):
+    from app import main
+    from autoearn.adapters import DiscoveredLead
+
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    payloads = [
+        {"name": "Broken feed", "feed_url": "https://broken.example/rss",
+         "category": "other", "allowed_domains": ["broken.example"], "max_items": 10},
+        {"name": "Healthy feed", "feed_url": "https://healthy.example/rss",
+         "category": "freelancing_services", "allowed_domains": ["healthy.example"], "max_items": 10},
+    ]
+    feed_ids = []
+    for payload in payloads:
+        created = client.post("/api/discovery/feeds", headers=headers, json=payload)
+        assert created.status_code == 201
+        feed_id = created.json()["id"]
+        feed_ids.append(feed_id)
+        approved = client.patch(
+            f"/api/discovery/feeds/{feed_id}/review", headers=headers,
+            json={"status": "approved"},
+        )
+        assert approved.status_code == 200
+
+    class MixedFeed:
+        def __init__(self, **kwargs):
+            self.feed_url = kwargs["feed_url"]
+
+        def discover(self):
+            if "broken.example" in self.feed_url:
+                raise ValueError("simulated malformed feed")
+            return [DiscoveredLead(
+                title="Verified-format task", url="https://healthy.example/task/1",
+                category="freelancing_services", source_name="Healthy feed",
+                observed_at="2026-11-17T00:00:00+00:00",
+                summary="Country and payout still require review",
+            )]
+
+    monkeypatch.setattr(main, "PublicRssAdapter", MixedFeed)
+    response = client.post("/api/discovery/run", headers=headers)
+    assert response.status_code == 200
+    result = response.json()
+    assert result["approved_feed_count"] == 2
+    assert result["successful_feed_count"] == 1
+    assert result["inserted_count"] == 1
+    by_id = {item["feed_id"]: item for item in result["feeds"]}
+    assert by_id[feed_ids[0]]["status"] == "error"
+    assert "simulated malformed feed" in by_id[feed_ids[0]]["error"]
+    assert by_id[feed_ids[1]]["status"] == "ok"
+
+    with main.connect() as db:
+        broken = db.execute(
+            "SELECT consecutive_failures, total_checks FROM discovery_feeds WHERE id = ?",
+            (feed_ids[0],),
+        ).fetchone()
+        healthy = db.execute(
+            "SELECT consecutive_failures, total_checks, total_successes FROM discovery_feeds WHERE id = ?",
+            (feed_ids[1],),
+        ).fetchone()
+    assert tuple(broken) == (1, 1)
+    assert tuple(healthy) == (0, 1, 1)

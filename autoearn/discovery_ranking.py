@@ -78,15 +78,60 @@ def prioritize_discovery_leads(records: list[dict[str, Any]]) -> dict[str, Any]:
 
         score = min(100, score)
         tier = "research_first" if score >= 70 else "review" if score >= 40 else "low_signal"
+        country_status = str(record.get("research_country_status") or "unknown")
+        payout_status = str(record.get("research_payout_status") or "unknown")
+        ai_status = str(record.get("research_ai_permission") or "unknown")
+        if country_status == "blocked":
+            country_eligibility = "ineligible"
+        elif country_status == "verified":
+            country_eligibility = "eligible"
+        else:
+            country_eligibility = "unknown"
+
+        if payout_status == "unavailable":
+            payout_availability = "unavailable"
+        elif payout_status == "verified":
+            payout_availability = "available"
+        else:
+            payout_availability = "unknown"
+
+        if country_status == "blocked":
+            participation_readiness = "blocked_country"
+            readiness_rank = 2
+            readiness_score = 0
+        elif payout_status == "unavailable":
+            participation_readiness = "blocked_payout"
+            readiness_rank = 3
+            readiness_score = 0
+        elif country_status == "verified" and payout_status == "verified":
+            participation_readiness = "country_and_payout_verified"
+            readiness_rank = 0
+            readiness_score = 100
+        else:
+            participation_readiness = "needs_country_or_payout_research"
+            readiness_rank = 1
+            readiness_score = 50 if country_status == "verified" or payout_status == "verified" else 0
+
+        if ai_status == "allowed":
+            automation_policy = "ai_allowed_subject_to_task_rules"
+        elif ai_status == "prohibited":
+            automation_policy = "manual_only"
+        else:
+            automation_policy = "policy_unverified"
+
         items.append({
             **record,
             "research_priority_score": score,
             "research_priority": tier,
             "research_reasons": reasons,
             "feed_reliability_percent": reliability,
-            "country_eligibility": "unknown",
-            "payout_availability": "unknown",
-            "ai_permission": "unknown",
+            "country_eligibility": country_eligibility,
+            "payout_availability": payout_availability,
+            "ai_permission": ai_status,
+            "participation_readiness": participation_readiness,
+            "participation_readiness_score": readiness_score,
+            "participation_readiness_rank": readiness_rank,
+            "automation_policy": automation_policy,
             "financial_evaluation_status": "not_evaluated",
             "next_research_actions": [
                 "بررسی پشتیبانی رسمی از کشور محل فعالیت",
@@ -100,11 +145,13 @@ def prioritize_discovery_leads(records: list[dict[str, Any]]) -> dict[str, Any]:
 
     order = {"research_first": 0, "review": 1, "low_signal": 2}
     items.sort(key=lambda item: (
+        item["participation_readiness_rank"],
         order[item["research_priority"]],
         -item["research_priority_score"],
         str(item.get("title", "")).casefold(),
         int(item.get("id") or 0),
     ))
+
     return {
         "items": items,
         "total": len(items),

@@ -75,10 +75,32 @@ def rank_evaluations(records: list[dict[str, Any]]) -> dict[str, Any]:
         else:
             ai_fit = "human_review_or_policy_check"
 
+        expected_hourly = evaluation.get("expected_net_hourly_estimate")
+        try:
+            expected_hourly = float(expected_hourly)
+            if not (expected_hourly >= 0 and expected_hourly < float("inf")):
+                expected_hourly = None
+        except (TypeError, ValueError, OverflowError):
+            expected_hourly = None
+        withdrawal_status = evaluation.get("withdrawal_status", "unknown")
+        accumulation_confirmed = evaluation.get("supports_balance_accumulation") is True
+        withdrawal_ready = (
+            withdrawal_status == "immediately_reachable"
+            or (withdrawal_status == "requires_accumulation" and accumulation_confirmed)
+        )
+        financial_readiness = (
+            "ready" if expected_hourly is not None
+            and evaluation.get("payout_supported") is True
+            and withdrawal_ready
+            else "needs_financial_verification"
+        )
         item = {
             **record,
             "currency_group": currency,
             "ranking_score": score,
+            "expected_net_hourly_estimate": expected_hourly,
+            "financial_readiness": financial_readiness,
+            "withdrawal_status": withdrawal_status,
             "priority_tier": tier,
             "execution_allowed": bool(evaluation.get("execution_allowed", False)),
             "execution_authorized": False,
@@ -100,7 +122,20 @@ def rank_evaluations(records: list[dict[str, Any]]) -> dict[str, Any]:
         items = sorted(
             grouped[currency],
             key=lambda item: (
+                # Never let an ineligible or research/API-blocked item outrank
+                # a candidate that is actually eligible for consideration.
+                item["priority_tier"] in {
+                    "blocked_pending_research", "blocked_api_unverified"
+                } or item["research_status"]["country"] == "blocked"
+                or (item.get("evaluation") or {}).get("eligibility") == "ineligible",
+                # Among non-blocked candidates, verified withdrawal economics
+                # matter before score/tier labels.
+                item["financial_readiness"] != "ready",
                 tier_order[item["priority_tier"]],
+                -(
+                    item["expected_net_hourly_estimate"]
+                    if item["expected_net_hourly_estimate"] is not None else -1
+                ),
                 -item["ranking_score"],
                 item["ai_fit"] != "bounded_ai_draft_candidate",
                 not item["execution_allowed"],

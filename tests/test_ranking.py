@@ -119,3 +119,92 @@ def test_ranking_does_not_accept_future_research_timestamp():
     item = rank_evaluations([candidate])["groups"][0]["items"][0]
     assert item["research_fresh"] is False
     assert item["priority_tier"] == "blocked_pending_research"
+
+
+
+def test_financial_ranking_uses_verified_expected_net_hourly_within_currency():
+    best = record(1, "Best expected return", "EUR", 70)
+    best["evaluation"].update({
+        "expected_net_hourly_estimate": 18.5,
+        "payout_supported": True,
+        "withdrawal_status": "immediately_reachable",
+    })
+    lower = record(2, "Lower expected return", "EUR", 95)
+    lower["evaluation"].update({
+        "expected_net_hourly_estimate": 7.25,
+        "payout_supported": True,
+        "withdrawal_status": "immediately_reachable",
+    })
+    unknown = record(3, "Unverified payout", "EUR", 100)
+    unknown["evaluation"].update({
+        "expected_net_hourly_estimate": 99,
+        "payout_supported": None,
+        "withdrawal_status": "immediately_reachable",
+    })
+
+    items = rank_evaluations([lower, unknown, best])["groups"][0]["items"]
+    assert [item["title"] for item in items] == [
+        "Best expected return", "Lower expected return", "Unverified payout",
+    ]
+    assert items[0]["financial_readiness"] == "ready"
+    assert items[0]["expected_net_hourly_estimate"] == 18.5
+    assert items[2]["financial_readiness"] == "needs_financial_verification"
+
+
+def test_financial_ranking_accepts_accumulation_only_when_explicitly_confirmed():
+    candidate = record(1, "Accumulation supported", "EUR", 60)
+    candidate["evaluation"].update({
+        "expected_net_hourly_estimate": 4.0,
+        "payout_supported": True,
+        "withdrawal_status": "requires_accumulation",
+        "supports_balance_accumulation": True,
+    })
+    item = rank_evaluations([candidate])["groups"][0]["items"][0]
+    assert item["financial_readiness"] == "ready"
+
+    candidate["evaluation"]["supports_balance_accumulation"] = False
+    item = rank_evaluations([candidate])["groups"][0]["items"][0]
+    assert item["financial_readiness"] == "needs_financial_verification"
+
+
+def test_financial_ranking_ignores_invalid_or_missing_hourly_values():
+    candidate = record(1, "Missing hourly estimate", "EUR", 80)
+    candidate["evaluation"].update({
+        "payout_supported": True,
+        "withdrawal_status": "immediately_reachable",
+        "expected_net_hourly_estimate": float("nan"),
+    })
+    item = rank_evaluations([candidate])["groups"][0]["items"][0]
+    assert item["expected_net_hourly_estimate"] is None
+    assert item["financial_readiness"] == "needs_financial_verification"
+
+
+def test_verified_financial_readiness_outranks_unverified_priority_tier():
+    ready_review = record(1, "Financially ready review", "EUR", 55)
+    ready_review["evaluation"].update({
+        "eligibility": "eligible",
+        "expected_net_hourly_estimate": 8.0,
+        "payout_supported": True,
+        "withdrawal_status": "immediately_reachable",
+    })
+    unverified_priority = record(2, "Unverified priority", "EUR", 99)
+    unverified_priority["evaluation"].update({
+        "expected_net_hourly_estimate": 90.0,
+        "payout_supported": None,
+        "withdrawal_status": "immediately_reachable",
+    })
+
+    items = rank_evaluations([unverified_priority, ready_review])["groups"][0]["items"]
+    assert items[0]["title"] == "Financially ready review"
+    assert items[0]["financial_readiness"] == "ready"
+    assert items[1]["financial_readiness"] == "needs_financial_verification"
+
+
+def test_blocked_country_or_research_never_outranks_verified_candidate():
+    verified = record(1, "Verified candidate", "EUR", 50)
+    blocked = record(2, "Blocked candidate", "EUR", 100)
+    blocked["research"]["country_status"] = "blocked"
+
+    items = rank_evaluations([blocked, verified])["groups"][0]["items"]
+    assert items[0]["title"] == "Verified candidate"
+    assert items[1]["title"] == "Blocked candidate"

@@ -12,6 +12,7 @@ from typing import Literal
 from .opportunities import normalize_url
 
 ReviewStatus = Literal["pending", "approved", "rejected"]
+TrackReviewStatus = Literal["matched", "needs_review"]
 
 
 @dataclass(frozen=True)
@@ -24,6 +25,8 @@ class SourceCandidate:
     payment_notes: str = ""
     status: ReviewStatus = "pending"
     discovered_at: str = ""
+    track_key: str = ""
+    track_review_status: TrackReviewStatus = "needs_review"
 
     def __post_init__(self) -> None:
         if not isinstance(self.name, str) or not self.name.strip():
@@ -35,6 +38,12 @@ class SourceCandidate:
             raise ValueError("category is required")
         if self.status not in ("pending", "approved", "rejected"):
             raise ValueError("status must be pending, approved, or rejected")
+        if self.track_review_status not in ("matched", "needs_review"):
+            raise ValueError("track_review_status must be matched or needs_review")
+        if self.track_review_status == "matched" and not self.track_key.strip():
+            raise ValueError("a matched track requires track_key")
+        if self.track_review_status == "needs_review" and self.track_key.strip():
+            raise ValueError("an unreviewed track must not set track_key")
         if self.discovered_at:
             try:
                 datetime.fromisoformat(self.discovered_at.replace("Z", "+00:00"))
@@ -59,4 +68,6 @@ class SourceCandidate:
             "payment_notes": self.payment_notes.strip(),
             "status": self.status,
             "discovered_at": self.discovered_at or datetime.now(timezone.utc).isoformat(),
+            "track_key": self.track_key.strip(),
+            "track_review_status": self.track_review_status,
         }

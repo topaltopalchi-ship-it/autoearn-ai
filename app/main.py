@@ -6,6 +6,7 @@ import os
 import hmac
 import ipaddress
 import sqlite3
+import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone, timedelta
 from dataclasses import asdict
@@ -29,6 +30,7 @@ from autoearn.competitions import (
 from autoearn.task_suitability import TaskProfile, assess_task_suitability
 from autoearn.ranking import rank_evaluations
 from autoearn.discovery_ranking import prioritize_discovery_leads
+from autoearn.tracks import get_track, tracks_for_category
 
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.getenv("AUTOEARN_DB", ROOT / "autoearn.db"))
@@ -118,7 +120,9 @@ def init_db() -> None:
             created_at TEXT NOT NULL,
             last_seen_at TEXT NOT NULL,
             review_notes TEXT NOT NULL DEFAULT '',
-            opportunity_id INTEGER REFERENCES opportunities(id) ON DELETE SET NULL
+            opportunity_id INTEGER REFERENCES opportunities(id) ON DELETE SET NULL,
+            track_key TEXT NOT NULL DEFAULT '',
+            track_review_status TEXT NOT NULL DEFAULT 'needs_review'
         );
         CREATE TABLE IF NOT EXISTS discovery_research (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -143,6 +147,7 @@ def init_db() -> None:
             enabled INTEGER NOT NULL DEFAULT 1,
             interval_minutes INTEGER NOT NULL DEFAULT 360,
             lease_until TEXT,
+            lease_token TEXT NOT NULL DEFAULT '',
             last_started_at TEXT,
             last_completed_at TEXT,
             last_result_json TEXT NOT NULL DEFAULT '{}',
@@ -252,6 +257,13 @@ def init_db() -> None:
         for name, definition in migrations.items():
             if name not in columns:
                 db.execute(f"ALTER TABLE opportunities ADD COLUMN {name} {definition}")
+        lead_columns = {row["name"] for row in db.execute("PRAGMA table_info(discovery_leads)")}
+        for name, definition in {"track_key": "TEXT NOT NULL DEFAULT ''", "track_review_status": "TEXT NOT NULL DEFAULT 'needs_review'"}.items():
+            if name not in lead_columns:
+                db.execute(f"ALTER TABLE discovery_leads ADD COLUMN {name} {definition}")
+        scheduler_columns = {row["name"] for row in db.execute("PRAGMA table_info(discovery_scheduler)")}
+        if "lease_token" not in scheduler_columns:
+            db.execute("ALTER TABLE discovery_scheduler ADD COLUMN lease_token TEXT NOT NULL DEFAULT ''")
         feed_columns = {row["name"] for row in db.execute("PRAGMA table_info(discovery_feeds)")}
         feed_migrations = {
             "last_success_at": "TEXT",
@@ -394,6 +406,10 @@ class DiscoveryLeadReviewIn(BaseModel):
     notes: str = Field(default="", max_length=1000)
 
 
+class DiscoveryTrackAssignmentIn(BaseModel):
+    track_key: str = Field(default="", max_length=80)
+
+
 class DiscoveryResearchIn(BaseModel):
     country: str = Field(min_length=2, max_length=80)
     country_status: Literal["unknown", "verified", "blocked"] = "unknown"
@@ -428,6 +444,11 @@ class OpportunityEvaluationIn(BaseModel):
     conversion_fee_percent: float = Field(default=0, ge=0, le=100)
     estimated_minutes: int | None = Field(default=None, gt=0)
     payment_probability: int | None = Field(default=None, ge=0, le=100)
+    acceptance_probability: int | None = Field(default=None, ge=0, le=100)
+    payout_reliability: int | None = Field(default=None, ge=0, le=100)
+    supports_balance_accumulation: bool | None = None
+    # Must be explicitly confirmed for the selected residence country; unknown is not supported.
+    payout_supported: bool | None = None
     risk_score: int | None = Field(default=None, ge=0, le=100)
     evidence: list[str] = Field(default_factory=list, max_length=20)
     # Required for official-API readiness: explicit AI policy and task characteristics.
@@ -932,14 +953,14 @@ def evaluate_opportunity(opportunity_id: int, data: OpportunityEvaluationIn,
             payout_fee_fixed=data.payout_fee_fixed,
             payout_fee_percent=data.payout_fee_percent,
             conversion_fee_percent=data.conversion_fee_percent,
-            minimum_withdrawal_amount=(
-                opportunity["minimum_withdrawal_amount"]
-                if opportunity["minimum_withdrawal_amount"] is not None
-                and opportunity["withdrawal_currency"].upper() == data.reward_currency.upper()
-                else None
-            ),
+            minimum_withdrawal_amount=opportunity["minimum_withdrawal_amount"],
+            minimum_withdrawal_currency=opportunity["withdrawal_currency"],
             estimated_minutes=data.estimated_minutes,
             payment_probability=data.payment_probability,
+            acceptance_probability=data.acceptance_probability,
+            payout_reliability=data.payout_reliability,
+            supports_balance_accumulation=data.supports_balance_accumulation,
+            payout_supported=data.payout_supported,
             risk_score=data.risk_score,
             evidence=tuple(clean_list(data.evidence, "evidence")),
         )
@@ -1161,6 +1182,45 @@ def discover_rss_sources(data: RssDiscoveryIn, actor: str = Depends(require_owne
             "candidates": inserted, "review_required": True}
 
 
+@app.get("/api/discovery/tracks")
+def list_discovery_tracks(category: str = Query(min_length=2, max_length=80),
+                          actor: str = Depends(require_owner)):
+    """List only tracks compatible with a lead parent category."""
+    return [{"key": track.key, "label": track.label,
+             "execution_guidance": track.execution_guidance,
+             "priority": track.priority,
+             "description": track.description}
+            for track in tracks_for_category(category)]
+
+
+@app.put("/api/discovery/leads/{lead_id}/track")
+def assign_discovery_track(lead_id: int, data: DiscoveryTrackAssignmentIn,
+                           actor: str = Depends(require_owner)):
+    """Persist a reviewed track assignment without approving or executing a lead."""
+    with connect() as db:
+        lead = db.execute("SELECT * FROM discovery_leads WHERE id = ?", (lead_id,)).fetchone()
+        if lead is None:
+            raise HTTPException(404, "Discovery lead not found.")
+        key = data.track_key.strip()
+        if key:
+            track = get_track(key)
+            if track is None:
+                raise HTTPException(422, "Unknown opportunity track.")
+            if track.parent_category != lead["category"]:
+                raise HTTPException(422, "Selected track does not match the lead category.")
+            review_status = "matched"
+        else:
+            review_status = "needs_review"
+        db.execute(
+            "UPDATE discovery_leads SET track_key = ?, track_review_status = ? WHERE id = ?",
+            (key, review_status, lead_id),
+        )
+        result = db.execute("SELECT * FROM discovery_leads WHERE id = ?", (lead_id,)).fetchone()
+    response = row_dict(result)
+    response["execution_authorized"] = False
+    return response
+
+
 @app.get("/api/discovery/leads")
 def list_discovery_leads(status: Literal["pending", "converted", "rejected"] | None = None,
                          actor: str = Depends(require_owner)):
@@ -1175,19 +1235,41 @@ def list_discovery_leads(status: Literal["pending", "converted", "rejected"] | N
 
 
 @app.get("/api/discovery/leads/prioritized")
-def prioritized_discovery_leads(actor: str = Depends(require_owner)):
-    """Return a research-first queue; never implies country or payout eligibility."""
+def prioritized_discovery_leads(
+    country: str = Query(default="Iran", min_length=2, max_length=80),
+    actor: str = Depends(require_owner),
+):
+    """Return a research-first queue with the owner's saved country-specific review state."""
+    normalized_country = country.strip()
     with connect() as db:
         rows = db.execute(
             """SELECT l.*, f.status AS feed_status,
                       f.total_checks, f.total_successes,
-                      f.consecutive_failures, f.last_success_at
+                      f.consecutive_failures, f.last_success_at,
+                      dr.country_status AS research_country_status,
+                      dr.payout_status AS research_payout_status,
+                      dr.ai_permission AS research_ai_permission,
+                      dr.api_status AS research_api_status,
+                      dr.updated_at AS research_updated_at
                FROM discovery_leads l
                LEFT JOIN discovery_feeds f ON f.id = l.source_feed_id
+               LEFT JOIN discovery_research dr
+                 ON dr.lead_id = l.id AND lower(trim(dr.country)) = lower(trim(?))
                WHERE l.status = 'pending'
-               ORDER BY l.last_seen_at DESC, l.id DESC"""
+               ORDER BY l.last_seen_at DESC, l.id DESC""",
+            (normalized_country,),
         ).fetchall()
     result = prioritize_discovery_leads([row_dict(row) for row in rows])
+    for item in result["items"]:
+        item["research_country"] = normalized_country
+        item["research_status"] = {
+            "country": item.pop("research_country_status", None) or "unknown",
+            "payout": item.pop("research_payout_status", None) or "unknown",
+            "ai_permission": item.pop("research_ai_permission", None) or "unknown",
+            "api": item.pop("research_api_status", None) or "unknown",
+        }
+        item["research_updated_at"] = item.pop("research_updated_at", None)
+        item["execution_authorized"] = False
     return result
 
 
@@ -1479,8 +1561,9 @@ def _run_approved_discovery_batch():
                 "discovered": len(leads), "inserted": feed_inserted,
                 "duplicates": feed_duplicates,
             })
-        except (ValueError, OSError, TypeError) as exc:
-            message = str(exc)[:500]
+        except Exception as exc:
+            # One malformed or unavailable feed must not abort the whole batch.
+            message = f"{type(exc).__name__}: {exc}"[:500]
             with connect() as db:
                 db.execute(
                     "UPDATE discovery_feeds SET last_checked_at = ?, consecutive_failures = consecutive_failures + 1, total_checks = total_checks + 1, last_error = ? WHERE id = ?",
@@ -1501,8 +1584,10 @@ def _run_approved_discovery_batch():
 
 
 
-def _acquire_discovery_lease(*, force: bool = False) -> bool:
+def _acquire_discovery_lease(*, force: bool = False) -> str | None:
+    """Acquire a fenced lease; each owner gets a unique token."""
     current = datetime.now(timezone.utc)
+    token = uuid.uuid4().hex
     with connect() as db:
         db.execute("BEGIN IMMEDIATE")
         state = db.execute("SELECT * FROM discovery_scheduler WHERE id = 1").fetchone()
@@ -1515,49 +1600,56 @@ def _acquire_discovery_lease(*, force: bool = False) -> bool:
         if lease_until:
             try:
                 if datetime.fromisoformat(lease_until) > current:
-                    return False
+                    return None
             except ValueError:
                 pass
         if not force:
             if not state["enabled"]:
-                return False
+                return None
             if state["last_completed_at"]:
                 try:
                     completed = datetime.fromisoformat(state["last_completed_at"])
                     if completed.tzinfo is None:
                         completed = completed.replace(tzinfo=timezone.utc)
                     if current - completed < timedelta(minutes=state["interval_minutes"]):
-                        return False
+                        return None
                 except ValueError:
                     pass
         lease = (current + timedelta(minutes=30)).isoformat()
         db.execute(
-            "UPDATE discovery_scheduler SET lease_until = ?, last_started_at = ?, last_error = '' WHERE id = 1",
-            (lease, current.isoformat()),
+            "UPDATE discovery_scheduler SET lease_until = ?, lease_token = ?, last_started_at = ?, last_error = '' WHERE id = 1",
+            (lease, token, current.isoformat()),
         )
-    return True
+    return token
 
 
-def _finish_discovery_lease(result: dict | None = None, error: str = "") -> None:
+def _finish_discovery_lease(lease_token: str, result: dict | None = None,
+                            error: str = "") -> bool:
+    """Finish only the lease still owned by this worker (fencing token)."""
     with connect() as db:
-        db.execute(
+        cursor = db.execute(
             """UPDATE discovery_scheduler
-               SET lease_until = NULL, last_completed_at = ?,
+               SET lease_until = NULL, lease_token = '', last_completed_at = ?,
                    last_result_json = ?, last_error = ?
-               WHERE id = 1""",
-            (now(), json.dumps(result or {}, ensure_ascii=False), error[:500]),
+               WHERE id = 1 AND lease_token = ?""",
+            (now(), json.dumps(result or {}, ensure_ascii=False), error[:500], lease_token),
         )
+        return cursor.rowcount == 1
 
 
 def _run_discovery_once(*, force: bool = False) -> dict | None:
-    if not _acquire_discovery_lease(force=force):
+    lease_token = _acquire_discovery_lease(force=force)
+    if lease_token is None:
         return None
     try:
         result = _run_approved_discovery_batch()
-        _finish_discovery_lease(result=result)
+        if not _finish_discovery_lease(lease_token, result=result):
+            # A newer worker owns the scheduler now. Do not report this stale
+            # worker's batch as the scheduler's completed result.
+            return None
         return result
     except Exception as exc:
-        _finish_discovery_lease(error=str(exc))
+        _finish_discovery_lease(lease_token, error=str(exc))
         raise
 
 

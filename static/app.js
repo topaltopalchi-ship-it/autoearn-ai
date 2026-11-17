@@ -187,7 +187,8 @@ function renderDiscoveryFeeds(){
 function renderDiscoveryLeads(){
   const host=$("discovery-lead-list");
   const pending=discoveryLeads.filter(lead=>lead.status==="pending");
-  host.innerHTML=pending.length?pending.map(lead=>`<div class="item"><div><h3>${esc(lead.title)} <span class="pill">در انتظار بررسی</span></h3><p>منبع: ${esc(lead.source_name)} · دسته: ${esc(statusFa(lead.category))}<br><a href="${esc(lead.url)}" target="_blank" rel="noopener noreferrer">مشاهده فرصت ↗</a> ${lead.terms_url?'· <a href="'+esc(lead.terms_url)+'" target="_blank" rel="noopener noreferrer">قوانین ↗</a>':''}<br>${esc(lead.summary||"توضیحی ثبت نشده است")}<br>آخرین مشاهده: ${esc(lead.last_seen_at||lead.observed_at)}</p></div><div class="item-actions"><button class="primary" data-promote-lead="${lead.id}">انتقال به فرصت‌ها</button><button class="secondary" data-reject-lead="${lead.id}">رد فرصت</button></div></div>`).join(""):'<div class="empty">فرصت تازه‌ای در انتظار بررسی نیست.</div>';
+  host.innerHTML=pending.length?pending.map(lead=>`<div class="item"><div><h3>${esc(lead.title)} <span class="pill">در انتظار بررسی</span></h3><p>منبع: ${esc(lead.source_name)} · دسته: ${esc(statusFa(lead.category))}<br>مسیر: ${esc(lead.track_key||"نیازمند دسته‌بندی")} · وضعیت: ${esc(lead.track_review_status==="matched"?"تطبیق‌شده":"بررسی‌نشده")}<br><a href="${esc(lead.url)}" target="_blank" rel="noopener noreferrer">مشاهده فرصت ↗</a> ${lead.terms_url?'· <a href="'+esc(lead.terms_url)+'" target="_blank" rel="noopener noreferrer">قوانین ↗</a>':''}<br>${esc(lead.summary||"توضیحی ثبت نشده است")}<br>آخرین مشاهده: ${esc(lead.last_seen_at||lead.observed_at)}</p></div><div class="item-actions"><button class="secondary" data-track-lead="${lead.id}" data-track-category="${esc(lead.category)}">تعیین مسیر</button><button class="primary" data-promote-lead="${lead.id}">انتقال به فرصت‌ها</button><button class="secondary" data-reject-lead="${lead.id}">رد فرصت</button></div></div>`).join(""):'<div class="empty">فرصت تازه‌ای در انتظار بررسی نیست.</div>';
+  host.querySelectorAll("[data-track-lead]").forEach(button=>button.onclick=()=>assignDiscoveryTrack(Number(button.dataset.trackLead),button.dataset.trackCategory));
   host.querySelectorAll("[data-promote-lead]").forEach(button=>button.onclick=async()=>{
     if(!confirm("این مورد به فهرست فرصت‌ها منتقل شود؟ وضعیت آن همچنان کشف‌شده و تأییدنشده می‌ماند."))return;
     try{const result=await api("/api/discovery/leads/"+button.dataset.promoteLead+"/promote",{method:"POST"});toast("فرصت به فهرست اصلی منتقل شد؛ بررسی و تأیید آن هنوز لازم است");refresh()}catch(error){toast(error.message)}
@@ -198,8 +199,24 @@ function renderDiscoveryLeads(){
     try{await api("/api/discovery/leads/"+button.dataset.rejectLead+"/review",{method:"PATCH",body:JSON.stringify({status:"rejected",notes})});toast("فرصت رد شد");refresh()}catch(error){toast(error.message)}
   });
 }
+async function assignDiscoveryTrack(leadId,category){
+  try{
+    const options=await api("/api/discovery/tracks?category="+encodeURIComponent(category));
+    if(!options.length){toast("برای این دسته مسیر تخصصی تعریف نشده است");return}
+    const promptText=options.map((item,index)=>(index+1)+". "+item.label+" ("+item.key+")\n   "+item.execution_guidance+" — "+item.description).join("\n");
+    const choice=prompt("مسیر تخصصی را انتخاب کنید؛ شماره یا کلید را وارد کنید:\n"+promptText+"\nبرای پاک‌کردن انتخاب، خالی بگذارید.");
+    if(choice===null)return;
+    const trimmed=choice.trim();
+    const match=options.find((item,index)=>String(index+1)===trimmed)||options.find(item=>item.key===trimmed);
+    const selected=trimmed===""?"":match?.key;
+    if(selected===undefined){toast("انتخاب مسیر معتبر نیست");return}
+    await api("/api/discovery/leads/"+leadId+"/track",{method:"PUT",body:JSON.stringify({track_key:selected})});
+    toast(selected?"مسیر تخصصی ذخیره شد؛ این کار به معنی تأیید یا اجازهٔ اجرا نیست":"دسته‌بندی مسیر پاک شد");
+    refresh();
+  }catch(error){toast(error.message)}
+}
 async function editDiscoveryResearch(leadId){
-  const country="Azerbaijan";
+  const country="Iran";
   const path="/api/discovery/leads/"+leadId+"/research";
   try{
     const current=await api(path+"?country="+encodeURIComponent(country));
@@ -244,18 +261,26 @@ async function loadPrioritizedDiscovery(){
   const host=$("prioritized-discovery-list");
   host.textContent="در حال مرتب‌سازی فرصت‌های تازه…";
   try{
-    const result=await api("/api/discovery/leads/prioritized");
+    const country="Iran";
+    const result=await api("/api/discovery/leads/prioritized?country="+encodeURIComponent(country));
     if(!result.total){host.innerHTML='<div class="empty">فرصت تازه‌ای در صف بررسی نیست.</div>';return}
     const labels={research_first:"بررسی در اولویت",review:"بررسی معمولی",low_signal:"اطلاعات ناکافی"};
+    const statusLabels={unknown:"نامشخص",verified:"تأییدشده",blocked:"غیرمجاز",unavailable:"در دسترس نیست",allowed:"مجاز",prohibited:"ممنوع"};
     host.innerHTML=result.items.map(item=>'<article class="item"><div><h3>'+esc(item.title)+' <span class="pill">'+esc(labels[item.research_priority]||item.research_priority)+'</span></h3>'+
       '<p>امتیاز اولویت تحقیق: '+item.research_priority_score+'/100 · منبع: '+esc(item.source_name)+'<br>'+
+      'مسیر تخصصی: '+esc(item.track_key||'نیازمند دسته‌بندی')+' · وضعیت: '+esc(item.track_review_status==='matched'?'تطبیق‌شده':'بررسی‌نشده')+'<br>'+
       'سابقهٔ خبرخوان: '+(item.feed_reliability_percent==null?"نمونهٔ ناکافی":item.feed_reliability_percent+"٪")+
       ' · قوانین: '+(item.terms_url?'<a href="'+esc(item.terms_url)+'" target="_blank" rel="noopener noreferrer">مشاهده ↗</a>':"ثبت نشده")+'<br>'+
-      'صلاحیت کشور: هنوز بررسی نشده · پرداخت: هنوز بررسی نشده · مجوز AI: نامشخص<br>'+
+      'کشور '+esc(item.research_country)+': '+esc(statusLabels[item.research_status?.country]||"نامشخص")+
+      ' · برداشت: '+esc(statusLabels[item.research_status?.payout]||"نامشخص")+
+      ' · مجوز AI: '+esc(statusLabels[item.research_status?.ai_permission]||"نامشخص")+
+      ' · API: '+esc(statusLabels[item.research_status?.api]||"نامشخص")+'<br>'+
       '<b>گام‌های بررسی بعدی:</b> '+(item.next_research_actions||[]).map(esc).join(' · ')+'<br>'+
       esc(item.research_reasons.join("؛ "))+'<br><a href="'+esc(item.url)+'" target="_blank" rel="noopener noreferrer">بازکردن فرصت ↗</a> '+
+      '<button class="secondary" data-track-lead="'+item.id+'" data-track-category="'+esc(item.category)+'">تعیین مسیر تخصصی</button> '+
       '<button class="secondary" data-research-lead="'+item.id+'">ثبت نتیجهٔ بررسی رسمی</button></p></div></article>'
     ).join("")+'<p class="muted">'+esc(result.note)+'</p>';
+    host.querySelectorAll("[data-track-lead]").forEach(button=>button.onclick=()=>assignDiscoveryTrack(Number(button.dataset.trackLead),button.dataset.trackCategory));
   }catch(error){host.textContent="مرتب‌سازی صف ناموفق بود: "+error.message}
 }
 function renderTasks(tasks){$("task-list").innerHTML=tasks.length?tasks.map(t=>`<div class="item"><div><h3>${esc(t.description)}</h3><p>${esc(t.opportunity_title)} · ${esc(t.platform)} · ${esc(statusFa(t.status))}</p></div><div class="item-actions">${t.status==="pending_approval"?'<button class="primary" data-approve="'+t.id+'">تأیید کار</button>':''}${t.status==="approved"?'<button class="secondary" data-complete="'+t.id+'">علامت‌گذاری به‌عنوان تکمیل‌شده</button>':''}</div></div>`).join(""):'<div class="empty">هنوز کاری ثبت نشده است. از یک فرصت، کار جدید بسازید.</div>';
