@@ -96,3 +96,48 @@ def test_opportunity_score_is_out_of_100(client):
     })
     assert response.status_code == 201
     assert response.json()["score"] == 100
+
+
+def test_opportunity_records_region_and_payout_requirements(client):
+    response = client.post("/api/opportunities", json={
+        "title": "Regional rewards", "platform": "Example",
+        "url": "https://example.com/regional",
+        "eligible_countries": ["Germany", " France ", "Germany", ""],
+        "excluded_countries": ["United States"],
+        "minimum_withdrawal_amount": 10,
+        "withdrawal_currency": "eur",
+        "payout_methods": ["PayPal", "Bank transfer", "PayPal"],
+    })
+    assert response.status_code == 201
+    item = response.json()
+    assert item["eligible_countries"] == ["Germany", "France"]
+    assert item["excluded_countries"] == ["United States"]
+    assert item["minimum_withdrawal_amount"] == 10
+    assert item["withdrawal_currency"] == "EUR"
+    assert item["payout_methods"] == ["PayPal", "Bank transfer"]
+
+    listed = client.get("/api/opportunities").json()
+    assert listed[0]["payout_methods"] == ["PayPal", "Bank transfer"]
+
+
+def test_opportunity_defaults_region_and_payout_fields(client):
+    response = client.post("/api/opportunities", json={
+        "title": "Basic source", "platform": "Example",
+        "url": "https://example.com/basic",
+    })
+    assert response.status_code == 201
+    item = response.json()
+    assert item["eligible_countries"] == []
+    assert item["excluded_countries"] == []
+    assert item["minimum_withdrawal_amount"] is None
+    assert item["withdrawal_currency"] == "USD"
+    assert item["payout_methods"] == []
+
+
+def test_negative_minimum_withdrawal_is_rejected(client):
+    response = client.post("/api/opportunities", json={
+        "title": "Invalid threshold", "platform": "Example",
+        "url": "https://example.com/invalid",
+        "minimum_withdrawal_amount": -1,
+    })
+    assert response.status_code == 422
