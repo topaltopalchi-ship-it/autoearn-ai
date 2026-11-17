@@ -27,6 +27,7 @@ from autoearn.competitions import (
 )
 from autoearn.task_suitability import TaskProfile, assess_task_suitability
 from autoearn.ranking import rank_evaluations
+from autoearn.discovery_ranking import prioritize_discovery_leads
 
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.getenv("AUTOEARN_DB", ROOT / "autoearn.db"))
@@ -1076,6 +1077,23 @@ def list_discovery_leads(status: Literal["pending", "converted", "rejected"] | N
     sql += " ORDER BY last_seen_at DESC, id DESC"
     with connect() as db:
         return [row_dict(row) for row in db.execute(sql, params).fetchall()]
+
+
+@app.get("/api/discovery/leads/prioritized")
+def prioritized_discovery_leads(actor: str = Depends(require_owner)):
+    """Return a research-first queue; never implies country or payout eligibility."""
+    with connect() as db:
+        rows = db.execute(
+            """SELECT l.*, f.status AS feed_status,
+                      f.total_checks, f.total_successes,
+                      f.consecutive_failures, f.last_success_at
+               FROM discovery_leads l
+               LEFT JOIN discovery_feeds f ON f.id = l.source_feed_id
+               WHERE l.status = 'pending'
+               ORDER BY l.last_seen_at DESC, l.id DESC"""
+        ).fetchall()
+    result = prioritize_discovery_leads([row_dict(row) for row in rows])
+    return result
 
 
 @app.patch("/api/discovery/leads/{lead_id}/review")
