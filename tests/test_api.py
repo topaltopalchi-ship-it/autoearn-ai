@@ -113,8 +113,8 @@ def test_duplicate_opportunity_url_is_rejected(client):
         "title": "Puzzle rewards", "platform": "Example Games",
         "url": "https://example.com/game"
     }
-    assert client.post("/api/opportunities", json=payload).status_code == 201
-    duplicate = client.post("/api/opportunities", json=payload)
+    assert client.post("/api/opportunities", headers={"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}, json=payload).status_code == 201
+    duplicate = client.post("/api/opportunities", headers={"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}, json=payload)
     assert duplicate.status_code == 409
     assert "already registered" in duplicate.json()["detail"]
 
@@ -124,7 +124,7 @@ def test_normalizes_duplicate_urls(client):
         "title": "Normalized URL", "platform": "Example Games",
         "url": "https://EXAMPLE.com/game/#tracking",
     }
-    assert client.post("/api/opportunities", json=payload).status_code == 201
+    assert client.post("/api/opportunities", headers={"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}, json=payload).status_code == 201
     duplicate = client.post("/api/opportunities", headers={"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}, json={
         **payload, "title": "Same destination", "url": "https://example.com/game/"
     })
@@ -301,7 +301,7 @@ def _prepare_verified_source(client):
     client.patch(f"/api/opportunities/{opp['id']}/verification",
                  headers={"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"},
                  json={"status": "verified", "notes": "Terms and payout checked"})
-    source = client.post("/api/sources", json={
+    source = client.post("/api/sources", headers={"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}, json={
         "name": "Verified source", "url": "https://example.com/source"
     }).json()
     client.patch(f"/api/sources/{source['id']}/review",
@@ -316,7 +316,7 @@ def test_supervision_api_requires_owner_token(client):
 
 def test_supervised_action_requires_verified_opportunity_and_approved_source(client):
     opp = opportunity(client)
-    source = client.post("/api/sources", json={
+    source = client.post("/api/sources", headers={"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}, json={
         "name": "Pending source", "url": "https://example.com/pending"
     }).json()
     response = client.post("/api/supervision/actions",
@@ -359,7 +359,7 @@ def test_owner_routes_fail_closed_when_secret_is_not_configured(client, monkeypa
 
 
 def test_source_review_cannot_be_changed_without_owner_auth(client):
-    source = client.post("/api/sources", json={
+    source = client.post("/api/sources", headers={"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}, json={
         "name": "Unreviewed source", "url": "https://example.com/no-owner"
     }).json()
     response = client.patch(f"/api/sources/{source['id']}/review",
@@ -449,3 +449,11 @@ def test_owner_routes_disable_short_configured_tokens(client, monkeypatch):
     response = client.get("/api/supervision/actions",
         headers={"X-AutoEarn-Owner-Token": "too-short"})
     assert response.status_code == 503
+
+
+def test_opportunity_and_source_intake_are_owner_only(client):
+    payload = {"title": "Blocked", "platform": "Example", "url": "https://example.com/blocked"}
+    assert client.post("/api/opportunities", json=payload).status_code == 401
+    assert client.post("/api/sources", json={
+        "name": "Blocked source", "url": "https://example.com/blocked-source"
+    }).status_code == 401
