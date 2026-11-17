@@ -8,7 +8,7 @@ const api = async (path, options={}) => {
   if (!response.ok) throw new Error("انجام درخواست با خطا روبه‌رو شد. اطلاعات و دسترسی را بررسی کنید.");
   return body;
 };
-const statusFa = (v) => ({game_rewards:"پاداش بازی",survey_rewards:"پاداش نظرسنجی",microtasks:"کارهای کوچک",freelance_jobs:"کارهای آزاد",digital_products:"محصولات دیجیتال",discovered:"کشف‌شده",reviewing:"در حال بررسی",eligible:"مجاز",ineligible:"غیرمجاز",archived:"بایگانی‌شده",pending:"در انتظار",approved:"تأییدشده",rejected:"ردشده",verified:"تأییدشده",pending_approval:"در انتظار تأیید",confirmed:"تأییدشده",paid:"پرداخت‌شده",estimated:"تخمینی",earned:"کسب‌شده",withdrawable:"قابل برداشت",manual:"دستی",assist:"با کمک دستیار",official_api:"رابط رسمی برنامه‌نویسی",games_competitions:"بازی و مسابقه",surveys_microtasks:"نظرسنجی و کارهای کوچک",freelancing_services:"فریلنسری و خدمات",ai_content_products:"محتوای هوش مصنوعی و محصولات دیجیتال",other:"سایر","unknown":"نامشخص"})[v]||"نامشخص";
+const statusFa = (v) => ({game_rewards:"پاداش بازی",survey_rewards:"پاداش نظرسنجی",microtasks:"کارهای کوچک",freelance_jobs:"کارهای آزاد",digital_products:"محصولات دیجیتال",discovered:"کشف‌شده",reviewing:"در حال بررسی",eligible:"مجاز",ineligible:"غیرمجاز",archived:"بایگانی‌شده",pending:"در انتظار",approved:"تأییدشده",rejected:"ردشده",verified:"تأییدشده",pending_approval:"در انتظار تأیید",confirmed:"تأییدشده",paid:"پرداخت‌شده",estimated:"تخمینی",earned:"کسب‌شده",withdrawable:"قابل برداشت",manual:"دستی",assist:"با کمک دستیار",official_api:"رابط رسمی برنامه‌نویسی",games_competitions:"بازی و مسابقه",surveys_microtasks:"نظرسنجی و کارهای کوچک",freelancing_services:"فریلنسری و خدمات",ai_content_products:"محتوای هوش مصنوعی و محصولات دیجیتال",other:"سایر","unknown":"نامشخص",logic:"معما و منطق",coding:"برنامه‌نویسی",chess:"شطرنج",strategy:"استراتژی",general:"عمومی"})[v]||"نامشخص";
 const currencyFa = (c) => ({EUR:"یورو",USD:"دلار آمریکا",GBP:"پوند",TRY:"لیر",IRR:"ریال",CAD:"دلار کانادا",AUD:"دلار استرالیا"})[String(c||"").toUpperCase()] || "واحد پول";
 const money = (n,c="EUR") => new Intl.NumberFormat("fa-IR",{maximumFractionDigits:2}).format(Number(n||0))+" "+currencyFa(c);
 function ledgerTotals(groups,states){const values=Object.entries(groups||{}).map(([currency,items])=>{const total=states.reduce((sum,state)=>sum+Number(items[state]||0),0);return total?money(total,currency):null}).filter(Boolean);return values.join(" · ")||money(0,"EUR")}
@@ -140,7 +140,7 @@ $("competition-form").onsubmit=async e=>{
   e.preventDefault();
   const form=e.target,data=Object.fromEntries(new FormData(form));
   for(const key of ["terms_verified","automated_agents_allowed","official_api"])data[key]=form.elements[key].checked;
-  data.eligibility="unknown";
+  data.prize_amount=data.prize_amount===""?null:Number(data.prize_amount);
   try{await api("/api/competitions",{method:"POST",body:JSON.stringify(data)});form.reset();toast("مسابقه ثبت شد؛ اکنون استراتژی بسازید");refresh()}catch(err){toast(err.message)}
 };
 $("add-opportunity").onclick=()=>$("opportunity-dialog").showModal();
