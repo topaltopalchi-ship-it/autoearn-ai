@@ -6,6 +6,7 @@ on:
       - feat-opportunity-eligibility-payout-details
       - feat-task-ai-suitability-screening
       - fix-public-research-evidence-url-validation
+      - feat-country-aware-discovery-research-queue
   pull_request:
     branches:
       - fix-public-research-evidence-url-validation
