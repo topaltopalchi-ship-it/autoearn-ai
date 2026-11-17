@@ -95,6 +95,18 @@ def init_db() -> None:
             reference TEXT NOT NULL DEFAULT '',
             created_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS evaluation_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            opportunity_id INTEGER NOT NULL REFERENCES opportunities(id) ON DELETE CASCADE,
+            source_id INTEGER NOT NULL REFERENCES sources(id) ON DELETE RESTRICT,
+            country TEXT NOT NULL,
+            execution_mode TEXT NOT NULL,
+            request_json TEXT NOT NULL,
+            result_json TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_evaluation_history_opportunity
+            ON evaluation_history(opportunity_id, created_at DESC);
         """)
         # Additive migration for databases created by earlier MVP versions.
         columns = {row["name"] for row in db.execute("PRAGMA table_info(opportunities)")}
@@ -527,7 +539,21 @@ def evaluate_opportunity(opportunity_id: int, data: OpportunityEvaluationIn,
             evaluation["risk_flags"].append("opportunity status is not marked eligible")
     except (ValueError, TypeError, json.JSONDecodeError) as exc:
         raise HTTPException(422, f"Opportunity evaluation failed: {exc}")
+    created_at = now()
+    request_data = data.model_dump()
+    with connect() as db:
+        cursor = db.execute(
+            """INSERT INTO evaluation_history
+               (opportunity_id, source_id, country, execution_mode, request_json, result_json, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (opportunity_id, data.source_id, data.country.strip(),
+             data.execution_mode, json.dumps(request_data, ensure_ascii=False),
+             json.dumps(evaluation, ensure_ascii=False), created_at),
+        )
+        evaluation_id = cursor.lastrowid
     return {
+        "evaluation_id": evaluation_id,
+        "created_at": created_at,
         "opportunity_id": opportunity_id,
         "source_id": data.source_id,
         "title": opportunity["title"],
@@ -537,6 +563,31 @@ def evaluate_opportunity(opportunity_id: int, data: OpportunityEvaluationIn,
         "evaluation": evaluation,
         "execution_note": "This is a readiness assessment only; no external platform action is executed.",
     }
+
+
+@app.get("/api/opportunities/{opportunity_id}/evaluations")
+def list_opportunity_evaluations(opportunity_id: int, actor: str = Depends(require_owner)):
+    with connect() as db:
+        if not db.execute("SELECT id FROM opportunities WHERE id = ?", (opportunity_id,)).fetchone():
+            raise HTTPException(404, "Opportunity not found.")
+        rows = db.execute(
+            """SELECT id, opportunity_id, source_id, country, execution_mode,
+                      request_json, result_json, created_at
+               FROM evaluation_history
+               WHERE opportunity_id = ?
+               ORDER BY created_at DESC, id DESC""",
+            (opportunity_id,),
+        ).fetchall()
+    return [{
+        "evaluation_id": row["id"],
+        "opportunity_id": row["opportunity_id"],
+        "source_id": row["source_id"],
+        "country": row["country"],
+        "execution_mode": row["execution_mode"],
+        "request": json.loads(row["request_json"]),
+        "evaluation": json.loads(row["result_json"]),
+        "created_at": row["created_at"],
+    } for row in rows]
 
 
 @app.post("/api/discovery/rss", status_code=200)
