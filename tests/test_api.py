@@ -479,8 +479,10 @@ def test_rss_discovery_persists_only_pending_candidates_and_deduplicates(
     assert paid_survey["track_key"] == "microtasks"
     assert paid_survey["track_review_status"] == "matched"
     puzzle = candidates_by_title["فرصت حل پازل روزانه"]
-    assert puzzle["track_key"] == "puzzle_solving"
-    assert puzzle["track_review_status"] == "matched"
+    # The supplied track_key is invalid for this category and the Persian
+    # title has no configured inference keyword, so it must remain unclassified.
+    assert puzzle["track_key"] == ""
+    assert puzzle["track_review_status"] == "needs_review"
 
 
 def test_task_approval_and_reward_ledger_are_owner_only(client):
