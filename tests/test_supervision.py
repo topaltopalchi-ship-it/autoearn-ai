@@ -74,3 +74,20 @@ def test_completion_requires_evidence():
     queue.approve(request.request_id, actor="user")
     with pytest.raises(SupervisionError, match="evidence"):
         queue.complete(request.request_id, actor="user", evidence=" ")
+
+
+@pytest.mark.parametrize("actor", ["", "   ", "system", " system "])
+def test_completion_requires_human_actor(actor):
+    queue = SupervisionQueue()
+    request = create(queue)
+    queue.approve(request.request_id, actor="owner")
+    with pytest.raises(SupervisionError, match="human actor"):
+        queue.complete(request.request_id, actor=actor, evidence="receipt")
+
+
+@pytest.mark.parametrize("actor", ["", "   ", "system", " system "])
+def test_cancellation_requires_human_actor(actor):
+    queue = SupervisionQueue()
+    request = create(queue)
+    with pytest.raises(SupervisionError, match="human actor"):
+        queue.cancel(request.request_id, actor=actor)
