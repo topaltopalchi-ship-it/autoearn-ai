@@ -6,6 +6,7 @@ Usage: python scripts/restore.py BACKUP_DIRECTORY NEW_RESTORE_DIRECTORY
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
 import hashlib
 import json
 import os
@@ -48,7 +49,7 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
         raise ValueError("Backup database size does not match manifest")
     if _sha256(source_database) != manifest.get("database_sha256"):
         raise ValueError("Backup database checksum does not match manifest")
-    with sqlite3.connect(source_database.as_uri() + "?mode=ro", uri=True) as db:
+    with closing(sqlite3.connect(source_database.as_uri() + "?mode=ro", uri=True)) as db:
         if db.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
             raise ValueError("Backup database failed SQLite integrity check")
 
