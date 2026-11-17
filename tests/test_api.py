@@ -577,3 +577,74 @@ def test_evaluation_history_returns_404_for_unknown_opportunity(client):
         headers={"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"},
     )
     assert response.status_code == 404
+
+
+def test_earnings_ledger_records_state_and_audit_history(client):
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    opp = opportunity(client)
+    created = client.post("/api/earnings", headers=headers, json={
+        "opportunity_id": opp["id"], "amount": 8.75, "currency": "eur",
+        "state": "estimated", "reference": "weekly task",
+        "evidence": "Official reward page"
+    })
+    assert created.status_code == 201
+    item = created.json()
+    assert item["currency"] == "EUR"
+    assert item["state"] == "estimated"
+    assert item["evidence"] == "Official reward page"
+
+    moved = client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
+        json={"state": "earned", "note": "Work completed"})
+    assert moved.status_code == 200
+    assert moved.json()["state"] == "earned"
+
+    pending = client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
+        json={"state": "pending", "note": "Awaiting platform confirmation"})
+    assert pending.status_code == 200
+    withdrawable = client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
+        json={"state": "withdrawable"})
+    assert withdrawable.status_code == 200
+    paid = client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
+        json={"state": "paid", "note": "Payment received"})
+    assert paid.status_code == 200
+
+    history = client.get(f"/api/earnings/{item['id']}/history", headers=headers)
+    assert history.status_code == 200
+    assert [event["to_state"] for event in history.json()] == [
+        "estimated", "earned", "pending", "withdrawable", "paid"
+    ]
+    assert all(event["actor"] == "owner" for event in history.json())
+    assert client.get("/api/earnings", headers=headers).json()[0]["id"] == item["id"]
+
+
+def test_earnings_ledger_blocks_invalid_transitions_and_paid_mutation(client):
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    item = client.post("/api/earnings", headers=headers, json={
+        "amount": 3, "currency": "EUR", "state": "estimated"
+    }).json()
+    invalid = client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
+        json={"state": "paid"})
+    assert invalid.status_code == 409
+    client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
+        json={"state": "earned"})
+    client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
+        json={"state": "pending"})
+    client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
+        json={"state": "withdrawable"})
+    client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
+        json={"state": "paid"})
+    terminal = client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
+        json={"state": "pending"})
+    assert terminal.status_code == 409
+
+
+def test_earnings_ledger_requires_owner_and_valid_opportunity(client):
+    assert client.get("/api/earnings").status_code == 401
+    assert client.post("/api/earnings", json={
+        "amount": 2, "currency": "EUR"
+    }).status_code == 401
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    missing = client.post("/api/earnings", headers=headers, json={
+        "opportunity_id": 9999, "amount": 2, "currency": "EUR"
+    })
+    assert missing.status_code == 404
