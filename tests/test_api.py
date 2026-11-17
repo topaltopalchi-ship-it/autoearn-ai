@@ -9,13 +9,14 @@ from app.main import app
 def client(tmp_path, monkeypatch):
     from app import main
     monkeypatch.setattr(main, "DB_PATH", tmp_path / "test.db")
+    monkeypatch.setattr(main, "OWNER_TOKEN", "test-owner-secret")
     main.init_db()
     with TestClient(app) as test_client:
         yield test_client
 
 
 def opportunity(client):
-    response = client.post("/api/opportunities", json={
+    response = client.post("/api/opportunities", headers={"X-AutoEarn-Owner-Token": "test-owner-secret"}, json={
         "title": "Puzzle rewards", "platform": "Example Games",
         "url": "https://example.com/game", "reward_description": "Points",
         "eligibility": "Available in eligible regions",
@@ -30,7 +31,7 @@ def test_health(client):
 
 
 def test_source_intake_is_persistent_and_requires_human_review(client):
-    response = client.post("/api/sources", json={
+    response = client.post("/api/sources", headers={"X-AutoEarn-Owner-Token": "test-owner-secret"}, json={
         "name": "Example rewards", "url": "https://EXAMPLE.com/rewards/#tracking",
         "category": "Game_Rewards", "terms_url": "https://example.com/terms",
         "country_notes": "Germany only", "payment_notes": "PayPal terms to verify",
@@ -46,12 +47,12 @@ def test_source_intake_is_persistent_and_requires_human_review(client):
     assert listed.status_code == 200
     assert listed.json()[0]["id"] == source["id"]
 
-    duplicate = client.post("/api/sources", json={
+    duplicate = client.post("/api/sources", headers={"X-AutoEarn-Owner-Token": "test-owner-secret"}, json={
         "name": "Duplicate source", "url": "https://example.com/rewards/"
     })
     assert duplicate.status_code == 409
 
-    approved = client.patch(f"/api/sources/{source['id']}/review", json={
+    approved = client.patch(f"/api/sources/{source['id']}/review", headers={"X-AutoEarn-Owner-Token": "test-owner-secret"}, json={
         "status": "approved", "notes": "Public terms reviewed manually"
     })
     assert approved.status_code == 200
@@ -61,7 +62,7 @@ def test_source_intake_is_persistent_and_requires_human_review(client):
 
 
 def test_source_intake_rejects_unsafe_terms_url(client):
-    response = client.post("/api/sources", json={
+    response = client.post("/api/sources", headers={"X-AutoEarn-Owner-Token": "test-owner-secret"}, json={
         "name": "Unsafe terms", "url": "https://example.com/source",
         "terms_url": "javascript:alert(1)",
     })
@@ -69,7 +70,7 @@ def test_source_intake_rejects_unsafe_terms_url(client):
 
 
 def test_source_review_returns_404_for_missing_source(client):
-    response = client.patch("/api/sources/9999/review", json={"status": "approved"})
+    response = client.patch("/api/sources/9999/review", headers={"X-AutoEarn-Owner-Token": "test-owner-secret"}, json={"status": "approved"})
     assert response.status_code == 404
 
 
@@ -82,7 +83,7 @@ def test_opportunity_and_dashboard(client):
 
 def test_task_requires_human_approval_before_completion(client):
     opp = opportunity(client)
-    task = client.post("/api/tasks", json={
+    task = client.post("/api/tasks", headers={"X-AutoEarn-Owner-Token": "test-owner-secret"}, json={
         "opportunity_id": opp["id"], "description": "Complete the daily puzzle manually"
     }).json()
     assert task["status"] == "pending_approval"
@@ -92,7 +93,7 @@ def test_task_requires_human_approval_before_completion(client):
 
 
 def test_rejects_non_http_url(client):
-    response = client.post("/api/opportunities", json={
+    response = client.post("/api/opportunities", headers={"X-AutoEarn-Owner-Token": "test-owner-secret"}, json={
         "title": "Bad link", "platform": "Example", "url": "javascript:alert(1)"
     })
     assert response.status_code == 422
@@ -100,7 +101,7 @@ def test_rejects_non_http_url(client):
 
 def test_reward_ledger(client):
     opp = opportunity(client)
-    response = client.post("/api/rewards", json={
+    response = client.post("/api/rewards", headers={"X-AutoEarn-Owner-Token": "test-owner-secret"}, json={
         "opportunity_id": opp["id"], "amount": 4.5, "currency": "USD", "status": "paid"
     })
     assert response.status_code == 201
@@ -124,14 +125,14 @@ def test_normalizes_duplicate_urls(client):
         "url": "https://EXAMPLE.com/game/#tracking",
     }
     assert client.post("/api/opportunities", json=payload).status_code == 201
-    duplicate = client.post("/api/opportunities", json={
+    duplicate = client.post("/api/opportunities", headers={"X-AutoEarn-Owner-Token": "test-owner-secret"}, json={
         **payload, "title": "Same destination", "url": "https://example.com/game/"
     })
     assert duplicate.status_code == 409
 
 
 def test_opportunity_score_is_out_of_100(client):
-    response = client.post("/api/opportunities", json={
+    response = client.post("/api/opportunities", headers={"X-AutoEarn-Owner-Token": "test-owner-secret"}, json={
         "title": "Fully documented", "platform": "Example",
         "url": "https://example.com/game",
         "reward_description": "Points",
@@ -148,20 +149,20 @@ def test_api_completeness_score_uses_documented_weights(client):
         "title": "Scoring check", "platform": "Example",
         "url": "https://example.com/scoring",
     }
-    terms_only = client.post("/api/opportunities", json={
+    terms_only = client.post("/api/opportunities", headers={"X-AutoEarn-Owner-Token": "test-owner-secret"}, json={
         **base, "terms_url": "https://example.com/terms"
     })
     assert terms_only.status_code == 201
     assert terms_only.json()["score"] == 40
 
-    eligibility_only = client.post("/api/opportunities", json={
+    eligibility_only = client.post("/api/opportunities", headers={"X-AutoEarn-Owner-Token": "test-owner-secret"}, json={
         **base, "url": "https://example.com/eligibility",
         "eligibility": "Eligible regions"
     })
     assert eligibility_only.status_code == 201
     assert eligibility_only.json()["score"] == 30
 
-    reward_only = client.post("/api/opportunities", json={
+    reward_only = client.post("/api/opportunities", headers={"X-AutoEarn-Owner-Token": "test-owner-secret"}, json={
         **base, "url": "https://example.com/reward",
         "reward_description": "Points"
     })
@@ -170,7 +171,7 @@ def test_api_completeness_score_uses_documented_weights(client):
 
 
 def test_opportunity_records_region_and_payout_requirements(client):
-    response = client.post("/api/opportunities", json={
+    response = client.post("/api/opportunities", headers={"X-AutoEarn-Owner-Token": "test-owner-secret"}, json={
         "title": "Regional rewards", "platform": "Example",
         "url": "https://example.com/regional",
         "eligible_countries": ["Germany", " France ", "Germany", ""],
@@ -192,7 +193,7 @@ def test_opportunity_records_region_and_payout_requirements(client):
 
 
 def test_opportunity_defaults_region_and_payout_fields(client):
-    response = client.post("/api/opportunities", json={
+    response = client.post("/api/opportunities", headers={"X-AutoEarn-Owner-Token": "test-owner-secret"}, json={
         "title": "Basic source", "platform": "Example",
         "url": "https://example.com/basic",
     })
@@ -206,7 +207,7 @@ def test_opportunity_defaults_region_and_payout_fields(client):
 
 
 def test_negative_minimum_withdrawal_is_rejected(client):
-    response = client.post("/api/opportunities", json={
+    response = client.post("/api/opportunities", headers={"X-AutoEarn-Owner-Token": "test-owner-secret"}, json={
         "title": "Invalid threshold", "platform": "Example",
         "url": "https://example.com/invalid",
         "minimum_withdrawal_amount": -1,
@@ -219,7 +220,7 @@ def test_opportunity_requires_explicit_human_verification(client):
     assert item["verification_status"] == "pending"
     assert item["verified_at"] is None
 
-    verified = client.patch(f"/api/opportunities/{item['id']}/verification", json={
+    verified = client.patch(f"/api/opportunities/{item['id']}/verification", headers={"X-AutoEarn-Owner-Token": "test-owner-secret"}, json={
         "status": "verified", "notes": "Terms and country restrictions checked manually"
     })
     assert verified.status_code == 200
@@ -228,7 +229,7 @@ def test_opportunity_requires_explicit_human_verification(client):
     assert result["verified_at"]
     assert result["verification_notes"].startswith("Terms and country")
 
-    rejected = client.patch(f"/api/opportunities/{item['id']}/verification", json={
+    rejected = client.patch(f"/api/opportunities/{item['id']}/verification", headers={"X-AutoEarn-Owner-Token": "test-owner-secret"}, json={
         "status": "rejected", "notes": "Payout terms could not be confirmed"
     })
     assert rejected.status_code == 200
@@ -238,14 +239,14 @@ def test_opportunity_requires_explicit_human_verification(client):
 
 def test_verification_endpoint_rejects_unknown_status(client):
     item = opportunity(client)
-    response = client.patch(f"/api/opportunities/{item['id']}/verification", json={
+    response = client.patch(f"/api/opportunities/{item['id']}/verification", headers={"X-AutoEarn-Owner-Token": "test-owner-secret"}, json={
         "status": "probably_legit"
     })
     assert response.status_code == 422
 
 
 def test_verification_returns_404_for_missing_opportunity(client):
-    response = client.patch("/api/opportunities/9999/verification", json={
+    response = client.patch("/api/opportunities/9999/verification", headers={"X-AutoEarn-Owner-Token": "test-owner-secret"}, json={
         "status": "verified"
     })
     assert response.status_code == 404
@@ -254,7 +255,7 @@ def test_verification_returns_404_for_missing_opportunity(client):
 def test_opportunities_can_be_filtered_by_verification_status(client):
     item = opportunity(client)
     assert len(client.get("/api/opportunities?verification_status=pending").json()) == 1
-    client.patch(f"/api/opportunities/{item['id']}/verification", json={
+    client.patch(f"/api/opportunities/{item['id']}/verification", headers={"X-AutoEarn-Owner-Token": "test-owner-secret"}, json={
         "status": "verified", "notes": "Manually checked"
     })
     assert client.get("/api/opportunities?verification_status=pending").json() == []
@@ -290,3 +291,60 @@ def test_existing_database_gets_verification_columns(tmp_path, monkeypatch):
         columns = {row[1] for row in db.execute("PRAGMA table_info(opportunities)")}
     assert {"eligible_countries", "payout_methods", "verification_status",
             "verified_at", "verification_notes"}.issubset(columns)
+
+
+def _prepare_verified_source(client):
+    opp = opportunity(client)
+    client.patch(f"/api/opportunities/{opp['id']}/status",
+                 headers={"X-AutoEarn-Owner-Token": "test-owner-secret"},
+                 params={"status": "eligible"})
+    client.patch(f"/api/opportunities/{opp['id']}/verification",
+                 headers={"X-AutoEarn-Owner-Token": "test-owner-secret"},
+                 json={"status": "verified", "notes": "Terms and payout checked"})
+    source = client.post("/api/sources", json={
+        "name": "Verified source", "url": "https://example.com/source"
+    }).json()
+    client.patch(f"/api/sources/{source['id']}/review",
+                 headers={"X-AutoEarn-Owner-Token": "test-owner-secret"},
+                 json={"status": "approved", "notes": "Reviewed"})
+    return opp, source
+
+
+def test_supervision_api_requires_owner_token(client):
+    assert client.get("/api/supervision/actions").status_code == 401
+
+
+def test_supervised_action_requires_verified_opportunity_and_approved_source(client):
+    opp = opportunity(client)
+    source = client.post("/api/sources", json={
+        "name": "Pending source", "url": "https://example.com/pending"
+    }).json()
+    response = client.post("/api/supervision/actions",
+        headers={"X-AutoEarn-Owner-Token": "test-owner-secret"},
+        json={"opportunity_id": opp["id"], "source_id": source["id"],
+              "action": "submit_application", "description": "Submit after review"})
+    assert response.status_code == 409
+
+
+def test_supervision_api_persists_approval_and_audit(client):
+    opp, source = _prepare_verified_source(client)
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret"}
+    response = client.post("/api/supervision/actions", headers=headers, json={
+        "opportunity_id": opp["id"], "source_id": source["id"],
+        "action": "prepare_draft", "description": "Prepare application draft"})
+    assert response.status_code == 201
+    request_id = response.json()["request_id"]
+    approved = client.post(f"/api/supervision/actions/{request_id}/approve", headers=headers)
+    assert approved.status_code == 200
+    completed = client.post(f"/api/supervision/actions/{request_id}/complete",
+        headers=headers, json={"evidence": "Draft saved for owner review"})
+    assert completed.status_code == 200
+    audit = client.get(f"/api/supervision/actions/{request_id}/audit", headers=headers)
+    assert [e["event_type"] for e in audit.json()] == [
+        "requested", "approved", "marked_completed"]
+
+
+def test_wrong_owner_token_is_rejected(client):
+    response = client.get("/api/supervision/actions",
+        headers={"X-AutoEarn-Owner-Token": "wrong"})
+    assert response.status_code == 401
