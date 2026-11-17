@@ -27,11 +27,24 @@ jobs:
         if: always()
         run: |
           mkdir -p test-results
-          python --version | tee test-results/python-version.txt
-          python -m pip freeze | tee test-results/pip-freeze.txt
-          python -m pip check 2>&1 | tee test-results/pip-check.txt
-      - name: Run test suite
-        run: python -m pytest -q --junitxml=test-results/junit.xml
+          {
+            echo "=== Python ==="
+            python --version 2>&1 || true
+            echo "=== Pip ==="
+            python -m pip --version 2>&1 || true
+            echo "=== Installed packages ==="
+            python -m pip freeze 2>&1 || true
+            echo "=== Dependency consistency ==="
+            python -m pip check 2>&1 || true
+          } | tee test-results/environment.txt
+      - name: Check Python syntax
+        run: python -m compileall -q app autoearn tests
+      - name: Check dashboard JavaScript syntax
+        run: node --check static/app.js
+      - name: Run test suite with detailed output
+        run: |
+          set -o pipefail
+          python -m pytest -vv --tb=long --junitxml=test-results/junit.xml 2>&1 | tee test-results/pytest.log
       - name: Upload test diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -39,4 +52,4 @@ jobs:
           name: python-test-diagnostics
           path: test-results/
           if-no-files-found: warn
-          retention-days: 7
+          retention-days: 14
