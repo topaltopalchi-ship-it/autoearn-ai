@@ -9,7 +9,7 @@
 </head>
 <body>
   <aside class="sidebar">
-    <div class="brand"><span class="brand-mark">A</span><div><b>اتوایرن</b><small>فضای کاری هوشمند</small></div></div>
+    <div class="brand"><span class="brand-mark">A</span><div><b>اتو درآمد</b><small>فضای کاری هوشمند</small></div></div>
     <nav><a class="active" href="#overview">◫ &nbsp; نمای کلی</a><a href="#opportunities">◎ &nbsp; فرصت‌های درآمدزایی</a><a href="#sources">⌕ &nbsp; بررسی منابع</a><a href="#tasks">▣ &nbsp; کارهای تحت نظارت</a><a href="#rewards">◇ &nbsp; درآمدها</a></nav>
     <div class="sidebar-note"><b>کنترل همیشه دست شماست</b><p>پیش از هرگونه مشارکت، قوانین هر پلتفرم را بررسی و هر کار را شخصاً تأیید کنید.</p></div>
   </aside>
@@ -27,7 +27,7 @@
       <div id="opportunity-list" class="empty">هنوز فرصتی ثبت نشده است. پلتفرمی را برای ارزیابی اضافه کنید.</div>
     </section>
     <section class="panel" id="sources">
-      <div class="section-head"><div><span class="eyebrow">ثبت و بررسی انسانی</span><h2>منابع پیشنهادی</h2></div><div class="section-actions"><button class="secondary" id="discover-rss" type="button">دریافت فهرست RSS</button><button class="primary" id="add-source">+ افزودن منبع</button></div></div>
+      <div class="section-head"><div><span class="eyebrow">ثبت و بررسی انسانی</span><h2>منابع پیشنهادی</h2></div><div class="section-actions"><button class="secondary" id="discover-rss" type="button">دریافت فهرست خبرخوان</button><button class="primary" id="add-source">+ افزودن منبع</button></div></div>
       <div class="toolbar"><select id="source-filter"><option value="">همهٔ وضعیت‌های منبع</option><option value="pending">در انتظار بررسی</option><option value="approved">تأییدشده</option><option value="rejected">ردشده</option></select></div>
       <div id="source-list" class="empty">هنوز منبعی ثبت نشده است. یک منبع عمومی برای بررسی دستی اضافه کنید.</div>
     </section>
@@ -44,22 +44,22 @@
   <dialog id="opportunity-dialog"><form id="opportunity-form" method="dialog"><div class="dialog-head"><h2>افزودن فرصت</h2><button type="button" class="icon-btn" data-close>×</button></div>
     <label>عنوان فرصت<input name="title" required minlength="2" placeholder="چالش روزانهٔ معما"></label>
     <label>نام پلتفرم<input name="platform" required placeholder="نام پلتفرم"></label>
-    <label>نشانی وب‌سایت<input name="url" type="url" required placeholder="https://example.com"></label>
+    <label>نشانی وب‌سایت<input name="url" type="url" required placeholder="نشانی کامل وب‌سایت"></label>
     <label>دسته‌بندی<select name="category"><option value="games_competitions">بازی‌ها / مسابقه‌ها</option><option value="surveys_microtasks">نظرسنجی / کارهای کوچک</option><option value="freelancing_services">فریلنسری / خدمات</option><option value="ai_content_products">محتوای هوش مصنوعی / محصولات دیجیتال</option><option value="other">سایر فرصت‌های بررسی‌شده</option></select></label>
     <label>پاداش اعلام‌شده<textarea name="reward_description" placeholder="پاداش اعلام‌شده را شرح دهید؛ آن را قطعی و تضمین‌شده فرض نکنید."></textarea></label>
     <label>شرایط مشارکت / محدودیت‌های کشور<textarea name="eligibility"></textarea></label>
     <label>کشورهای مجاز (با ویرگول جدا کنید)<input name="eligible_countries" placeholder="آلمان، فرانسه"></label>
     <label>کشورهای غیرمجاز (با ویرگول جدا کنید)<input name="excluded_countries" placeholder="ایالات متحده"></label>
     <label>حداقل مبلغ برداشت<input name="minimum_withdrawal_amount" type="number" min="0" step="0.01" placeholder="برای نمونه: ۱۰"></label>
-    <label>ارز برداشت<input name="withdrawal_currency" value="USD" maxlength="8"></label>
+    <label>ارز برداشت<input name="withdrawal_currency" value="EUR" maxlength="8"></label>
     <label>روش‌های پرداخت (با ویرگول جدا کنید)<input name="payout_methods" placeholder="پی‌پال، انتقال بانکی"></label>
-    <label>نشانی قوانین و شرایط<input name="terms_url" type="url" placeholder="https://example.com/terms"></label>
+    <label>نشانی قوانین و شرایط<input name="terms_url" type="url" placeholder="نشانی کامل صفحهٔ قوانین"></label>
     <label>یادداشت‌ها<textarea name="notes"></textarea></label><button class="primary" type="submit">ذخیرهٔ فرصت</button>
   </form></dialog>
   <dialog id="source-dialog"><form id="source-form" method="dialog"><div class="dialog-head"><h2>افزودن منبع پیشنهادی</h2><button type="button" class="icon-btn" data-close>×</button></div>
     <label>نام منبع<input name="name" required minlength="2" maxlength="160" placeholder="پلتفرم عمومی پاداش"></label>
     <label>نشانی وب‌سایت<input name="url" type="url" required placeholder="https://example.com"></label>
-    <label>دسته‌بندی<input name="category" value="game_rewards" maxlength="40"></label>
+    <label>دسته‌بندی<select name="category"><option value="game_rewards">پاداش بازی</option><option value="survey_rewards">پاداش نظرسنجی</option><option value="microtasks">کارهای کوچک</option><option value="freelance_jobs">کارهای آزاد</option><option value="digital_products">محصولات دیجیتال</option><option value="other">سایر</option></select></label>
     <label>نشانی قوانین و شرایط<input name="terms_url" type="url" placeholder="https://example.com/terms"></label>
     <label>یادداشت‌های مربوط به کشور<textarea name="country_notes" maxlength="1000" placeholder="کشورهای ذکرشده در منبع؛ هنوز تأیید نشده‌اند"></textarea></label>
     <label>یادداشت‌های پرداخت<textarea name="payment_notes" maxlength="1000" placeholder="روش‌های پرداخت اعلام‌شده؛ هنوز تأیید نشده‌اند"></textarea></label>
