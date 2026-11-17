@@ -1665,3 +1665,75 @@ def test_global_emergency_pause_blocks_registered_competition_submission(client,
     )
     assert response.status_code == 423
     assert "emergency pause" in response.json()["detail"].lower()
+
+
+def test_emergency_pause_update_waits_for_inflight_submission_gate(client, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    from types import SimpleNamespace
+    from app import main
+
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    created = client.post("/api/competitions", headers=headers, json={
+        "title": "Open coding contest",
+        "url": "https://contest.example.com/event",
+        "rules_url": "https://contest.example.com/rules",
+        "task_type": "coding",
+        "country": "Germany",
+        "eligibility": "eligible",
+        "terms_verified": True,
+        "automated_agents_allowed": True,
+        "official_api": True,
+    })
+    assert created.status_code == 201
+    competition_id = created.json()["id"]
+    assert client.patch("/api/execution-control", headers=headers,
+                        json={"paused": False, "reason": "test"}).status_code == 200
+
+    adapter_entered = Event()
+    release_adapter = Event()
+    pause_request_reached_update = Event()
+
+    class BlockingAdapter:
+        def get_manifest(self, adapter_id):
+            return SimpleNamespace(allowed_actions=("submit_entry",))
+
+        def submit(self, *args, **kwargs):
+            adapter_entered.set()
+            assert release_adapter.wait(timeout=5)
+            return SimpleNamespace(status="submitted", external_entry_id="entry-1", evidence={})
+
+    monkeypatch.setattr(main, "competition_adapters", BlockingAdapter())
+    original_now = main.now
+
+    def observed_now():
+        pause_request_reached_update.set()
+        return original_now()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        submission = pool.submit(
+            client.post,
+            f"/api/competitions/{competition_id}/submit",
+            headers=headers,
+            json={"adapter_id": "reviewed-adapter", "payload": {"answer": "42"},
+                  "owner_confirmed": True},
+        )
+        assert adapter_entered.wait(timeout=5)
+        monkeypatch.setattr(main, "now", observed_now)
+        pause = pool.submit(
+            client.patch, "/api/execution-control", headers=headers,
+            json={"paused": True, "reason": "Emergency stop"},
+        )
+        assert pause_request_reached_update.wait(timeout=5)
+        assert not pause.done()
+        release_adapter.set()
+        assert submission.result(timeout=5).status_code == 200
+        assert pause.result(timeout=5).status_code == 200
+
+    blocked = client.post(
+        f"/api/competitions/{competition_id}/submit",
+        headers=headers,
+        json={"adapter_id": "reviewed-adapter", "payload": {"answer": "42"},
+              "owner_confirmed": True},
+    )
+    assert blocked.status_code == 423
