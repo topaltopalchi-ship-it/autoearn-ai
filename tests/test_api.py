@@ -1384,3 +1384,52 @@ def test_opportunity_evaluation_requires_explicit_country_payout_support_for_rea
     assert verified.json()["evaluation"]["combined_success_probability_percent"] == 54
     assert verified.json()["evaluation"]["expected_net_reward_estimate"] == 6.48
     assert verified.json()["execution_authorized"] is False
+
+
+def test_discovery_track_assignment_is_persistent_and_category_scoped(client):
+    from app import main
+
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    assert client.get("/api/discovery/tracks?category=games_competitions").status_code == 401
+    assert client.put("/api/discovery/leads/1/track", headers=headers,
+                      json={"track_key": "puzzle_solving"}).status_code == 404
+
+    with main.connect() as db:
+        lead_id = db.execute(
+            """INSERT INTO discovery_leads
+               (source_name, title, url, category, observed_at, created_at, last_seen_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            ("Public feed", "Logic puzzle", "https://example.com/logic",
+             "games_competitions", main.now(), main.now(), main.now()),
+        ).lastrowid
+
+    options = owner_get(client, "/api/discovery/tracks?category=games_competitions")
+    assert options.status_code == 200
+    assert "puzzle_solving" in [item["key"] for item in options.json()]
+
+    assigned = client.put(
+        f"/api/discovery/leads/{lead_id}/track", headers=headers,
+        json={"track_key": "puzzle_solving"},
+    )
+    assert assigned.status_code == 200
+    assert assigned.json()["track_key"] == "puzzle_solving"
+    assert assigned.json()["track_review_status"] == "matched"
+    assert assigned.json()["execution_authorized"] is False
+
+    mismatch = client.put(
+        f"/api/discovery/leads/{lead_id}/track", headers=headers,
+        json={"track_key": "microtasks"},
+    )
+    assert mismatch.status_code == 422
+
+    unassigned = client.put(
+        f"/api/discovery/leads/{lead_id}/track", headers=headers,
+        json={"track_key": ""},
+    )
+    assert unassigned.status_code == 200
+    assert unassigned.json()["track_key"] == ""
+    assert unassigned.json()["track_review_status"] == "needs_review"
+
+    persisted = client.get("/api/discovery/leads", headers=headers).json()
+    saved = next(item for item in persisted if item["id"] == lead_id)
+    assert saved["track_review_status"] == "needs_review"

@@ -29,6 +29,7 @@ from autoearn.competitions import (
 from autoearn.task_suitability import TaskProfile, assess_task_suitability
 from autoearn.ranking import rank_evaluations
 from autoearn.discovery_ranking import prioritize_discovery_leads
+from autoearn.tracks import get_track, tracks_for_category
 
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.getenv("AUTOEARN_DB", ROOT / "autoearn.db"))
@@ -118,7 +119,9 @@ def init_db() -> None:
             created_at TEXT NOT NULL,
             last_seen_at TEXT NOT NULL,
             review_notes TEXT NOT NULL DEFAULT '',
-            opportunity_id INTEGER REFERENCES opportunities(id) ON DELETE SET NULL
+            opportunity_id INTEGER REFERENCES opportunities(id) ON DELETE SET NULL,
+            track_key TEXT NOT NULL DEFAULT '',
+            track_review_status TEXT NOT NULL DEFAULT 'needs_review'
         );
         CREATE TABLE IF NOT EXISTS discovery_research (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -252,6 +255,10 @@ def init_db() -> None:
         for name, definition in migrations.items():
             if name not in columns:
                 db.execute(f"ALTER TABLE opportunities ADD COLUMN {name} {definition}")
+        lead_columns = {row["name"] for row in db.execute("PRAGMA table_info(discovery_leads)")}
+        for name, definition in {"track_key": "TEXT NOT NULL DEFAULT ''", "track_review_status": "TEXT NOT NULL DEFAULT 'needs_review'"}.items():
+            if name not in lead_columns:
+                db.execute(f"ALTER TABLE discovery_leads ADD COLUMN {name} {definition}")
         feed_columns = {row["name"] for row in db.execute("PRAGMA table_info(discovery_feeds)")}
         feed_migrations = {
             "last_success_at": "TEXT",
@@ -392,6 +399,10 @@ class DiscoveryFeedIn(BaseModel):
 class DiscoveryLeadReviewIn(BaseModel):
     status: Literal["pending", "rejected"]
     notes: str = Field(default="", max_length=1000)
+
+
+class DiscoveryTrackAssignmentIn(BaseModel):
+    track_key: str = Field(default="", max_length=80)
 
 
 class DiscoveryResearchIn(BaseModel):
@@ -1164,6 +1175,44 @@ def discover_rss_sources(data: RssDiscoveryIn, actor: str = Depends(require_owne
     return {"adapter_id": data.adapter_id, "discovered_count": len(leads),
             "inserted_count": len(inserted), "duplicate_count": duplicates,
             "candidates": inserted, "review_required": True}
+
+
+@app.get("/api/discovery/tracks")
+def list_discovery_tracks(category: str = Query(min_length=2, max_length=80),
+                          actor: str = Depends(require_owner)):
+    """List only tracks compatible with a lead parent category."""
+    return [{"key": track.key, "label": track.label,
+             "execution_guidance": track.execution_guidance,
+             "priority": track.priority}
+            for track in tracks_for_category(category)]
+
+
+@app.put("/api/discovery/leads/{lead_id}/track")
+def assign_discovery_track(lead_id: int, data: DiscoveryTrackAssignmentIn,
+                           actor: str = Depends(require_owner)):
+    """Persist a reviewed track assignment without approving or executing a lead."""
+    with connect() as db:
+        lead = db.execute("SELECT * FROM discovery_leads WHERE id = ?", (lead_id,)).fetchone()
+        if lead is None:
+            raise HTTPException(404, "Discovery lead not found.")
+        key = data.track_key.strip()
+        if key:
+            track = get_track(key)
+            if track is None:
+                raise HTTPException(422, "Unknown opportunity track.")
+            if track.parent_category != lead["category"]:
+                raise HTTPException(422, "Selected track does not match the lead category.")
+            review_status = "matched"
+        else:
+            review_status = "needs_review"
+        db.execute(
+            "UPDATE discovery_leads SET track_key = ?, track_review_status = ? WHERE id = ?",
+            (key, review_status, lead_id),
+        )
+        result = db.execute("SELECT * FROM discovery_leads WHERE id = ?", (lead_id,)).fetchone()
+    response = row_dict(result)
+    response["execution_authorized"] = False
+    return response
 
 
 @app.get("/api/discovery/leads")
