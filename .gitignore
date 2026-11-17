@@ -7,3 +7,4 @@ venv/
 *.sqlite3
 .DS_Store
 private_evidence/
+backups/
