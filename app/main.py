@@ -396,6 +396,8 @@ class OpportunityEvaluationIn(BaseModel):
     payment_probability: int | None = Field(default=None, ge=0, le=100)
     risk_score: int | None = Field(default=None, ge=0, le=100)
     evidence: list[str] = Field(default_factory=list, max_length=20)
+    # Required for official-API readiness: explicit AI policy and task characteristics.
+    ai_task_profile: dict[str, object] | None = None
 
 
 class TaskSuitabilityIn(BaseModel):
@@ -868,6 +870,35 @@ def evaluate_opportunity(opportunity_id: int, data: OpportunityEvaluationIn,
             evidence=tuple(clean_list(data.evidence, "evidence")),
         )
         evaluation = evaluate_candidate(candidate, data.country)
+        ai_task_assessment = None
+        if data.ai_task_profile is not None:
+            try:
+                task_profile = TaskSuitabilityIn.model_validate(data.ai_task_profile)
+                ai_assessment = assess_task_suitability(
+                    TaskProfile(**task_profile.model_dump())
+                )
+                ai_task_assessment = {
+                    "suitability": ai_assessment.suitability,
+                    "score": ai_assessment.score,
+                    "reasons": list(ai_assessment.reasons),
+                    "permitted_ai_role": ai_assessment.permitted_ai_role,
+                    "execution_authorized": False,
+                }
+            except (ValueError, TypeError) as exc:
+                raise HTTPException(422, f"AI task profile is invalid: {exc}")
+        if data.execution_mode == "official_api":
+            if ai_task_assessment is None:
+                evaluation["execution_allowed"] = False
+                evaluation["risk_flags"].append(
+                    "AI task profile and explicit AI permission are required for official-API readiness"
+                )
+            elif ai_task_assessment["suitability"] != "ai_draft_candidate":
+                evaluation["execution_allowed"] = False
+                evaluation["risk_flags"].append(
+                    "AI task suitability is not cleared for bounded draft preparation"
+                )
+        evaluation["ai_task_assessment"] = ai_task_assessment
+        evaluation["execution_authorized"] = False
         threshold_currency_mismatch = (
             opportunity["minimum_withdrawal_amount"] is not None
             and opportunity["withdrawal_currency"].upper() != data.reward_currency.upper()
@@ -905,7 +936,8 @@ def evaluate_opportunity(opportunity_id: int, data: OpportunityEvaluationIn,
         "source_status": source["status"],
         "opportunity_status": opportunity["status"],
         "evaluation": evaluation,
-        "execution_note": "This is a readiness assessment only; no external platform action is executed.",
+        "execution_authorized": False,
+        "execution_note": "This is a readiness assessment only; AI may prepare a bounded draft only when explicitly permitted and suitable. Human review and owner confirmation are still required; no external platform action is executed.",
     }
 
 
