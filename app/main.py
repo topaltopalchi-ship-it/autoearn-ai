@@ -316,7 +316,7 @@ def health():
 
 
 @app.get("/api/opportunities")
-def list_opportunities(status: str | None = None, verification_status: Literal["pending", "verified", "rejected"] | None = None, q: str | None = Query(default=None, max_length=100)):
+def list_opportunities(status: str | None = None, verification_status: Literal["pending", "verified", "rejected"] | None = None, q: str | None = Query(default=None, max_length=100), actor: str = Depends(require_owner)):
     sql, params = "SELECT * FROM opportunities", []
     clauses = []
     if status:
@@ -390,7 +390,7 @@ def create_opportunity(data: OpportunityIn, actor: str = Depends(require_owner))
 
 
 @app.get("/api/sources")
-def list_sources(status: Literal["pending", "approved", "rejected"] | None = None):
+def list_sources(status: Literal["pending", "approved", "rejected"] | None = None, actor: str = Depends(require_owner)):
     sql = "SELECT * FROM sources"
     params = ()
     if status:
