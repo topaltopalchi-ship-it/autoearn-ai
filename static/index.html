@@ -9,7 +9,7 @@
 </head>
 <body>
   <aside class="sidebar">
-    <div class="brand"><span class="brand-mark">A</span><div><b>AutoEarn</b><small>فضای کاری هوشمند</small></div></div>
+    <div class="brand"><span class="brand-mark">A</span><div><b>اتوایرن</b><small>فضای کاری هوشمند</small></div></div>
     <nav><a class="active" href="#overview">◫ &nbsp; نمای کلی</a><a href="#opportunities">◎ &nbsp; فرصت‌های درآمدزایی</a><a href="#sources">⌕ &nbsp; بررسی منابع</a><a href="#tasks">▣ &nbsp; کارهای تحت نظارت</a><a href="#rewards">◇ &nbsp; درآمدها</a></nav>
     <div class="sidebar-note"><b>کنترل همیشه دست شماست</b><p>پیش از هرگونه مشارکت، قوانین هر پلتفرم را بررسی و هر کار را شخصاً تأیید کنید.</p></div>
   </aside>
@@ -19,11 +19,11 @@
       <article><span>فرصت‌های درآمدزایی</span><strong id="stat-opps">0</strong><small>پلتفرم‌های پیگیری‌شده</small></article>
       <article><span>کارهای ثبت‌شده</span><strong id="stat-tasks">0</strong><small>فرایندهای تحت نظارت</small></article>
       <article><span>نیازمند تأیید شما</span><strong id="stat-approval">0</strong><small>هیچ کاری بدون اجازهٔ شما انجام نمی‌شود</small></article>
-      <article><span>درآمدها paid</span><strong id="stat-paid">$0.00</strong><small id="stat-pending">در انتظار: $0.00</small></article>
+      <article><span>درآمد پرداخت‌شده</span><strong id="stat-paid">$0.00</strong><small id="stat-pending">در انتظار: $0.00</small></article>
     </section>
     <section class="panel" id="opportunities">
       <div class="section-head"><div><span class="eyebrow">کشف و بررسی دقیق</span><h2>فرصت‌های درآمدزایی</h2></div><button class="primary" id="add-opportunity">+ افزودن فرصت</button></div>
-      <div class="toolbar"><input id="search" placeholder="جست‌وجوی پلتفرم یا فرصت…"><select id="filter"><option value="">همهٔ وضعیت‌ها</option><option>discovered</option><option>reviewing</option><option>eligible</option><option>ineligible</option><option>archived</option></select><select id="verification-filter"><option value="">همهٔ وضعیت‌های بررسی</option><option value="pending">در انتظار تأیید</option><option value="verified">تأییدشده</option><option value="rejected">ردشده</option></select></div>
+      <div class="toolbar"><input id="search" placeholder="جست‌وجوی پلتفرم یا فرصت…"><select id="filter"><option value="">همهٔ وضعیت‌ها</option><option value="discovered">کشف‌شده</option><option value="reviewing">در حال بررسی</option><option value="eligible">مجاز</option><option value="ineligible">غیرمجاز</option><option value="archived">بایگانی‌شده</option></select><select id="verification-filter"><option value="">همهٔ وضعیت‌های بررسی</option><option value="pending">در انتظار تأیید</option><option value="verified">تأییدشده</option><option value="rejected">ردشده</option></select></div>
       <div id="opportunity-list" class="empty">هنوز فرصتی ثبت نشده است. پلتفرمی را برای ارزیابی اضافه کنید.</div>
     </section>
     <section class="panel" id="sources">
@@ -43,14 +43,14 @@
   </main>
   <dialog id="opportunity-dialog"><form id="opportunity-form" method="dialog"><div class="dialog-head"><h2>افزودن فرصت</h2><button type="button" class="icon-btn" data-close>×</button></div>
     <label>عنوان فرصت<input name="title" required minlength="2" placeholder="چالش روزانهٔ معما"></label>
-    <label>نام پلتفرم<input name="platform" required placeholder="نام پلتفرم name"></label>
+    <label>نام پلتفرم<input name="platform" required placeholder="نام پلتفرم"></label>
     <label>نشانی وب‌سایت<input name="url" type="url" required placeholder="https://example.com"></label>
     <label>دسته‌بندی<select name="category"><option value="games_competitions">بازی‌ها / مسابقه‌ها</option><option value="surveys_microtasks">نظرسنجی / کارهای کوچک</option><option value="freelancing_services">فریلنسری / خدمات</option><option value="ai_content_products">محتوای هوش مصنوعی / محصولات دیجیتال</option><option value="other">سایر فرصت‌های بررسی‌شده</option></select></label>
     <label>پاداش اعلام‌شده<textarea name="reward_description" placeholder="پاداش اعلام‌شده را شرح دهید؛ آن را قطعی و تضمین‌شده فرض نکنید."></textarea></label>
     <label>شرایط مشارکت / محدودیت‌های کشور<textarea name="eligibility"></textarea></label>
     <label>کشورهای مجاز (با ویرگول جدا کنید)<input name="eligible_countries" placeholder="آلمان، فرانسه"></label>
     <label>کشورهای غیرمجاز (با ویرگول جدا کنید)<input name="excluded_countries" placeholder="ایالات متحده"></label>
-    <label>حداقل مبلغ برداشت<input name="minimum_withdrawal_amount" type="number" min="0" step="0.01" placeholder="e.g. 10"></label>
+    <label>حداقل مبلغ برداشت<input name="minimum_withdrawal_amount" type="number" min="0" step="0.01" placeholder="برای نمونه: ۱۰"></label>
     <label>ارز برداشت<input name="withdrawal_currency" value="USD" maxlength="8"></label>
     <label>روش‌های پرداخت (با ویرگول جدا کنید)<input name="payout_methods" placeholder="پی‌پال، انتقال بانکی"></label>
     <label>نشانی قوانین و شرایط<input name="terms_url" type="url" placeholder="https://example.com/terms"></label>
@@ -71,7 +71,7 @@
     <label>منبع بررسی‌شده<select name="source_id" id="evaluation-source" required></select></label>
     <label>کشور محل اقامت شما<input name="country" required minlength="2" maxlength="80" placeholder="کشور خود را وارد کنید"></label>
     <label>روش مشارکت<select name="execution_mode"><option value="manual">دستی</option><option value="assist">با کمک دستیار</option><option value="official_api">رابط رسمی برنامه‌نویسی (فقط در صورت اجازهٔ پلتفرم)</option></select></label>
-    <label>پاداش اعلام‌شده amount<input name="reward_amount" type="number" min="0" step="0.01" placeholder="اگر خالی باشد، نامشخص است"></label>
+    <label>مبلغ پاداش اعلام‌شده<input name="reward_amount" type="number" min="0" step="0.01" placeholder="اگر خالی باشد، نامشخص است"></label>
     <label>ارز پاداش<input name="reward_currency" value="EUR" maxlength="8" required></label>
     <label>هزینه‌های تخمینی<input name="estimated_cost" type="number" min="0" step="0.01" value="0"></label>
     <label>زمان تخمینی به دقیقه<input name="estimated_minutes" type="number" min="1" placeholder="اگر خالی باشد، نامشخص است"></label>
@@ -84,7 +84,7 @@
     <label>فرصت<select name="opportunity_id" id="reward-opportunity"><option value="">بدون پیوند به فرصت</option></select></label>
     <label>مبلغ<input name="amount" type="number" min="0" step="0.01" required></label>
     <label>واحد پول<input name="currency" value="USD" maxlength="8" required></label>
-    <label>وضعیت<select name="status"><option>pending</option><option>confirmed</option><option>paid</option><option>rejected</option></select></label>
+    <label>وضعیت<select name="status"><option value="pending">در انتظار</option><option value="confirmed">تأییدشده</option><option value="paid">پرداخت‌شده</option><option value="rejected">ردشده</option></select></label>
     <label>شناسه / یادداشت<input name="reference"></label><button class="primary" type="submit">ذخیرهٔ درآمد</button>
   </form></dialog>
   <div id="toast" role="status"></div>
