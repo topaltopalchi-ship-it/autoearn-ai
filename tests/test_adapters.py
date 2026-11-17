@@ -164,6 +164,32 @@ def test_broad_category_lead_is_flagged_for_track_review():
     assert source.track_review_status == "needs_review"
 
 
+def test_unique_track_keywords_are_inferred():
+    lead = DiscoveredLead(
+        title="Solve this logic puzzle",
+        url="https://example.com/puzzle",
+        category="games_competitions",
+        source_name="Demo",
+        observed_at="2026-11-17T10:00:00+00:00",
+    )
+    source = source_candidate_from_lead(lead)
+    assert source.track_key == "puzzle_solving"
+    assert source.track_review_status == "matched"
+
+
+def test_ambiguous_track_keywords_remain_for_manual_review():
+    lead = DiscoveredLead(
+        title="Puzzle and IQ test challenge",
+        url="https://example.com/mixed",
+        category="games_competitions",
+        source_name="Demo",
+        observed_at="2026-11-17T10:00:00+00:00",
+    )
+    source = source_candidate_from_lead(lead)
+    assert source.track_key == ""
+    assert source.track_review_status == "needs_review"
+
+
 def test_explicit_valid_track_is_preserved_as_matched():
     lead = DiscoveredLead(
         title="Puzzle challenge",

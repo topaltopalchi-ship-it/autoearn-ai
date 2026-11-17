@@ -14,7 +14,7 @@ import re
 
 from .discovery import SourceCandidate
 from .opportunities import normalize_url
-from .tracks import get_track, track_matches_category, tracks_for_category
+from .tracks import get_track, infer_track_from_text, track_matches_category, tracks_for_category
 
 Category = Literal[
     "games_competitions",
@@ -156,6 +156,7 @@ class AdapterRegistry:
 
 def source_candidate_from_lead(lead: DiscoveredLead) -> SourceCandidate:
     """Convert a lead to pending source metadata; never auto-approve it."""
+    inferred_track = lead.track_key or infer_track_from_text(lead.title, lead.summary, lead.category)
     return SourceCandidate(
         name=lead.source_name,
         url=lead.url,
@@ -165,6 +166,6 @@ def source_candidate_from_lead(lead: DiscoveredLead) -> SourceCandidate:
         payment_notes=lead.summary,
         status="pending",
         discovered_at=lead.observed_at,
-        track_key=lead.track_key,
-        track_review_status="matched" if lead.track_key else "needs_review",
+        track_key=inferred_track,
+        track_review_status="matched" if inferred_track else "needs_review",
     )

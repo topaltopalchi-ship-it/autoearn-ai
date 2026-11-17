@@ -1167,6 +1167,9 @@ def discover_rss_sources(data: RssDiscoveryIn, actor: str = Depends(require_owne
                 continue
             try:
                 track_key = str(getattr(lead, "track_key", "") or "").strip()
+                if not track_key:
+                    from autoearn.tracks import infer_track_from_text
+                    track_key = infer_track_from_text(lead.title, lead.summary, lead.category)
                 track_review_status = "matched" if track_key else "needs_review"
                 cursor = db.execute(
                     """INSERT INTO discovery_leads
