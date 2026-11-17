@@ -1,0 +1,43 @@
+version: 2.1
+
+jobs:
+  python-tests:
+    docker:
+      - image: cimg/python:3.10
+    resource_class: small
+    working_directory: ~/project
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: |
+            python --version
+            python -m pip install --disable-pip-version-check --no-cache-dir -r requirements.txt
+      - run:
+          name: Check dependency consistency
+          command: python -m pip check
+      - run:
+          name: Check Python syntax
+          command: python -m compileall -q app autoearn tests
+      - run:
+          name: Run test suite
+          command: python -m pytest -q --tb=short
+
+  dashboard-js:
+    docker:
+      - image: cimg/node:22.0
+    resource_class: small
+    working_directory: ~/project
+    steps:
+      - checkout
+      - run:
+          name: Check dashboard JavaScript syntax
+          command: |
+            node --version
+            node --check static/app.js
+
+workflows:
+  autoearn-checks:
+    jobs:
+      - python-tests
+      - dashboard-js
