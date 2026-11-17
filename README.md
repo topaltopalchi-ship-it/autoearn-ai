@@ -91,10 +91,17 @@ The owner-only endpoints cover opportunity/source intake, source approval/reject
 
 ### Owner-only private records
 
-Task creation/approval/completion, reward-ledger writes and reads, and dashboard totals now require the owner token. The same owner authentication applies to source review, opportunity status/verification, and supervised action routes. Public health and public opportunity/source listings remain read-only. Configure `AUTOEARN_OWNER_TOKEN` before using the protected workspace.
+Task creation/approval/completion, reward-ledger writes and reads, dashboard totals, and opportunity/source listings require the owner token. The same owner authentication applies to source intake/review, opportunity creation/status/verification, and supervised action routes. Only the health endpoint and static application shell are public. Configure `AUTOEARN_OWNER_TOKEN` before using the protected workspace.
 
 The web workspace now includes an owner-token field (kept in the current browser session only) and a **Discover RSS feed** action. Enter the exact feed and listing hostnames in the allowlist prompt. Discovered listings are added to Source candidates as pending; they still require manual review. The owner token must also be configured on the server as `AUTOEARN_OWNER_TOKEN`.
 
 ### Opportunity evaluation API
 
 The owner-only `POST /api/opportunities/{id}/evaluate` endpoint combines the opportunity's verified country list and verification timestamp with an approved source from the same hostname. The owner supplies their country, evidence checked, reward/cost/time estimates, payment probability, risk score, and intended mode. The response includes eligibility (`eligible`, `ineligible`, or `unknown`), confidence, ranking score, estimated net reward/hour, and risk flags. The dashboard includes the same evaluation form. These are evidence-based estimates, not proof of payment; even when the readiness gate is true, no external action is performed.
+
+
+## Web app and deployment
+
+The Persian dashboard is an installable Progressive Web App (PWA). Serve it over HTTPS, open the service URL in Android Chrome, enter the owner token, and use Chrome's **Add to Home screen / Install app** action. The service worker caches only the static application shell; API data and all operations still require a live authenticated server connection.
+
+A Dockerfile and Render Blueprint are provided for a persistent web deployment. Review the paid instance and persistent-disk costs before deploying; the free web-service tier is not suitable for this SQLite persistence configuration. See [deployment instructions](docs/DEPLOYMENT.md).
