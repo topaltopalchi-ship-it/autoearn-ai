@@ -41,3 +41,7 @@ The API dashboard completeness score is normalized to 0–100 from three recorde
 ## Safety boundaries
 
 AutoEarn AI is an assisted decision-support tool. Website discovery and analysis must respect site terms, robots policies, privacy, and applicable law. The product will not automate gameplay, clicks, ad views, referrals, spam, or other activity intended to manipulate reward systems.
+
+## Product direction: multi-category autonomous agent
+
+The target product covers prize competitions, surveys/microtasks, freelancing/digital services, AI-assisted content/digital products, and additional categories after review. It is being developed as a supervised agent: discover and evaluate opportunities, rank by eligibility and realistic net return, then participate only through permitted official integrations. Sensitive actions require user approval. See [the autonomous-agent roadmap](docs/AUTONOMOUS_AGENT_ROADMAP.md) for the operating loop, safety contract, and phased delivery plan.
