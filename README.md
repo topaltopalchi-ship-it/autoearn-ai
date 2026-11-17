@@ -98,3 +98,8 @@ The web workspace now includes an owner-token field (kept in the current browser
 ### Opportunity evaluation API
 
 The owner-only `POST /api/opportunities/{id}/evaluate` endpoint combines the opportunity's verified country list and verification timestamp with an approved source from the same hostname. The owner supplies their country, evidence checked, reward/cost/time estimates, payment probability, risk score, and intended mode. The response includes eligibility (`eligible`, `ineligible`, or `unknown`), confidence, ranking score, estimated net reward/hour, and risk flags. The dashboard includes the same evaluation form. These are evidence-based estimates, not proof of payment; even when the readiness gate is true, no external action is performed.
+
+
+### Focused discovery tracks
+
+The discovery taxonomy now prioritizes game playtesting, puzzle solving, and IQ/reasoning tasks, followed by skill competitions, bug testing, software QA, AI data tasks, microtasks, and freelance projects. Each track maps to one parent adapter category and declares conservative execution guidance (`human_required`, `assist_if_permitted`, or `official_api_only`). These labels are routing hints, not proof of country eligibility, payout availability, or permission to automate. Every source remains subject to terms, country, payout, and human-review gates.
