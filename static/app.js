@@ -8,10 +8,11 @@ const api = async (path, options={}) => {
 const money = (n,c="USD") => new Intl.NumberFormat(undefined,{style:"currency",currency:c}).format(n);
 function toast(message){const el=$("toast");el.textContent=message;el.classList.add("show");setTimeout(()=>el.classList.remove("show"),2600)}
 function esc(s=""){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-let opportunities=[];\nlet sources=[];
+let opportunities=[];
+let sources=[];
 async function refresh(){
-  const [dash,opps,tasks,rewards]=await Promise.all([api("/api/dashboard"),api("/api/opportunities"),api("/api/tasks"),api("/api/rewards")]);
-  opportunities=opps;
+  const [dash,opps,tasks,rewards,sourceRows]=await Promise.all([api("/api/dashboard"),api("/api/opportunities"),api("/api/tasks"),api("/api/rewards"),api("/api/sources")]);
+  opportunities=opps;sources=sourceRows;
   $("stat-opps").textContent=dash.opportunities;$("stat-tasks").textContent=dash.tasks;
   $("stat-approval").textContent=dash.awaiting_approval;$("stat-paid").textContent=money(dash.paid_total);
   $("stat-pending").textContent="Pending: "+money(dash.pending_total);
@@ -46,7 +47,8 @@ function renderTasks(tasks){$("task-list").innerHTML=tasks.length?tasks.map(t=>`
 }
 function renderRewards(rows){$("reward-list").innerHTML=rows.length?rows.map(r=>`<div class="item"><div><h3>${money(r.amount,r.currency)} <span class="pill">${esc(r.status)}</span></h3><p>${esc(r.opportunity_title||"Unlinked reward")} · ${esc(r.reference)}</p></div></div>`).join(""):'<div class="empty">No rewards recorded.</div>'}
 function fillRewardOptions(){$("reward-opportunity").innerHTML='<option value="">Not linked</option>'+opportunities.map(o=>'<option value="'+o.id+'">'+esc(o.title)+'</option>').join("")}
-$("add-opportunity").onclick=()=>$("opportunity-dialog").showModal();\n$("add-source").onclick=()=>$("source-dialog").showModal();
+$("add-opportunity").onclick=()=>$("opportunity-dialog").showModal();
+$("add-source").onclick=()=>$("source-dialog").showModal();
 $("add-reward").onclick=()=>$("reward-dialog").showModal();
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>b.closest("dialog").close());
 $("opportunity-form").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));for(const key of ["eligible_countries","excluded_countries","payout_methods"])data[key]=String(data[key]||"").split(",").map(x=>x.trim()).filter(Boolean);data.minimum_withdrawal_amount=data.minimum_withdrawal_amount===""?null:Number(data.minimum_withdrawal_amount);try{await api("/api/opportunities",{method:"POST",body:JSON.stringify(data)});e.target.closest("dialog").close();e.target.reset();toast("Opportunity saved");refresh()}catch(err){toast(err.message)}};
