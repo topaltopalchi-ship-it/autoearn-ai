@@ -16,15 +16,17 @@ jobs:
     steps:
       - name: Checkout selected branch
         uses: actions/checkout@v4
+      - name: Create isolated Python environment
+        run: python3 -m venv .venv
       - name: Install dependencies
         run: |
-          python3 -m pip install --upgrade pip
-          python3 -m pip install -r requirements.txt
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -r requirements.txt
       - name: Check dependency consistency
-        run: python3 -m pip check
+        run: .venv/bin/python -m pip check
       - name: Check Python syntax
-        run: python3 -m compileall -q app autoearn tests
+        run: .venv/bin/python -m compileall -q app autoearn tests
       - name: Check dashboard JavaScript syntax
         run: node --check static/app.js
       - name: Run test suite
-        run: python3 -m pytest -vv --tb=long
+        run: .venv/bin/python -m pytest -vv --tb=long
