@@ -906,7 +906,9 @@ def create_discovery_feed(data: DiscoveryFeedIn, actor: str = Depends(require_ow
             raise HTTPException(409, "This discovery feed is already registered.")
         row = db.execute("SELECT * FROM discovery_feeds WHERE id = ?",
                          (cursor.lastrowid,)).fetchone()
-        return row_dict(row)
+        item = row_dict(row)
+        item["allowed_domains"] = json.loads(item["allowed_domains"] or "[]")
+        return item
 
 
 @app.get("/api/discovery/feeds")
