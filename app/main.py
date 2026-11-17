@@ -94,6 +94,8 @@ def init_db() -> None:
             created_at TEXT NOT NULL,
             reviewed_at TEXT,
             last_checked_at TEXT,
+            last_success_at TEXT,
+            consecutive_failures INTEGER NOT NULL DEFAULT 0,
             last_error TEXT NOT NULL DEFAULT ''
         );
         CREATE TABLE IF NOT EXISTS discovery_leads (
@@ -226,6 +228,14 @@ def init_db() -> None:
         for name, definition in migrations.items():
             if name not in columns:
                 db.execute(f"ALTER TABLE opportunities ADD COLUMN {name} {definition}")
+        feed_columns = {row["name"] for row in db.execute("PRAGMA table_info(discovery_feeds)")}
+        feed_migrations = {
+            "last_success_at": "TEXT",
+            "consecutive_failures": "INTEGER NOT NULL DEFAULT 0",
+        }
+        for name, definition in feed_migrations.items():
+            if name not in feed_columns:
+                db.execute(f"ALTER TABLE discovery_feeds ADD COLUMN {name} {definition}")
 
 
 async def _discovery_scheduler_loop() -> None:
@@ -1150,8 +1160,8 @@ def _run_approved_discovery_batch():
                     except sqlite3.IntegrityError:
                         feed_duplicates += 1
                 db.execute(
-                    "UPDATE discovery_feeds SET last_checked_at = ?, last_error = '' WHERE id = ?",
-                    (now(), feed_id),
+                    "UPDATE discovery_feeds SET last_checked_at = ?, last_success_at = ?, consecutive_failures = 0, last_error = '' WHERE id = ?",
+                    (now(), now(), feed_id),
                 )
             successful_feeds += 1
             inserted_count += feed_inserted
@@ -1165,7 +1175,7 @@ def _run_approved_discovery_batch():
             message = str(exc)[:500]
             with connect() as db:
                 db.execute(
-                    "UPDATE discovery_feeds SET last_checked_at = ?, last_error = ? WHERE id = ?",
+                    "UPDATE discovery_feeds SET last_checked_at = ?, consecutive_failures = consecutive_failures + 1, last_error = ? WHERE id = ?",
                     (now(), message, feed_id),
                 )
             feed_results.append({
@@ -1248,6 +1258,58 @@ def _run_discovery_if_due() -> bool:
         return _run_discovery_once(force=False) is not None
     except Exception:
         return False
+
+
+@app.get("/api/discovery/health")
+def get_discovery_health(actor: str = Depends(require_owner)):
+    """Summarize approved-feed reliability without fetching any external URL."""
+    current = datetime.now(timezone.utc)
+    with connect() as db:
+        feeds = db.execute(
+            """SELECT id, name, feed_url, status, last_checked_at, last_success_at,
+                      consecutive_failures, last_error
+               FROM discovery_feeds ORDER BY status DESC, name COLLATE NOCASE"""
+        ).fetchall()
+        interval = db.execute(
+            "SELECT interval_minutes FROM discovery_scheduler WHERE id = 1"
+        ).fetchone()
+    stale_after = max(120, (interval["interval_minutes"] if interval else 360) * 2)
+    items = []
+    counts = {"approved": 0, "healthy": 0, "error": 0, "stale": 0, "never_checked": 0,
+              "pending_review": 0, "rejected": 0}
+    for feed in feeds:
+        status = feed["status"]
+        if status != "approved":
+            counts["pending_review" if status == "pending" else "rejected"] += 1
+            health = "not_active"
+        else:
+            counts["approved"] += 1
+            checked = feed["last_checked_at"]
+            if not checked:
+                health = "never_checked"
+            elif feed["last_error"]:
+                health = "error"
+            else:
+                try:
+                    checked_at = datetime.fromisoformat(checked)
+                    if checked_at.tzinfo is None:
+                        checked_at = checked_at.replace(tzinfo=timezone.utc)
+                    age_minutes = (current - checked_at).total_seconds() / 60
+                    health = "stale" if age_minutes > stale_after else "healthy"
+                except ValueError:
+                    health = "stale"
+            if health in counts:
+                counts[health] += 1
+        items.append({
+            "id": feed["id"], "name": feed["name"], "url": feed["feed_url"],
+            "review_status": status, "health": health,
+            "last_checked_at": feed["last_checked_at"],
+            "last_success_at": feed["last_success_at"],
+            "consecutive_failures": feed["consecutive_failures"],
+            "last_error": feed["last_error"],
+        })
+    return {"checked_at": current.isoformat(), "stale_after_minutes": stale_after,
+            "counts": counts, "feeds": items}
 
 
 @app.get("/api/discovery/scheduler")
