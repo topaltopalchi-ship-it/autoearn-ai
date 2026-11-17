@@ -17,9 +17,11 @@ def _age_days(value: str) -> int | None:
         if stamp.tzinfo is None:
             stamp = stamp.replace(tzinfo=timezone.utc)
         age_seconds = (datetime.now(timezone.utc) - stamp.astimezone(timezone.utc)).total_seconds()
-        if age_seconds < -86400:
+        # Any future timestamp is invalid for freshness, including clock skew
+        # smaller than one day. Never award freshness points to future data.
+        if age_seconds < 0:
             return None
-        return max(0, int(age_seconds // 86400))
+        return int(age_seconds // 86400)
     except (TypeError, ValueError):
         return None
 
