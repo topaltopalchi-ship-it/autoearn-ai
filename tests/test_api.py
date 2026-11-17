@@ -1816,3 +1816,21 @@ def test_concurrent_earning_state_transitions_are_serialized(client, monkeypatch
         f"/api/earnings/{item['id']}/history", headers=headers
     ).json()
     assert [event["to_state"] for event in history][-2:] == ["withdrawable", "pending"]
+
+
+def test_all_api_routes_except_health_require_owner_authentication():
+    from app import main
+
+    public_api_paths = {"/api/health"}
+    protected = [
+        route for route in main.app.routes
+        if getattr(route, "path", "").startswith("/api/")
+        and route.path not in public_api_paths
+        and hasattr(route, "dependant")
+    ]
+    assert protected
+    for route in protected:
+        dependency_calls = {dependency.call for dependency in route.dependant.dependencies}
+        assert main.require_owner in dependency_calls, (
+            f"{route.path} is missing owner authentication"
+        )
