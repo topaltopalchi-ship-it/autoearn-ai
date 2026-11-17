@@ -84,7 +84,7 @@ Country eligibility and platform payout support do not prove that this particula
 - A persistent, owner-controlled global emergency pause. It defaults to paused, is visible in the dashboard, and blocks competition submission before an adapter is called.
 
 **Still required before supervised execution is release-ready**
-- Durable per-adapter rate limiting across multiple application workers and a persisted retry/backoff queue. The competition submission registry currently enforces a thread-safe rolling-minute limit in one process only.
+- Durable per-adapter rolling-minute rate limiting across multiple application workers is now persisted in SQLite; failed adapter attempts also consume the reserved window and are recorded in the competition audit history. Durable automatic retry remains intentionally disabled for non-idempotent submissions; ambiguous outcomes require owner verification before any manual retry.
 - Per-source disable controls (approved feeds can already be moved to rejected/inactive status) and a complete pause check around every future external-action adapter, not just the competition submission route.
 - Browser security response headers (CSP, frame denial, MIME sniffing protection, referrer and permissions policies) are implemented; independent security review of approval/session handling and deployment configuration remains required.
 - At least one platform-specific adapter with written permission, official API scopes, sandbox tests, and a documented rollback procedure. No adapter is installed by default, so real platform execution remains unavailable.
