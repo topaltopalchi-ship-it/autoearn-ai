@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from autoearn.discovery_ranking import prioritize_discovery_leads
 
 
@@ -11,7 +13,7 @@ def lead(**overrides):
         "feed_status": "approved",
         "total_checks": 10,
         "total_successes": 9,
-        "last_seen_at": "2099-01-01T00:00:00+00:00",
+        "last_seen_at": datetime.now(timezone.utc).isoformat(),
     }
     item.update(overrides)
     return item
@@ -47,4 +49,9 @@ def test_country_payout_and_ai_permissions_remain_unknown():
 
 def test_old_leads_are_not_awarded_freshness_points():
     result = prioritize_discovery_leads([lead(last_seen_at="2000-01-01T00:00:00+00:00")])
+    assert result["items"][0]["research_priority_score"] == 90
+
+
+def test_future_dated_leads_are_not_awarded_freshness_points():
+    result = prioritize_discovery_leads([lead(last_seen_at="2099-01-01T00:00:00+00:00")])
     assert result["items"][0]["research_priority_score"] == 90
