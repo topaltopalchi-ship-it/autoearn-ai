@@ -146,6 +146,20 @@ def evaluate_candidate(
     if candidate.risk_score is None:
         flags.append("risk assessment is missing")
 
+    # Determine whether the estimated net reward clears the withdrawal
+    # threshold before using that result in the execution gate.
+    withdrawal_reachable = None
+    if candidate.reward_amount is not None and candidate.minimum_withdrawal_amount is not None:
+        gross_after_cost = max(0.0, candidate.reward_amount - candidate.estimated_cost)
+        estimated_net = max(
+            0.0,
+            gross_after_cost
+            - candidate.payout_fee_fixed
+            - gross_after_cost * candidate.payout_fee_percent / 100
+            - gross_after_cost * candidate.conversion_fee_percent / 100,
+        )
+        withdrawal_reachable = round(estimated_net, 2) >= candidate.minimum_withdrawal_amount
+
     execution_allowed = (
         eligibility == "eligible"
         and not stale
@@ -177,8 +191,7 @@ def evaluate_candidate(
     ))
     confidence = round(confidence_inputs / 9 * 100)
 
-    net_reward = None
-    hourly_net = None
+    net_reward = None    hourly_net = None
     withdrawal_reachable = None
     if candidate.reward_amount is not None:
         gross_after_cost = max(0.0, candidate.reward_amount - candidate.estimated_cost)
