@@ -217,7 +217,8 @@ def test_opportunity_records_region_and_payout_requirements(client):
     assert listed[0]["payout_methods"] == ["PayPal", "Bank transfer"]
 
 
-def test_opportunity_defaults_region_and_payout_fields(client):    response = client.post("/api/opportunities", headers={"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}, json={
+def test_opportunity_defaults_region_and_payout_fields(client):
+    response = client.post("/api/opportunities", headers={"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}, json={
         "title": "Basic source", "platform": "Example",
         "url": "https://example.com/basic",
     })
@@ -710,7 +711,8 @@ def test_earnings_ledger_blocks_invalid_transitions_and_paid_mutation(client):
     client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
         json={"state": "pending"})
     client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
-        json={"state": "withdrawable"})    client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
+        json={"state": "withdrawable"})
+    client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
         json={"state": "paid"})
     terminal = client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
         json={"state": "pending"})
