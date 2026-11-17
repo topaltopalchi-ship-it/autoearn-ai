@@ -1472,3 +1472,35 @@ def test_discovery_lease_fencing_prevents_stale_worker_releasing_new_lease(clien
     assert state["lease_until"] is None
     assert state["last_result"]["inserted_count"] == 7
     assert state["last_error"] == ""
+
+
+
+def test_discovery_scheduler_migrates_existing_database_with_legacy_lease_schema(tmp_path, monkeypatch):
+    import sqlite3
+    from app import main
+
+    legacy_db = tmp_path / "legacy.db"
+    with sqlite3.connect(legacy_db) as db:
+        db.execute(
+            """CREATE TABLE discovery_scheduler (
+                id INTEGER PRIMARY KEY CHECK(id = 1),
+                enabled INTEGER NOT NULL DEFAULT 1,
+                interval_minutes INTEGER NOT NULL DEFAULT 360,
+                lease_until TEXT,
+                last_started_at TEXT,
+                last_completed_at TEXT,
+                last_result_json TEXT NOT NULL DEFAULT '{}',
+                last_error TEXT NOT NULL DEFAULT ''
+            )"""
+        )
+        db.execute(
+            "INSERT INTO discovery_scheduler (id, enabled, interval_minutes) VALUES (1, 1, 360)"
+        )
+
+    monkeypatch.setattr(main, "DB_PATH", legacy_db)
+    main.init_db()
+    with main.connect() as db:
+        columns = {row["name"] for row in db.execute("PRAGMA table_info(discovery_scheduler)")}
+        state = db.execute("SELECT lease_token FROM discovery_scheduler WHERE id = 1").fetchone()
+    assert "lease_token" in columns
+    assert state["lease_token"] == ""
