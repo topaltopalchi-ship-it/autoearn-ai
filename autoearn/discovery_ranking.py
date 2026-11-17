@@ -101,7 +101,7 @@ def prioritize_discovery_leads(records: list[dict[str, Any]]) -> dict[str, Any]:
             readiness_score = 0
         elif payout_status == "unavailable":
             participation_readiness = "blocked_payout"
-            readiness_rank = 2
+            readiness_rank = 3
             readiness_score = 0
         elif country_status == "verified" and payout_status == "verified":
             participation_readiness = "country_and_payout_verified"

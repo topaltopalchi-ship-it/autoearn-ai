@@ -92,5 +92,6 @@ def test_blocked_country_or_unavailable_payout_is_demoted():
     result = prioritize_discovery_leads([blocked_country, unavailable_payout, unknown])
     assert result["items"][0]["id"] == 1
     assert result["items"][1]["participation_readiness"] == "blocked_country"
+    assert result["items"][1]["participation_readiness_rank"] < result["items"][2]["participation_readiness_rank"]
     assert result["items"][2]["participation_readiness"] == "blocked_payout"
     assert all(item["execution_authorized"] is False for item in result["items"])
