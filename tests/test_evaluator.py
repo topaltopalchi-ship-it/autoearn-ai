@@ -134,6 +134,23 @@ def test_candidate_rejects_invalid_probability_and_negative_cost():
         complete_candidate(estimated_cost=-1)
 
 
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("reward_amount", float("nan")),
+        ("reward_amount", float("inf")),
+        ("estimated_cost", float("nan")),
+        ("payout_fee_fixed", float("inf")),
+        ("payout_fee_percent", float("nan")),
+        ("conversion_fee_percent", float("inf")),
+        ("minimum_withdrawal_amount", float("nan")),
+    ],
+)
+def test_non_finite_money_values_are_rejected(field, value):
+    with pytest.raises(ValueError, match=field):
+        complete_candidate(**{field: value})
+
+
 def test_unknown_execution_mode_is_rejected():
     with pytest.raises(ValueError, match="execution mode"):
         complete_candidate(execution_mode="browser_bot")
