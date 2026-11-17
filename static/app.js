@@ -227,7 +227,8 @@ async function assignDiscoveryTrack(leadId,category){
   }catch(error){toast(error.message)}
 }
 async function editDiscoveryResearch(leadId){
-  const country="Iran";
+  const country=$("rank-country").value.trim();
+  if(country.length<2){toast("ابتدا کشور هدف را وارد کنید");return;}
   const path="/api/discovery/leads/"+leadId+"/research";
   try{
     const current=await api(path+"?country="+encodeURIComponent(country));
