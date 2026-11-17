@@ -66,3 +66,7 @@ The target product covers prize competitions, surveys/microtasks, freelancing/di
 ### Human-supervised action lifecycle
 
 The core `SupervisionQueue` models action requests, explicit human approval/rejection, cancellation, completion evidence, and an audit-event trail. Requests are rejected unless the opportunity is eligible, the source has been approved, and supporting evidence is fresh. Even sensitive actions (applications, accepting terms, publishing, sharing personal data, spending, and withdrawals) remain pending until a human approves them. This module is a state machine only: it does not execute platform actions and is not yet wired to public API routes or durable storage. Do not expose approval controls publicly until authentication, authorization, persistence, and CSRF protections are implemented.
+
+### Durable supervision and audit storage
+
+`SQLiteSupervisionStore` persists supervised action requests and audit events across process restarts. It enforces eligible opportunity + approved source + fresh evidence at creation, human-attributed approval/rejection, approval before completion, completion evidence, and terminal-state transition rules. Audit rows are append-only through this API. This store is not exposed through HTTP routes yet: the existing API currently lacks authentication/authorization, so publishing approval endpoints would allow unauthenticated users to approve actions. Wire it to authenticated owner-only routes only after identity, access control, CSRF protection, and deployment secrets are in place.
