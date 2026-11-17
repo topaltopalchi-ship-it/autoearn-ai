@@ -101,7 +101,7 @@ $("add-opportunity").onclick=()=>$("opportunity-dialog").showModal();
 $("add-source").onclick=()=>$("source-dialog").showModal();
 $("save-owner-token").onclick=()=>{const value=$("owner-token").value.trim();if(!value){sessionStorage.removeItem("autoearn_owner_token");toast("رمز مالک برای این نشست پاک شد");return}sessionStorage.setItem("autoearn_owner_token",value);toast("رمز مالک برای این نشست ذخیره شد");refresh().catch(e=>toast(e.message))};
 $("discover-rss").onclick=async()=>{
-  const feed_url=prompt("نشانی فهرست عمومی RSS/Atom با HTTPS:");
+  const feed_url=prompt("نشانی فهرست خبرخوان عمومی با اتصال امن:");
   if(!feed_url)return;
   const domains=prompt("نام دقیق دامنه‌های مجاز، جداشده با ویرگول (دامنهٔ فهرست و آگهی‌ها را وارد کنید):");
   if(!domains)return;
