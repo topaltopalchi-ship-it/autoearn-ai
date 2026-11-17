@@ -52,7 +52,7 @@ def test_discovered_item_must_stay_on_allowlisted_domain():
 
 def test_feed_size_and_xml_are_validated():
     with pytest.raises(ValueError, match="1 MB"):
-        adapter(fetcher=lambda url: b"x" * (1_000_001,)).discover()
+        adapter(fetcher=lambda url: b"x" * 1_000_001).discover()
     with pytest.raises(ValueError, match="XML"):
         adapter(fetcher=lambda url: b"<rss").discover()
 
