@@ -22,6 +22,7 @@ def record(opportunity_id, title, currency, score, *, eligibility="eligible",
             "eligibility": eligibility,
             "evidence_stale": stale,
             "execution_allowed": execution,
+            "payout_route_configured": True,
             "risk_flags": flags or [],
         },
     }
@@ -127,6 +128,7 @@ def test_financial_ranking_uses_verified_expected_net_hourly_within_currency():
     best["evaluation"].update({
         "expected_net_hourly_estimate": 18.5,
         "payout_supported": True,
+        "payout_route_configured": True,
         "withdrawal_status": "immediately_reachable",
     })
     lower = record(2, "Lower expected return", "EUR", 95)
@@ -156,6 +158,7 @@ def test_financial_ranking_accepts_accumulation_only_when_explicitly_confirmed()
     candidate["evaluation"].update({
         "expected_net_hourly_estimate": 4.0,
         "payout_supported": True,
+        "payout_route_configured": True,
         "withdrawal_status": "requires_accumulation",
         "supports_balance_accumulation": True,
     })
@@ -208,3 +211,15 @@ def test_blocked_country_or_research_never_outranks_verified_candidate():
     items = rank_evaluations([blocked, verified])["groups"][0]["items"]
     assert items[0]["title"] == "Verified candidate"
     assert items[1]["title"] == "Blocked candidate"
+
+
+def test_financial_ranking_requires_an_owner_configured_payout_route():
+    candidate = record(1, "Country supports payout, owner route missing", "EUR", 95)
+    candidate["evaluation"].update({
+        "expected_net_hourly_estimate": 50.0,
+        "payout_supported": True,
+        "payout_route_configured": False,
+        "withdrawal_status": "immediately_reachable",
+    })
+    item = rank_evaluations([candidate])["groups"][0]["items"][0]
+    assert item["financial_readiness"] == "needs_financial_verification"

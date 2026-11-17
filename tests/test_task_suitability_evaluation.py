@@ -68,6 +68,7 @@ def _evaluate_official_api(client, headers, opp, src, ai_task_profile_marker=...
         "acceptance_probability": 95,
         "payout_reliability": 95,
         "payout_supported": True,
+        "payout_route_configured": True,
         "risk_score": 5,
         "evidence": ["Official terms and payout details reviewed"],
     }

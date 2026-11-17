@@ -26,6 +26,7 @@ def complete_candidate(**overrides):
         "acceptance_probability": 100,
         "payout_reliability": 100,
         "payout_supported": True,
+        "payout_route_configured": True,
         "risk_score": 10,
         "evidence": ("Official terms page checked",),
     }
@@ -329,3 +330,21 @@ def test_below_threshold_without_accumulation_support_remains_blocked():
     )
     assert result["withdrawal_status"] == "below_minimum_withdrawal"
     assert result["execution_allowed"] is False
+
+
+@pytest.mark.parametrize("route_configured", [None, False])
+def test_unconfigured_owner_payout_route_blocks_execution(route_configured):
+    result = evaluate_candidate(
+        complete_candidate(payout_route_configured=route_configured), "Germany", now=NOW
+    )
+    assert result["execution_allowed"] is False
+    assert result["payout_route_configured"] is route_configured
+    assert "the owner has not configured a usable payout method" in result["risk_flags"]
+
+
+def test_explicitly_configured_owner_payout_route_can_pass_route_gate():
+    result = evaluate_candidate(
+        complete_candidate(payout_route_configured=True), "Germany", now=NOW
+    )
+    assert result["payout_route_configured"] is True
+    assert result["execution_allowed"] is True
