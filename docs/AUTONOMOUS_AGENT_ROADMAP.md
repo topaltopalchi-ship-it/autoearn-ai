@@ -114,3 +114,8 @@ Country eligibility and platform payout support do not prove that this particula
 ## Initial focused discovery tracks
 
 The first discovery priorities are game playtesting, puzzle solving, and IQ/reasoning tasks, followed by skill competitions, bug testing, software QA, AI data tasks, microtasks, and freelance projects. The code registry in `autoearn/tracks.py` maps each track to its parent adapter category and conservative execution guidance. Playtesting and software QA remain human-required; skill competitions require an official API and explicit platform permission; AI assistance is conditional on each task's terms. Track priority never overrides country eligibility, payout verification, source review, or the supervision gates above.
+
+
+## Verified submission audit hardening
+
+Competition submissions now commit a write-ahead `submitting` audit record before invoking a non-idempotent official API adapter. This preserves an unresolved attempt if the process stops during the remote call. Ambiguous attempts require owner verification and are never automatically retried.
