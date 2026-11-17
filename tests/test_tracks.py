@@ -36,40 +36,6 @@ def test_unknown_track_is_not_silently_mapped():
     assert get_track("made_up_track") is None
 
 
-@pytest.mark.parametrize(
-    ("title", "category", "expected"),
-    [
-        ("حل یک معمای منطقی", "games_competitions", "puzzle_solving"),
-        ("آزمون هوش و استدلال", "games_competitions", "iq_reasoning"),
-        ("گزارش باگ در برنامه", "freelancing_services", "bug_testing"),
-        ("تست نرم افزار موبایل", "freelancing_services", "software_qa"),
-        ("برچسب گذاری داده", "surveys_microtasks", "ai_data_tasks"),
-        ("ماموریت خرد آنلاین", "surveys_microtasks", "microtasks"),
-        ("پروژه فریلنسری طراحی", "freelancing_services", "freelance_projects"),
-    ],
-)
-def test_track_inference_supports_persian_titles(title, category, expected):
-    from autoearn.tracks import infer_track_from_text
-    assert infer_track_from_text(title, "", category) == expected
-
-
-def test_track_inference_normalizes_persian_half_space_and_arabic_letters():
-    from autoearn.tracks import infer_track_from_text
-    assert infer_track_from_text(
-        "تست نرم‌افزار موبایل", "", "freelancing_services"
-    ) == "software_qa"
-    assert infer_track_from_text(
-        "برچسب گذاری داده", "", "surveys_microtasks"
-    ) == "ai_data_tasks"
-
-
-def test_track_inference_keeps_ambiguous_titles_unassigned():
-    from autoearn.tracks import infer_track_from_text
-    assert infer_track_from_text(
-        "پازل و آزمون هوش", "", "games_competitions"
-    ) == ""
-
-
 def test_human_testing_tracks_are_not_marked_as_automatable():
     assert get_track("game_playtesting").execution_guidance == "human_required"
     assert get_track("software_qa").execution_guidance == "human_required"

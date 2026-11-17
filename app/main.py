@@ -30,7 +30,7 @@ from autoearn.competitions import (
 from autoearn.task_suitability import TaskProfile, assess_task_suitability
 from autoearn.ranking import rank_evaluations
 from autoearn.discovery_ranking import prioritize_discovery_leads
-from autoearn.tracks import get_track, tracks_for_category
+from autoearn.tracks import get_track, infer_track_from_text, track_matches_category, tracks_for_category
 
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.getenv("AUTOEARN_DB", ROOT / "autoearn.db"))
@@ -1167,8 +1167,9 @@ def discover_rss_sources(data: RssDiscoveryIn, actor: str = Depends(require_owne
                 continue
             try:
                 track_key = str(getattr(lead, "track_key", "") or "").strip()
+                if track_key and not track_matches_category(track_key, lead.category):
+                    track_key = ""
                 if not track_key:
-                    from autoearn.tracks import infer_track_from_text
                     track_key = infer_track_from_text(lead.title, lead.summary, lead.category)
                 track_review_status = "matched" if track_key else "needs_review"
                 cursor = db.execute(

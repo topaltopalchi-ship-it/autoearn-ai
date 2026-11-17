@@ -440,6 +440,15 @@ def test_rss_discovery_persists_only_pending_candidates_and_deduplicates(
                     summary="Duplicate",
                     observed_at="2026-11-17T00:00:00+00:00",
                 ),
+                SimpleNamespace(
+                    title="Unclassified opportunity",
+                    url="https://tasks.example.com/listing/2",
+                    category="surveys_microtasks",
+                    terms_url="",
+                    summary="No reliable category clues",
+                    observed_at="2026-11-17T00:00:00+00:00",
+                    track_key="game_playtesting",
+                ),
             ]
 
     monkeypatch.setattr(main, "PublicRssAdapter", FakeRssAdapter)
@@ -453,8 +462,8 @@ def test_rss_discovery_persists_only_pending_candidates_and_deduplicates(
         })
     assert response.status_code == 200
     result = response.json()
-    assert result["discovered_count"] == 2
-    assert result["inserted_count"] == 1
+    assert result["discovered_count"] == 3
+    assert result["inserted_count"] == 2
     assert result["duplicate_count"] == 1
     assert result["review_required"] is True
     candidates = owner_get(client, "/api/discovery/leads?status=pending").json()
@@ -464,6 +473,9 @@ def test_rss_discovery_persists_only_pending_candidates_and_deduplicates(
     assert candidates[0]["status"] == "pending"
     assert candidates[0]["track_key"] == "microtasks"
     assert candidates[0]["track_review_status"] == "matched"
+    assert candidates[1]["title"] == "Unclassified opportunity"
+    assert candidates[1]["track_key"] == ""
+    assert candidates[1]["track_review_status"] == "needs_review"
 
 
 def test_task_approval_and_reward_ledger_are_owner_only(client):
