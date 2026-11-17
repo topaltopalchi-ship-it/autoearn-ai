@@ -120,3 +120,39 @@ def test_candidate_rejects_invalid_probability_and_negative_cost():
 def test_unknown_execution_mode_is_rejected():
     with pytest.raises(ValueError, match="execution mode"):
         complete_candidate(execution_mode="browser_bot")
+
+
+def test_net_reward_deducts_payout_and_conversion_fees():
+    result = evaluate_candidate(
+        complete_candidate(payout_fee_fixed=0.50, payout_fee_percent=5,
+                           conversion_fee_percent=2),
+        "Germany", now=NOW,
+    )
+    # 12 reward - 2 cost = 10; fees: 0.50 + 0.50 + 0.20.
+    assert result["net_reward_estimate"] == 8.8
+    assert result["payout_fee_estimate"] == 1.0
+    assert result["conversion_fee_estimate"] == 0.2
+
+
+def test_minimum_withdrawal_threshold_blocks_execution_below_threshold():
+    result = evaluate_candidate(
+        complete_candidate(minimum_withdrawal_amount=10),
+        "Germany", now=NOW,
+    )
+    assert result["net_reward_estimate"] == 10.0
+    assert result["withdrawal_reachable_estimate"] is True
+    assert result["execution_allowed"] is True
+
+    blocked = evaluate_candidate(
+        complete_candidate(minimum_withdrawal_amount=10.01),
+        "Germany", now=NOW,
+    )
+    assert blocked["withdrawal_reachable_estimate"] is False
+    assert blocked["execution_allowed"] is False
+    assert "estimated net reward is below the minimum withdrawal threshold" in blocked["risk_flags"]
+
+
+def test_invalid_payout_fee_is_rejected():
+    import pytest
+    with pytest.raises(ValueError, match="payout_fee_percent"):
+        complete_candidate(payout_fee_percent=101)
