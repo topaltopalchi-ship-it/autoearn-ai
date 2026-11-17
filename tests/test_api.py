@@ -456,9 +456,9 @@ def test_rss_discovery_persists_only_pending_candidates_and_deduplicates(
     assert result["inserted_count"] == 1
     assert result["duplicate_count"] == 1
     assert result["review_required"] is True
-    candidates = owner_get(client, "/api/sources?status=pending").json()
+    candidates = owner_get(client, "/api/discovery/leads?status=pending").json()
     assert len(candidates) == 1
-    assert candidates[0]["name"] == "Paid survey listing"
+    assert candidates[0]["title"] == "Paid survey listing"
     assert candidates[0]["category"] == "surveys_microtasks"
     assert candidates[0]["status"] == "pending"
 
@@ -778,6 +778,7 @@ def test_rss_discovery_skips_opportunities_already_in_catalog(client, monkeypatc
     assert result["inserted_count"] == 0
     assert result["duplicate_count"] == 1
     assert owner_get(client, "/api/sources").json() == []
+    assert owner_get(client, "/api/discovery/leads").json() == []
 def test_competition_agent_plans_and_dry_runs_without_external_submission(client):
     headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
     payload = {
