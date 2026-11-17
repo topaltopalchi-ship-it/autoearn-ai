@@ -348,3 +348,20 @@ def test_wrong_owner_token_is_rejected(client):
     response = client.get("/api/supervision/actions",
         headers={"X-AutoEarn-Owner-Token": "wrong"})
     assert response.status_code == 401
+
+
+def test_owner_routes_fail_closed_when_secret_is_not_configured(client, monkeypatch):
+    from app import main
+    monkeypatch.setattr(main, "OWNER_TOKEN", "")
+    response = client.get("/api/supervision/actions",
+        headers={"X-AutoEarn-Owner-Token": "test-owner-secret"})
+    assert response.status_code == 503
+
+
+def test_source_review_cannot_be_changed_without_owner_auth(client):
+    source = client.post("/api/sources", json={
+        "name": "Unreviewed source", "url": "https://example.com/no-owner"
+    }).json()
+    response = client.patch(f"/api/sources/{source['id']}/review",
+        json={"status": "approved", "notes": "unauthorized"})
+    assert response.status_code == 401
