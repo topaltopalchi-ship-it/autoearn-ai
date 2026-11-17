@@ -1090,15 +1090,20 @@ def test_discovery_health_is_owner_only_and_reports_feed_state(client):
                             json={"status": "approved"})
     assert approved.status_code == 200
     with main.connect() as db:
-        db.execute("UPDATE discovery_feeds SET last_checked_at = ?, last_success_at = ?, consecutive_failures = 0, last_error = '' WHERE id = ?",
+        db.execute("UPDATE discovery_feeds SET last_checked_at = ?, last_success_at = ?, consecutive_failures = 0, total_checks = 4, total_successes = 3, last_error = '' WHERE id = ?",
                    (main.now(), main.now(), feed_id))
     healthy = client.get("/api/discovery/health", headers=headers).json()
     assert healthy["counts"]["healthy"] == 1
     assert healthy["feeds"][0]["last_success_at"] is not None
+    assert healthy["feeds"][0]["total_checks"] == 4
+    assert healthy["feeds"][0]["total_successes"] == 3
+    assert healthy["feeds"][0]["reliability_percent"] == 75.0
+    assert healthy["feeds"][0]["reliability_sample"] == "limited"
     with main.connect() as db:
-        db.execute("UPDATE discovery_feeds SET last_checked_at = ?, consecutive_failures = 2, last_error = 'timeout' WHERE id = ?",
+        db.execute("UPDATE discovery_feeds SET last_checked_at = ?, consecutive_failures = 2, total_checks = 5, total_successes = 3, last_error = 'timeout' WHERE id = ?",
                    (main.now(), feed_id))
     failed = client.get("/api/discovery/health", headers=headers).json()
     assert failed["counts"]["error"] == 1
     assert failed["feeds"][0]["consecutive_failures"] == 2
     assert failed["feeds"][0]["last_error"] == "timeout"
+    assert failed["feeds"][0]["reliability_percent"] == 60.0
