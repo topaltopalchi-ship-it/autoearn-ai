@@ -121,7 +121,7 @@ def evaluate_candidate(
             if current.tzinfo is None:
                 current = current.replace(tzinfo=timezone.utc)
             age_days = (current - observed).total_seconds() / 86400
-            if age_days < -1:
+            if age_days < 0:
                 stale = True
                 flags.append("evidence timestamp is in the future")
             elif age_days > max_evidence_age_days:
