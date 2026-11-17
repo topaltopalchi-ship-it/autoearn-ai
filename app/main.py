@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import hmac
 import sqlite3
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from dataclasses import asdict
 from pathlib import Path
 from typing import Literal
@@ -111,6 +112,18 @@ def init_db() -> None:
             review_notes TEXT NOT NULL DEFAULT '',
             opportunity_id INTEGER REFERENCES opportunities(id) ON DELETE SET NULL
         );
+        CREATE TABLE IF NOT EXISTS discovery_scheduler (
+            id INTEGER PRIMARY KEY CHECK(id = 1),
+            enabled INTEGER NOT NULL DEFAULT 1,
+            interval_minutes INTEGER NOT NULL DEFAULT 360,
+            lease_until TEXT,
+            last_started_at TEXT,
+            last_completed_at TEXT,
+            last_result_json TEXT NOT NULL DEFAULT '{}',
+            last_error TEXT NOT NULL DEFAULT ''
+        );
+        INSERT OR IGNORE INTO discovery_scheduler (id, enabled, interval_minutes)
+            VALUES (1, 1, 360);
         CREATE TABLE IF NOT EXISTS tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             opportunity_id INTEGER NOT NULL REFERENCES opportunities(id) ON DELETE CASCADE,
@@ -215,10 +228,29 @@ def init_db() -> None:
                 db.execute(f"ALTER TABLE opportunities ADD COLUMN {name} {definition}")
 
 
+async def _discovery_scheduler_loop() -> None:
+    """Poll the durable scheduler; SQLite leases prevent duplicate workers."""
+    while True:
+        await asyncio.sleep(30)
+        try:
+            await asyncio.to_thread(_run_discovery_if_due)
+        except Exception:
+            # The durable scheduler row records failures; never kill the app loop.
+            continue
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_db()
-    yield
+    scheduler_task = asyncio.create_task(_discovery_scheduler_loop())
+    try:
+        yield
+    finally:
+        scheduler_task.cancel()
+        try:
+            await scheduler_task
+        except asyncio.CancelledError:
+            pass
 
 
 app = FastAPI(
@@ -328,6 +360,11 @@ class DiscoveryLeadReviewIn(BaseModel):
 
 class DiscoveryFeedReviewIn(BaseModel):
     status: Literal["pending", "approved", "rejected"]
+
+
+class DiscoverySchedulerUpdateIn(BaseModel):
+    enabled: bool
+    interval_minutes: int = Field(default=360, ge=60, le=1440)
 
 
 class OpportunityEvaluationIn(BaseModel):
@@ -1061,8 +1098,7 @@ def review_discovery_feed(feed_id: int, data: DiscoveryFeedReviewIn,
         return item
 
 
-@app.post("/api/discovery/run")
-def run_approved_discovery(actor: str = Depends(require_owner)):
+def _run_approved_discovery_batch():
     with connect() as db:
         feeds = db.execute(
             """SELECT * FROM discovery_feeds WHERE status = 'approved'
@@ -1144,6 +1180,135 @@ def run_approved_discovery(actor: str = Depends(require_owner)):
         "review_required": True,
         "note": "All discovered items remain pending for owner review; no platform action was taken.",
     }
+
+
+
+def _acquire_discovery_lease(*, force: bool = False) -> bool:
+    current = datetime.now(timezone.utc)
+    with connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        state = db.execute("SELECT * FROM discovery_scheduler WHERE id = 1").fetchone()
+        if state is None:
+            db.execute(
+                "INSERT INTO discovery_scheduler (id, enabled, interval_minutes) VALUES (1, 1, 360)"
+            )
+            state = db.execute("SELECT * FROM discovery_scheduler WHERE id = 1").fetchone()
+        lease_until = state["lease_until"]
+        if lease_until:
+            try:
+                if datetime.fromisoformat(lease_until) > current:
+                    return False
+            except ValueError:
+                pass
+        if not force:
+            if not state["enabled"]:
+                return False
+            if state["last_completed_at"]:
+                try:
+                    completed = datetime.fromisoformat(state["last_completed_at"])
+                    if completed.tzinfo is None:
+                        completed = completed.replace(tzinfo=timezone.utc)
+                    if current - completed < timedelta(minutes=state["interval_minutes"]):
+                        return False
+                except ValueError:
+                    pass
+        lease = (current + timedelta(minutes=30)).isoformat()
+        db.execute(
+            "UPDATE discovery_scheduler SET lease_until = ?, last_started_at = ?, last_error = '' WHERE id = 1",
+            (lease, current.isoformat()),
+        )
+    return True
+
+
+def _finish_discovery_lease(result: dict | None = None, error: str = "") -> None:
+    with connect() as db:
+        db.execute(
+            """UPDATE discovery_scheduler
+               SET lease_until = NULL, last_completed_at = ?,
+                   last_result_json = ?, last_error = ?
+               WHERE id = 1""",
+            (now(), json.dumps(result or {}, ensure_ascii=False), error[:500]),
+        )
+
+
+def _run_discovery_once(*, force: bool = False) -> dict | None:
+    if not _acquire_discovery_lease(force=force):
+        return None
+    try:
+        result = _run_approved_discovery_batch()
+        _finish_discovery_lease(result=result)
+        return result
+    except Exception as exc:
+        _finish_discovery_lease(error=str(exc))
+        raise
+
+
+def _run_discovery_if_due() -> bool:
+    try:
+        return _run_discovery_once(force=False) is not None
+    except Exception:
+        return False
+
+
+@app.get("/api/discovery/scheduler")
+def get_discovery_scheduler(actor: str = Depends(require_owner)):
+    with connect() as db:
+        state = db.execute("SELECT * FROM discovery_scheduler WHERE id = 1").fetchone()
+        approved = db.execute(
+            "SELECT COUNT(*) AS count FROM discovery_feeds WHERE status = 'approved'"
+        ).fetchone()["count"]
+    if state is None:
+        raise HTTPException(503, "Discovery scheduler is not initialized.")
+    interval = state["interval_minutes"]
+    next_run = None
+    if state["enabled"]:
+        if state["last_completed_at"]:
+            try:
+                completed = datetime.fromisoformat(state["last_completed_at"])
+                if completed.tzinfo is None:
+                    completed = completed.replace(tzinfo=timezone.utc)
+                next_run = (completed + timedelta(minutes=interval)).isoformat()
+            except ValueError:
+                next_run = now()
+        else:
+            next_run = now()
+    try:
+        last_result = json.loads(state["last_result_json"] or "{}")
+    except json.JSONDecodeError:
+        last_result = {}
+    return {
+        "enabled": bool(state["enabled"]),
+        "interval_minutes": interval,
+        "approved_feed_count": approved,
+        "lease_until": state["lease_until"],
+        "last_started_at": state["last_started_at"],
+        "last_completed_at": state["last_completed_at"],
+        "last_result": last_result,
+        "last_error": state["last_error"],
+        "next_run_at": next_run,
+    }
+
+
+@app.patch("/api/discovery/scheduler")
+def update_discovery_scheduler(data: DiscoverySchedulerUpdateIn,
+                               actor: str = Depends(require_owner)):
+    with connect() as db:
+        db.execute(
+            "UPDATE discovery_scheduler SET enabled = ?, interval_minutes = ? WHERE id = 1",
+            (1 if data.enabled else 0, data.interval_minutes),
+        )
+    return get_discovery_scheduler(actor)
+
+
+@app.post("/api/discovery/run")
+def run_approved_discovery(actor: str = Depends(require_owner)):
+    try:
+        result = _run_discovery_once(force=True)
+    except Exception as exc:
+        raise HTTPException(502, f"Discovery run failed: {str(exc)[:300]}")
+    if result is None:
+        raise HTTPException(409, "A discovery scan is already running; try again shortly.")
+    return result
 
 
 @app.post("/api/supervision/actions", status_code=201)
