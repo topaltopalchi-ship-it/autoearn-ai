@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field, HttpUrl
 from autoearn.opportunities import normalize_url
 from autoearn.supervision_store import SQLiteSupervisionStore
 from autoearn.supervision import SupervisionError
+from autoearn.rss import PublicRssAdapter
 
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.getenv("AUTOEARN_DB", ROOT / "autoearn.db"))
@@ -186,6 +187,14 @@ class ActionDecisionIn(BaseModel):
 
 class ActionCompletionIn(BaseModel):
     evidence: str = Field(min_length=3, max_length=1000)
+
+class RssDiscoveryIn(BaseModel):
+    adapter_id: str = Field(min_length=2, max_length=80)
+    display_name: str = Field(min_length=2, max_length=120)
+    feed_url: HttpUrl
+    category: Literal["games_competitions", "surveys_microtasks", "freelancing_services", "ai_content_products", "other"]
+    allowed_domains: list[str] = Field(min_length=1, max_length=20)
+    max_items: int = Field(default=30, ge=1, le=100)
 
 
 def require_owner(x_autoearn_owner_token: str | None = Header(default=None)):
@@ -453,6 +462,42 @@ def create_reward(data: RewardIn):
             VALUES (?, ?, ?, ?, ?, ?)
         """, (data.opportunity_id, data.amount, data.currency.upper(), data.status, data.reference, now()))
         return row_dict(db.execute("SELECT * FROM rewards WHERE id = ?", (cur.lastrowid,)).fetchone())
+
+
+@app.post("/api/discovery/rss", status_code=200)
+def discover_rss_sources(data: RssDiscoveryIn, actor: str = Depends(require_owner)):
+    try:
+        adapter = PublicRssAdapter(
+            adapter_id=data.adapter_id,
+            display_name=data.display_name,
+            feed_url=str(data.feed_url),
+            category=data.category,
+            allowed_domains=tuple(domain.strip().casefold() for domain in data.allowed_domains),
+            max_items=data.max_items,
+        )
+        leads = adapter.discover()
+    except (ValueError, OSError) as exc:
+        raise HTTPException(422, f"RSS discovery rejected: {exc}")
+    inserted = []
+    duplicates = 0
+    with connect() as db:
+        for lead in leads:
+            try:
+                cursor = db.execute(
+                    """INSERT INTO sources
+                       (name, url, category, terms_url, country_notes, payment_notes,
+                        status, discovered_at, review_notes)
+                       VALUES (?, ?, ?, ?, '', ?, 'pending', ?, '')""",
+                    (lead.title[:160], normalize_url(lead.url), lead.category,
+                     lead.terms_url, lead.summary[:1000], lead.observed_at),
+                )
+                inserted.append({"id": cursor.lastrowid, "title": lead.title, "url": lead.url,
+                                 "category": lead.category, "status": "pending"})
+            except sqlite3.IntegrityError:
+                duplicates += 1
+    return {"adapter_id": data.adapter_id, "discovered_count": len(leads),
+            "inserted_count": len(inserted), "duplicate_count": duplicates,
+            "candidates": inserted, "review_required": True}
 
 
 @app.post("/api/supervision/actions", status_code=201)
