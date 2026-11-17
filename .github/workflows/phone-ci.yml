@@ -60,8 +60,9 @@ jobs:
       - name: Audit pinned dependencies for known vulnerabilities
         if: matrix.python-version == '3.12'
         run: |
-          .venv/bin/python -m pip install pip-audit
+          .venv/bin/python -m pip install pip-audit bandit
           .venv/bin/pip-audit -r requirements.txt
+          .venv/bin/bandit -q -r app autoearn scripts -ll
       - name: Check Python syntax
         run: .venv/bin/python -m compileall -q app autoearn tests scripts
       - name: Check dashboard JavaScript syntax
