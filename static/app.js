@@ -1,6 +1,9 @@
 const $ = (id) => document.getElementById(id);
+const ownerToken = () => sessionStorage.getItem("autoearn_owner_token") || "";
 const api = async (path, options={}) => {
-  const response = await fetch(path, {headers:{"Content-Type":"application/json"}, ...options});
+  const headers = {"Content-Type":"application/json", ...(options.headers || {})};
+  if (ownerToken()) headers["X-AutoEarn-Owner-Token"] = ownerToken();
+  const response = await fetch(path, {...options, headers});
   const body = await response.json().catch(()=>({detail:"Unexpected server response"}));
   if (!response.ok) throw new Error(body.detail || "Request failed");
   return body;
@@ -49,6 +52,23 @@ function renderRewards(rows){$("reward-list").innerHTML=rows.length?rows.map(r=>
 function fillRewardOptions(){$("reward-opportunity").innerHTML='<option value="">Not linked</option>'+opportunities.map(o=>'<option value="'+o.id+'">'+esc(o.title)+'</option>').join("")}
 $("add-opportunity").onclick=()=>$("opportunity-dialog").showModal();
 $("add-source").onclick=()=>$("source-dialog").showModal();
+$("save-owner-token").onclick=()=>{const value=$("owner-token").value.trim();if(!value){sessionStorage.removeItem("autoearn_owner_token");toast("Owner token cleared for this session");return}sessionStorage.setItem("autoearn_owner_token",value);toast("Owner token saved for this session");refresh().catch(e=>toast(e.message))};
+$("discover-rss").onclick=async()=>{
+  const feed_url=prompt("Public HTTPS RSS/Atom feed URL:");
+  if(!feed_url)return;
+  const domains=prompt("Exact allowed hostnames, comma-separated (include feed and listing hosts):");
+  if(!domains)return;
+  const category=prompt("Category: games_competitions, surveys_microtasks, freelancing_services, ai_content_products, other","surveys_microtasks");
+  if(!category)return;
+  try{
+    const result=await api("/api/discovery/rss",{method:"POST",body:JSON.stringify({
+      adapter_id:"manual-rss-"+Date.now(),display_name:"RSS feed: "+feed_url,
+      feed_url,category,allowed_domains:domains.split(",").map(x=>x.trim()).filter(Boolean)
+    })});
+    toast("Found "+result.discovered_count+" listings; saved "+result.inserted_count+" pending candidates");
+    refresh();
+  }catch(e){toast(e.message)}
+};
 $("add-reward").onclick=()=>$("reward-dialog").showModal();
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>b.closest("dialog").close());
 $("opportunity-form").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));for(const key of ["eligible_countries","excluded_countries","payout_methods"])data[key]=String(data[key]||"").split(",").map(x=>x.trim()).filter(Boolean);data.minimum_withdrawal_amount=data.minimum_withdrawal_amount===""?null:Number(data.minimum_withdrawal_amount);try{await api("/api/opportunities",{method:"POST",body:JSON.stringify(data)});e.target.closest("dialog").close();e.target.reset();toast("Opportunity saved");refresh()}catch(err){toast(err.message)}};
