@@ -11,6 +11,7 @@ const api = async (path, options={}) => {
 const statusFa = (v) => ({game_rewards:"پاداش بازی",survey_rewards:"پاداش نظرسنجی",microtasks:"کارهای کوچک",freelance_jobs:"کارهای آزاد",digital_products:"محصولات دیجیتال",discovered:"کشف‌شده",reviewing:"در حال بررسی",eligible:"مجاز",ineligible:"غیرمجاز",archived:"بایگانی‌شده",pending:"در انتظار",approved:"تأییدشده",rejected:"ردشده",verified:"تأییدشده",pending_approval:"در انتظار تأیید",confirmed:"تأییدشده",paid:"پرداخت‌شده",estimated:"تخمینی",earned:"کسب‌شده",withdrawable:"قابل برداشت",manual:"دستی",assist:"با کمک دستیار",official_api:"رابط رسمی برنامه‌نویسی",games_competitions:"بازی و مسابقه",surveys_microtasks:"نظرسنجی و کارهای کوچک",freelancing_services:"فریلنسری و خدمات",ai_content_products:"محتوای هوش مصنوعی و محصولات دیجیتال",other:"سایر","unknown":"نامشخص"})[v]||"نامشخص";
 const currencyFa = (c) => ({EUR:"یورو",USD:"دلار آمریکا",GBP:"پوند",TRY:"لیر",IRR:"ریال",CAD:"دلار کانادا",AUD:"دلار استرالیا"})[String(c||"").toUpperCase()] || "واحد پول";
 const money = (n,c="EUR") => new Intl.NumberFormat("fa-IR",{maximumFractionDigits:2}).format(Number(n||0))+" "+currencyFa(c);
+function ledgerTotals(groups,states){const values=Object.entries(groups||{}).map(([currency,items])=>{const total=states.reduce((sum,state)=>sum+Number(items[state]||0),0);return total?money(total,currency):null}).filter(Boolean);return values.join(" · ")||money(0,"EUR")}
 const riskFlagFa = (v) => ({
   "country explicitly excluded":"کشور محل اقامت شما صریحاً در فهرست کشورهای غیرمجاز قرار دارد",
   "country not in the explicit eligible-country list":"کشور محل اقامت شما در فهرست کشورهای مجاز ثبت نشده است",
@@ -37,8 +38,8 @@ async function refresh(){
   const [dash,opps,tasks,earnings,sourceRows]=await Promise.all([api("/api/dashboard"),api("/api/opportunities"),api("/api/tasks"),api("/api/earnings"),api("/api/sources")]);
   opportunities=opps;sources=sourceRows;
   $("stat-opps").textContent=dash.opportunities;$("stat-tasks").textContent=dash.tasks;
-  $("stat-approval").textContent=dash.awaiting_approval;$("stat-paid").textContent=money(dash.paid_total);
-  $("stat-pending").textContent="در انتظار: "+money(dash.pending_total);
+  $("stat-approval").textContent=dash.awaiting_approval;$("stat-paid").textContent=ledgerTotals(dash.earnings_totals,["paid"]);
+  $("stat-pending").textContent="در جریان: "+ledgerTotals(dash.earnings_totals,["estimated","earned","pending","withdrawable"]);
   renderOpportunities();renderSources();renderTasks(tasks);renderEarnings(earnings);fillRewardOptions();
 }
 function renderOpportunities(){
