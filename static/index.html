@@ -65,6 +65,21 @@
     <label>Payment notes<textarea name="payment_notes" maxlength="1000" placeholder="Advertised payout methods; not yet verified"></textarea></label>
     <button class="primary" type="submit">Save for review</button>
   </form></dialog>
+
+  <dialog id="evaluation-dialog"><form id="evaluation-form" method="dialog"><div class="dialog-head"><h2>Evaluate opportunity</h2><button type="button" class="icon-btn" data-close>×</button></div>
+    <input type="hidden" name="opportunity_id">
+    <label>Reviewed source<select name="source_id" id="evaluation-source" required></select></label>
+    <label>Your country<input name="country" required minlength="2" maxlength="80" placeholder="Enter your country"></label>
+    <label>Participation mode<select name="execution_mode"><option value="manual">Manual</option><option value="assist">Assisted</option><option value="official_api">Official API (only if platform permits)</option></select></label>
+    <label>Advertised reward amount<input name="reward_amount" type="number" min="0" step="0.01" placeholder="Unknown if blank"></label>
+    <label>Reward currency<input name="reward_currency" value="EUR" maxlength="8" required></label>
+    <label>Estimated costs<input name="estimated_cost" type="number" min="0" step="0.01" value="0"></label>
+    <label>Estimated minutes<input name="estimated_minutes" type="number" min="1" placeholder="Unknown if blank"></label>
+    <label>Estimated payment probability (%)<input name="payment_probability" type="number" min="0" max="100" placeholder="Unknown if blank"></label>
+    <label>Risk score (0–100)<input name="risk_score" type="number" min="0" max="100" placeholder="Unknown if blank"></label>
+    <label>Evidence checked (one item per line)<textarea name="evidence" placeholder="Official terms page checked&#10;Country eligibility confirmed"></textarea></label>
+    <button class="primary" type="submit">Calculate eligibility and score</button>
+  </form></dialog>
   <dialog id="reward-dialog"><form id="reward-form" method="dialog"><div class="dialog-head"><h2>Record reward</h2><button type="button" class="icon-btn" data-close>×</button></div>
     <label>Opportunity<select name="opportunity_id" id="reward-opportunity"><option value="">Not linked</option></select></label>
     <label>Amount<input name="amount" type="number" min="0" step="0.01" required></label>
