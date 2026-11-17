@@ -65,3 +65,21 @@ def test_backup_rejects_evidence_symlinks(tmp_path):
     with pytest.raises(ValueError, match="symlinks"):
         create_backup(database, evidence, tmp_path / "backup")
     assert not (tmp_path / "backup").exists()
+
+def test_backup_files_are_owner_only_on_posix(tmp_path):
+    import os
+    import stat
+
+    if os.name != "posix":
+        pytest.skip("POSIX permission modes are not available")
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    destination = tmp_path / "backup"
+    create_backup(database, evidence, destination)
+
+    assert stat.S_IMODE((destination / "autoearn.db").stat().st_mode) == 0o600
+    assert stat.S_IMODE((destination / "manifest.json").stat().st_mode) == 0o600
+    assert stat.S_IMODE((destination / "private_evidence").stat().st_mode) == 0o700
