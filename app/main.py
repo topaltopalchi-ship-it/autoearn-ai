@@ -346,7 +346,12 @@ def vault_list_credentials():
 
 @app.post("/api/vault/credentials", status_code=201)
 def vault_add_credential(data: VaultCredentialIn):
-    if _looks_like_recovery_phrase(data.secret) or (
+    candidate_secret = data.secret.strip()
+    has_prefixed_wallet_key = (
+        candidate_secret.startswith(("0x", "0X"))
+        and _looks_like_wallet_private_material(candidate_secret)
+    )
+    if _looks_like_recovery_phrase(data.secret) or has_prefixed_wallet_key or (
         data.credential_type == "signing_key" and (
             _is_wallet_provider(data.provider) or _looks_like_wallet_private_material(data.secret)
         )
