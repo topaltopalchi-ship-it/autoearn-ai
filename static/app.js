@@ -179,3 +179,19 @@ $("evaluation-form").onsubmit=async e=>{
 $("reward-form").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));data.opportunity_id=data.opportunity_id?Number(data.opportunity_id):null;data.amount=Number(data.amount);try{await api("/api/earnings",{method:"POST",body:JSON.stringify(data)});e.target.closest("dialog").close();e.target.reset();toast("درآمد در دفتر درآمد ذخیره شد");refresh()}catch(err){toast(err.message)}};
 $("source-filter").onchange=renderSources;$("search").oninput=renderOpportunities;$("filter").onchange=renderOpportunities;$("verification-filter").onchange=renderOpportunities;
 refresh().catch(e=>toast(e.message));
+
+if ("serviceWorker" in navigator && window.isSecureContext) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/static/sw.js").catch(() => {
+      console.warn("AutoEarn offline shell could not be registered.");
+    });
+  });
+}
+function updateConnectionLabel() {
+  const label = document.getElementById("connection-label");
+  if (!label) return;
+  label.textContent = navigator.onLine ? "اتصال اینترنت برقرار" : "بدون اینترنت؛ فقط پوستهٔ ذخیره‌شده";
+}
+window.addEventListener("online", updateConnectionLabel);
+window.addEventListener("offline", updateConnectionLabel);
+updateConnectionLabel();
