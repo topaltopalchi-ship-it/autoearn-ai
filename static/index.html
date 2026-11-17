@@ -1,58 +1,140 @@
 <!doctype html>
-<html lang="en">
+<html lang="fa" dir="rtl">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Human-approved play-and-earn opportunity workspace">
-  <title>AutoEarn AI</title>
+  <meta name="description" content="فضای هوشمند شناسایی و ارزیابی فرصت‌های درآمدزایی با تأیید کاربر">
+  <title>اتوایرن هوشمند</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
   <aside class="sidebar">
-    <div class="brand"><span class="brand-mark">A</span><div><b>AutoEarn</b><small>AI WORKSPACE</small></div></div>
-    <nav><a class="active" href="#overview">◫ &nbsp; Overview</a><a href="#opportunities">◎ &nbsp; Opportunities</a><a href="#tasks">▣ &nbsp; Assisted tasks</a><a href="#rewards">◇ &nbsp; Rewards</a></nav>
-    <div class="sidebar-note"><b>Human in control</b><p>Review platform rules and approve every task before participating.</p></div>
+    <div class="brand"><span class="brand-mark">A</span><div><b>اتو درآمد</b><small>فضای کاری هوشمند</small></div></div>
+    <nav><a class="active" href="#overview">◫ &nbsp; نمای کلی</a><a href="#opportunities">◎ &nbsp; فرصت‌های درآمدزایی</a><a href="#sources">⌕ &nbsp; بررسی منابع</a><a href="#competitions">♜ &nbsp; مسابقات هوشمند</a><a href="#tasks">▣ &nbsp; کارهای تحت نظارت</a><a href="#rewards">◇ &nbsp; درآمدها</a></nav>
+    <div class="sidebar-note"><b>کنترل همیشه دست شماست</b><p>پیش از هرگونه مشارکت، قوانین هر پلتفرم را بررسی و هر کار را شخصاً تأیید کنید.</p></div>
   </aside>
   <main>
-    <header><div><span class="eyebrow">YOUR PLAY-AND-EARN COMMAND CENTER</span><h1>Overview</h1><p>Discover opportunities. Make informed decisions. Track every reward.</p></div><span class="status"><i></i> Local workspace</span></header>
+    <header><div><span class="eyebrow">فضای مدیریت فرصت‌های درآمدزایی شما</span><h1>نمای کلی</h1><p>فرصت‌های درآمدزایی را پیدا کنید، شرایط و ریسک را بسنجید و نتایج را پیگیری کنید.</p></div><div class="owner-access"><label for="owner-token">رمز مالک</label><input id="owner-token" type="password" autocomplete="off" placeholder="کلید دسترسی فقط برای این نشست"><button class="secondary" id="save-owner-token" type="button">اتصال</button></div><span class="status"><i></i> فضای کاری محلی</span></header>
     <section class="stats" id="overview">
-      <article><span>Opportunities</span><strong id="stat-opps">0</strong><small>Tracked platforms</small></article>
-      <article><span>Tasks created</span><strong id="stat-tasks">0</strong><small>Assisted workflow</small></article>
-      <article><span>Need your approval</span><strong id="stat-approval">0</strong><small>Nothing runs without you</small></article>
-      <article><span>Rewards paid</span><strong id="stat-paid">$0.00</strong><small id="stat-pending">Pending: $0.00</small></article>
+      <article><span>فرصت‌های درآمدزایی</span><strong id="stat-opps">0</strong><small>پلتفرم‌های پیگیری‌شده</small></article>
+      <article><span>کارهای ثبت‌شده</span><strong id="stat-tasks">0</strong><small>فرایندهای تحت نظارت</small></article>
+      <article><span>نیازمند تأیید شما</span><strong id="stat-approval">0</strong><small>هیچ کاری بدون اجازهٔ شما انجام نمی‌شود</small></article>
+      <article><span>درآمد پرداخت‌شده</span><strong id="stat-paid">$0.00</strong><small id="stat-pending">در انتظار: $0.00</small></article>
     </section>
     <section class="panel" id="opportunities">
-      <div class="section-head"><div><span class="eyebrow">DISCOVERY & DUE DILIGENCE</span><h2>Opportunities</h2></div><button class="primary" id="add-opportunity">+ Add opportunity</button></div>
-      <div class="toolbar"><input id="search" placeholder="Search platform or opportunity…"><select id="filter"><option value="">All statuses</option><option>discovered</option><option>reviewing</option><option>eligible</option><option>ineligible</option><option>archived</option></select></div>
-      <div id="opportunity-list" class="empty">No opportunities yet. Add a platform you want to evaluate.</div>
+      <div class="section-head"><div><span class="eyebrow">کشف و بررسی دقیق</span><h2>فرصت‌های درآمدزایی</h2></div><button class="primary" id="add-opportunity">+ افزودن فرصت</button></div>
+      <div class="toolbar"><input id="search" placeholder="جست‌وجوی پلتفرم یا فرصت…"><select id="filter"><option value="">همهٔ وضعیت‌ها</option><option value="discovered">کشف‌شده</option><option value="reviewing">در حال بررسی</option><option value="eligible">مجاز</option><option value="ineligible">غیرمجاز</option><option value="archived">بایگانی‌شده</option></select><select id="verification-filter"><option value="">همهٔ وضعیت‌های بررسی</option><option value="pending">در انتظار تأیید</option><option value="verified">تأییدشده</option><option value="rejected">ردشده</option></select></div>
+      <div id="opportunity-list" class="empty">هنوز فرصتی ثبت نشده است. پلتفرمی را برای ارزیابی اضافه کنید.</div>
+    </section>
+    <section class="panel" id="sources">
+      <div class="section-head"><div><span class="eyebrow">ثبت و بررسی انسانی</span><h2>منابع پیشنهادی</h2></div><div class="section-actions"><button class="secondary" id="discover-rss" type="button">دریافت یک‌باره خبرخوان</button><button class="secondary" id="add-discovery-feed" type="button">+ ثبت خبرخوان پایدار</button><button class="primary" id="run-discovery" type="button">بررسی همهٔ منابع تأییدشده</button><button class="primary" id="add-source">+ افزودن منبع</button></div></div>
+      <div id="discovery-feed-list" class="empty">هنوز خبرخوان پایداری ثبت نشده است.</div>
+      <div class="toolbar" id="discovery-scheduler-controls">
+        <label><input id="discovery-scheduler-enabled" type="checkbox" checked> فعال‌سازی کشف خودکار</label>
+        <label>فاصلهٔ بررسی
+          <select id="discovery-scheduler-interval">
+            <option value="60">هر ۱ ساعت</option>
+            <option value="180">هر ۳ ساعت</option>
+            <option value="360">هر ۶ ساعت</option>
+            <option value="720">هر ۱۲ ساعت</option>
+            <option value="1440">هر ۲۴ ساعت</option>
+          </select>
+        </label>
+        <button class="secondary" id="save-discovery-scheduler" type="button">ذخیرهٔ زمان‌بندی</button>
+        <small id="discovery-scheduler-status">وضعیت زمان‌بندی پس از اتصال نمایش داده می‌شود.</small>
+      </div>
+      <div id="discovery-health-panel" class="item"><div><b>سلامت خبرخوان‌ها</b><p>پس از اتصال، وضعیت منابع تأییدشده نمایش داده می‌شود.</p></div></div>
+      <div class="toolbar"><select id="source-filter"><option value="">همهٔ وضعیت‌های منبع</option><option value="pending">در انتظار بررسی</option><option value="approved">تأییدشده</option><option value="rejected">ردشده</option></select></div>
+      <div id="source-list" class="empty">هنوز منبعی ثبت نشده است. یک منبع عمومی برای بررسی دستی اضافه کنید.</div>
+    </section>
+    <section class="panel" id="discovery-leads">
+      <div class="section-head"><div><span class="eyebrow">فرصت‌های تازه کشف‌شده</span><h2>صف بررسی فرصت‌ها</h2><p>موارد این بخش هنوز فرصت تأییدشده نیستند؛ پس از بررسی می‌توانید آن‌ها را به فهرست فرصت‌ها منتقل کنید.</p></div></div>
+      <div id="discovery-lead-list" class="empty">هنوز فرصت تازه‌ای از خبرخوان‌ها پیدا نشده است.</div>
+    </section>
+    <section class="panel" id="competitions">
+      <div class="section-head"><div><span class="eyebrow">عامل رقابت هوشمند</span><h2>مسابقات و رقابت‌های جایزه‌دار</h2><p>ثبت مسابقه، ساخت استراتژی و اجرای تمرین آزمایشی؛ ارسال واقعی فقط با API رسمی و اجازهٔ صریح قوانین امکان‌پذیر است.</p></div></div>
+      <form id="competition-form" class="toolbar">
+        <input name="title" required minlength="2" maxlength="160" placeholder="نام مسابقه">
+        <input name="url" type="url" required placeholder="نشانی مسابقه با HTTPS">
+        <input name="rules_url" type="url" required placeholder="نشانی قوانین مسابقه">
+        <input name="country" required minlength="2" maxlength="80" placeholder="کشور محل اقامت">
+        <select name="eligibility"><option value="unknown">صلاحیت کشور: نامشخص</option><option value="eligible">کشور مجاز است (پس از بررسی)</option><option value="ineligible">کشور غیرمجاز است</option></select>
+        <input name="prize_amount" type="number" min="0" step="0.01" placeholder="مبلغ جایزه (اختیاری)">
+        <select name="prize_currency"><option value="EUR">یورو</option><option value="USD">دلار</option><option value="GBP">پوند</option></select>
+        <select name="task_type"><option value="logic">معما و منطق</option><option value="coding">برنامه‌نویسی</option><option value="chess">شطرنج</option><option value="strategy">بازی استراتژیک</option><option value="general">سایر</option></select>
+        <label><input type="checkbox" name="terms_verified"> قوانین را بررسی کرده‌ام</label>
+        <label><input type="checkbox" name="automated_agents_allowed"> قوانین ربات را صریحاً مجاز می‌دانند</label>
+        <label><input type="checkbox" name="official_api"> API رسمی دارد</label>
+        <button class="primary" type="submit">ثبت مسابقه</button>
+      </form>
+      <div id="competition-list" class="empty">هنوز مسابقه‌ای ثبت نشده است.</div>
     </section>
     <section class="panel" id="tasks">
-      <div class="section-head"><div><span class="eyebrow">ASSISTED EXECUTION</span><h2>Tasks awaiting action</h2></div></div>
-      <div id="task-list" class="empty">No tasks yet. Create a task from an opportunity.</div>
+      <div class="section-head"><div><span class="eyebrow">اجرای تحت نظارت</span><h2>کارهای در انتظار اقدام</h2></div></div>
+      <div id="task-list" class="empty">هنوز کاری ثبت نشده است. از یک فرصت، کار جدید بسازید.</div>
     </section>
     <section class="panel" id="rewards">
-      <div class="section-head"><div><span class="eyebrow">TRANSPARENT LEDGER</span><h2>Reward tracking</h2><button class="secondary" id="add-reward">+ Record reward</button></div></div>
-      <div id="reward-list" class="empty">No rewards recorded.</div>
+      <div class="section-head"><div><span class="eyebrow">دفتر شفاف درآمد</span><h2>پیگیری درآمد</h2><button class="secondary" id="add-reward">+ ثبت درآمد</button></div></div>
+      <div id="reward-list" class="empty">هنوز درآمدی ثبت نشده است.</div>
     </section>
-    <footer>AutoEarn AI · MVP 0.1 · No earnings are guaranteed. Always follow each platform’s terms.</footer>
+    <footer>اتوایرن هوشمند · نسخهٔ آزمایشی ۰٫۱ · هیچ درآمدی تضمین‌شده نیست. همیشه قوانین هر پلتفرم را رعایت کنید.</footer>
   </main>
-  <dialog id="opportunity-dialog"><form id="opportunity-form" method="dialog"><div class="dialog-head"><h2>Add opportunity</h2><button type="button" class="icon-btn" data-close>×</button></div>
-    <label>Opportunity title<input name="title" required minlength="2" placeholder="Daily puzzle challenge"></label>
-    <label>Platform<input name="platform" required placeholder="Platform name"></label>
-    <label>Website URL<input name="url" type="url" required placeholder="https://example.com"></label>
-    <label>Category<select name="category"><option value="game">Game</option><option value="mobile">Mobile app</option><option value="skill">Skill / competition</option><option value="survey">Survey / offer</option><option value="other">Other</option></select></label>
-    <label>Advertised reward<textarea name="reward_description" placeholder="Describe the advertised reward; do not assume it is guaranteed."></textarea></label>
-    <label>Eligibility / country restrictions<textarea name="eligibility"></textarea></label>
-    <label>Terms URL<input name="terms_url" type="url" placeholder="https://example.com/terms"></label>
-    <label>Notes<textarea name="notes"></textarea></label><button class="primary" type="submit">Save opportunity</button>
+  <dialog id="opportunity-dialog"><form id="opportunity-form" method="dialog"><div class="dialog-head"><h2>افزودن فرصت</h2><button type="button" class="icon-btn" data-close>×</button></div>
+    <label>عنوان فرصت<input name="title" required minlength="2" placeholder="چالش روزانهٔ معما"></label>
+    <label>نام پلتفرم<input name="platform" required placeholder="نام پلتفرم"></label>
+    <label>نشانی وب‌سایت<input name="url" type="url" required placeholder="نشانی کامل وب‌سایت"></label>
+    <label>دسته‌بندی<select name="category"><option value="games_competitions">بازی‌ها / مسابقه‌ها</option><option value="surveys_microtasks">نظرسنجی / کارهای کوچک</option><option value="freelancing_services">فریلنسری / خدمات</option><option value="ai_content_products">محتوای هوش مصنوعی / محصولات دیجیتال</option><option value="other">سایر فرصت‌های بررسی‌شده</option></select></label>
+    <label>پاداش اعلام‌شده<textarea name="reward_description" placeholder="پاداش اعلام‌شده را شرح دهید؛ آن را قطعی و تضمین‌شده فرض نکنید."></textarea></label>
+    <label>شرایط مشارکت / محدودیت‌های کشور<textarea name="eligibility"></textarea></label>
+    <label>کشورهای مجاز (با ویرگول جدا کنید)<input name="eligible_countries" placeholder="آلمان، فرانسه"></label>
+    <label>کشورهای غیرمجاز (با ویرگول جدا کنید)<input name="excluded_countries" placeholder="ایالات متحده"></label>
+    <label>حداقل مبلغ برداشت<input name="minimum_withdrawal_amount" type="number" min="0" step="0.01" placeholder="برای نمونه: ۱۰"></label>
+    <label>ارز برداشت<select name="withdrawal_currency"><option value="EUR">یورو</option><option value="USD">دلار آمریکا</option><option value="GBP">پوند</option><option value="TRY">لیر</option><option value="IRR">ریال</option></select></label>
+    <label>روش‌های پرداخت (با ویرگول جدا کنید)<input name="payout_methods" placeholder="پی‌پال، انتقال بانکی"></label>
+    <label>نشانی قوانین و شرایط<input name="terms_url" type="url" placeholder="نشانی کامل صفحهٔ قوانین"></label>
+    <label>یادداشت‌ها<textarea name="notes"></textarea></label><button class="primary" type="submit">ذخیرهٔ فرصت</button>
   </form></dialog>
-  <dialog id="reward-dialog"><form id="reward-form" method="dialog"><div class="dialog-head"><h2>Record reward</h2><button type="button" class="icon-btn" data-close>×</button></div>
-    <label>Opportunity<select name="opportunity_id" id="reward-opportunity"><option value="">Not linked</option></select></label>
-    <label>Amount<input name="amount" type="number" min="0" step="0.01" required></label>
-    <label>Currency<input name="currency" value="USD" maxlength="8" required></label>
-    <label>Status<select name="status"><option>pending</option><option>confirmed</option><option>paid</option><option>rejected</option></select></label>
-    <label>Reference / note<input name="reference"></label><button class="primary" type="submit">Save reward</button>
+  <dialog id="source-dialog"><form id="source-form" method="dialog"><div class="dialog-head"><h2>افزودن منبع پیشنهادی</h2><button type="button" class="icon-btn" data-close>×</button></div>
+    <label>نام منبع<input name="name" required minlength="2" maxlength="160" placeholder="پلتفرم عمومی پاداش"></label>
+    <label>نشانی وب‌سایت<input name="url" type="url" required placeholder="https://example.com"></label>
+    <label>دسته‌بندی<select name="category"><option value="game_rewards">پاداش بازی</option><option value="survey_rewards">پاداش نظرسنجی</option><option value="microtasks">کارهای کوچک</option><option value="freelance_jobs">کارهای آزاد</option><option value="digital_products">محصولات دیجیتال</option><option value="other">سایر</option></select></label>
+    <label>نشانی قوانین و شرایط<input name="terms_url" type="url" placeholder="https://example.com/terms"></label>
+    <label>یادداشت‌های مربوط به کشور<textarea name="country_notes" maxlength="1000" placeholder="کشورهای ذکرشده در منبع؛ هنوز تأیید نشده‌اند"></textarea></label>
+    <label>یادداشت‌های پرداخت<textarea name="payment_notes" maxlength="1000" placeholder="روش‌های پرداخت اعلام‌شده؛ هنوز تأیید نشده‌اند"></textarea></label>
+    <button class="primary" type="submit">ذخیره برای بررسی</button>
   </form></dialog>
+
+  <dialog id="evaluation-dialog"><form id="evaluation-form" method="dialog"><div class="dialog-head"><h2>ارزیابی فرصت</h2><button type="button" class="icon-btn" data-close>×</button></div>
+    <input type="hidden" name="opportunity_id">
+    <label>منبع بررسی‌شده<select name="source_id" id="evaluation-source" required></select></label>
+    <label>کشور محل اقامت شما<input name="country" required minlength="2" maxlength="80" placeholder="کشور خود را وارد کنید"></label>
+    <label>روش مشارکت<select name="execution_mode"><option value="manual">دستی</option><option value="assist">با کمک دستیار</option><option value="official_api">رابط رسمی برنامه‌نویسی (فقط در صورت اجازهٔ پلتفرم)</option></select></label>
+    <label>مبلغ پاداش اعلام‌شده<input name="reward_amount" type="number" min="0" step="0.01" placeholder="اگر خالی باشد، نامشخص است"></label>
+    <label>ارز پاداش<select name="reward_currency" required><option value="EUR">یورو</option><option value="USD">دلار آمریکا</option><option value="GBP">پوند</option><option value="TRY">لیر</option><option value="IRR">ریال</option></select></label>
+    <label>هزینه‌های تخمینی<input name="estimated_cost" type="number" min="0" step="0.01" value="0"></label>
+    <label>کارمزد ثابت برداشت<input name="payout_fee_fixed" type="number" min="0" step="0.01" value="0"></label>
+    <label>کارمزد درصدی برداشت (درصد)<input name="payout_fee_percent" type="number" min="0" max="100" step="0.01" value="0"></label>
+    <label>کارمزد تبدیل ارز (درصد؛ فقط تخمین هزینه)<input name="conversion_fee_percent" type="number" min="0" max="100" step="0.01" value="0"></label>
+    <label>زمان تخمینی به دقیقه<input name="estimated_minutes" type="number" min="1" placeholder="اگر خالی باشد، نامشخص است"></label>
+    <label>احتمال تخمینی پرداخت (درصد)<input name="payment_probability" type="number" min="0" max="100" placeholder="اگر خالی باشد، نامشخص است"></label>
+    <label>امتیاز ریسک (۰ تا ۱۰۰)<input name="risk_score" type="number" min="0" max="100" placeholder="اگر خالی باشد، نامشخص است"></label>
+    <label>مدارک بررسی‌شده (هر مورد در یک خط)<textarea name="evidence" placeholder="صفحهٔ رسمی قوانین بررسی شد&#10;مجازبودن کشور تأیید شد"></textarea></label>
+    <button class="primary" type="submit">محاسبهٔ شرایط و امتیاز</button>
+  </form></dialog>
+  <dialog id="reward-dialog"><form id="reward-form" method="dialog"><div class="dialog-head"><h2>ثبت درآمد</h2><button type="button" class="icon-btn" data-close>×</button></div>
+    <label>فرصت<select name="opportunity_id" id="reward-opportunity"><option value="">بدون پیوند به فرصت</option></select></label>
+    <label>مبلغ<input name="amount" type="number" min="0" step="0.01" required></label>
+    <label>واحد پول<select name="currency"><option value="EUR">یورو</option><option value="USD">دلار آمریکا</option><option value="GBP">پوند</option><option value="TRY">لیر</option><option value="IRR">ریال</option></select></label>
+    <label>وضعیت اولیه<select name="state"><option value="estimated">تخمینی</option><option value="earned">کسب‌شده</option><option value="pending">در انتظار پرداخت</option><option value="withdrawable">قابل برداشت</option><option value="paid">پرداخت‌شده</option></select></label>
+    <label>شناسه / یادداشت<input name="reference" maxlength="200"></label>
+    <label>مدرک یا توضیح<textarea name="evidence" maxlength="1000" placeholder="نشانی رسید یا توضیح مدرک"></textarea></label><button class="primary" type="submit">ذخیره در دفتر درآمد</button>
+  </form></dialog>
+  <dialog id="earnings-history-dialog"><div class="dialog-head"><h2>سوابق تغییر درآمد</h2><button type="button" class="icon-btn" data-close>×</button></div><div id="earnings-history-list"></div><button type="button" class="secondary" data-close>بستن</button></dialog>
+  <dialog id="evaluation-history-dialog">
+    <div class="dialog-head"><h2>سوابق ارزیابی</h2><button type="button" class="icon-btn" data-close>×</button></div>
+    <div id="evaluation-history-list"></div>
+    <button type="button" class="secondary" data-close>بستن</button>
+  </dialog>
   <div id="toast" role="status"></div>
   <script src="/static/app.js"></script>
 </body></html>
