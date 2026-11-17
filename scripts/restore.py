@@ -16,6 +16,14 @@ import sqlite3
 import tempfile
 
 
+def _reject_symlink_components(path: Path) -> None:
+    """Reject symlinks in an input path before resolving it."""
+    absolute = Path(os.path.abspath(Path(path).expanduser()))
+    for component in (absolute, *absolute.parents):
+        if component.is_symlink():
+            raise ValueError(f"Symbolic links are not allowed in data paths: {component}")
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as stream:
@@ -26,6 +34,9 @@ def _sha256(path: Path) -> str:
 
 def restore_backup(backup_directory: Path, destination: Path) -> dict:
     """Verify all backup data and restore it into a new, non-existing directory."""
+    # Validate the original path components before resolve() follows links.
+    _reject_symlink_components(backup_directory)
+    _reject_symlink_components(destination)
     backup_directory = Path(backup_directory).resolve()
     destination = Path(destination).resolve()
     if not backup_directory.is_dir():
