@@ -95,6 +95,31 @@ def init_db() -> None:
             reference TEXT NOT NULL DEFAULT '',
             created_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS earnings_ledger (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            opportunity_id INTEGER REFERENCES opportunities(id) ON DELETE SET NULL,
+            amount REAL NOT NULL CHECK(amount >= 0),
+            currency TEXT NOT NULL DEFAULT 'EUR',
+            state TEXT NOT NULL DEFAULT 'estimated'
+                CHECK(state IN ('estimated', 'earned', 'pending', 'withdrawable', 'paid')),
+            reference TEXT NOT NULL DEFAULT '',
+            evidence TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_earnings_ledger_created
+            ON earnings_ledger(created_at DESC, id DESC);
+        CREATE TABLE IF NOT EXISTS earnings_ledger_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ledger_id INTEGER NOT NULL REFERENCES earnings_ledger(id) ON DELETE CASCADE,
+            actor TEXT NOT NULL,
+            from_state TEXT,
+            to_state TEXT NOT NULL,
+            note TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_earnings_events_ledger
+            ON earnings_ledger_events(ledger_id, created_at, id);
         CREATE TABLE IF NOT EXISTS evaluation_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             opportunity_id INTEGER NOT NULL REFERENCES opportunities(id) ON DELETE CASCADE,
@@ -186,6 +211,20 @@ class RewardIn(BaseModel):
     currency: str = Field(default="USD", min_length=3, max_length=8)
     status: Literal["pending", "confirmed", "paid", "rejected"] = "pending"
     reference: str = Field(default="", max_length=200)
+
+class EarningsLedgerIn(BaseModel):
+    opportunity_id: int | None = None
+    amount: float = Field(ge=0)
+    currency: str = Field(default="EUR", min_length=3, max_length=8)
+    state: Literal["estimated", "earned", "pending", "withdrawable", "paid"] = "estimated"
+    reference: str = Field(default="", max_length=200)
+    evidence: str = Field(default="", max_length=1000)
+
+
+class EarningsStateIn(BaseModel):
+    state: Literal["estimated", "earned", "pending", "withdrawable", "paid"]
+    note: str = Field(default="", max_length=1000)
+
 
 class SupervisedActionIn(BaseModel):
     opportunity_id: int = Field(gt=0)
@@ -489,6 +528,91 @@ def create_reward(data: RewardIn, actor: str = Depends(require_owner)):
             VALUES (?, ?, ?, ?, ?, ?)
         """, (data.opportunity_id, data.amount, data.currency.upper(), data.status, data.reference, now()))
         return row_dict(db.execute("SELECT * FROM rewards WHERE id = ?", (cur.lastrowid,)).fetchone())
+
+
+@app.get("/api/earnings")
+def list_earnings(actor: str = Depends(require_owner)):
+    with connect() as db:
+        return [row_dict(r) for r in db.execute("""
+            SELECT earnings_ledger.*, opportunities.title AS opportunity_title
+            FROM earnings_ledger
+            LEFT JOIN opportunities ON opportunities.id = earnings_ledger.opportunity_id
+            ORDER BY earnings_ledger.created_at DESC, earnings_ledger.id DESC
+        """).fetchall()]
+
+
+@app.post("/api/earnings", status_code=201)
+def create_earning(data: EarningsLedgerIn, actor: str = Depends(require_owner)):
+    with connect() as db:
+        if data.opportunity_id is not None and not db.execute(
+            "SELECT id FROM opportunities WHERE id = ?", (data.opportunity_id,)
+        ).fetchone():
+            raise HTTPException(404, "Opportunity not found")
+        timestamp = now()
+        cur = db.execute("""
+            INSERT INTO earnings_ledger
+            (opportunity_id, amount, currency, state, reference, evidence, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (data.opportunity_id, data.amount, data.currency.upper(), data.state,
+              data.reference.strip(), data.evidence.strip(), timestamp, timestamp))
+        ledger_id = cur.lastrowid
+        db.execute("""
+            INSERT INTO earnings_ledger_events
+            (ledger_id, actor, from_state, to_state, note, created_at)
+            VALUES (?, ?, NULL, ?, ?, ?)
+        """, (ledger_id, actor, data.state, "ثبت اولیه", timestamp))
+        return row_dict(db.execute(
+            "SELECT * FROM earnings_ledger WHERE id = ?", (ledger_id,)
+        ).fetchone())
+
+
+@app.patch("/api/earnings/{ledger_id}/state")
+def update_earning_state(ledger_id: int, data: EarningsStateIn,
+                         actor: str = Depends(require_owner)):
+    allowed = {
+        "estimated": {"earned", "pending"},
+        "earned": {"pending", "withdrawable"},
+        "pending": {"withdrawable"},
+        "withdrawable": {"pending", "paid"},
+        "paid": set(),
+    }
+    with connect() as db:
+        row = db.execute(
+            "SELECT * FROM earnings_ledger WHERE id = ?", (ledger_id,)
+        ).fetchone()
+        if row is None:
+            raise HTTPException(404, "Earning record not found")
+        previous = row["state"]
+        if data.state == previous:
+            raise HTTPException(409, "Earning record already has this state")
+        if data.state not in allowed[previous]:
+            raise HTTPException(409, "This earning-state transition is not allowed")
+        timestamp = now()
+        db.execute("""
+            UPDATE earnings_ledger SET state = ?, updated_at = ? WHERE id = ?
+        """, (data.state, timestamp, ledger_id))
+        db.execute("""
+            INSERT INTO earnings_ledger_events
+            (ledger_id, actor, from_state, to_state, note, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (ledger_id, actor, previous, data.state, data.note.strip(), timestamp))
+        return row_dict(db.execute(
+            "SELECT * FROM earnings_ledger WHERE id = ?", (ledger_id,)
+        ).fetchone())
+
+
+@app.get("/api/earnings/{ledger_id}/history")
+def earning_history(ledger_id: int, actor: str = Depends(require_owner)):
+    with connect() as db:
+        if not db.execute(
+            "SELECT id FROM earnings_ledger WHERE id = ?", (ledger_id,)
+        ).fetchone():
+            raise HTTPException(404, "Earning record not found")
+        return [row_dict(r) for r in db.execute("""
+            SELECT id, ledger_id, actor, from_state, to_state, note, created_at
+            FROM earnings_ledger_events WHERE ledger_id = ?
+            ORDER BY created_at, id
+        """, (ledger_id,)).fetchall()]
 
 
 @app.post("/api/opportunities/{opportunity_id}/evaluate")
