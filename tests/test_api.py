@@ -5,6 +5,10 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 
+def owner_get(client, path):
+    return client.get(path, headers={"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"})
+
+
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
     from app import main
@@ -30,6 +34,11 @@ def test_health(client):
     assert client.get("/api/health").json()["status"] == "ok"
 
 
+def test_private_opportunity_and_source_lists_require_owner_token(client):
+    assert client.get("/api/opportunities").status_code == 401
+    assert client.get("/api/sources").status_code == 401
+
+
 def test_source_intake_is_persistent_and_requires_human_review(client):
     response = client.post("/api/sources", headers={"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}, json={
         "name": "Example rewards", "url": "https://EXAMPLE.com/rewards/#tracking",
@@ -43,7 +52,7 @@ def test_source_intake_is_persistent_and_requires_human_review(client):
     assert source["status"] == "pending"
     assert source["review_notes"] == ""
 
-    listed = client.get("/api/sources?status=pending")
+    listed = owner_get(client, "/api/sources?status=pending")
     assert listed.status_code == 200
     assert listed.json()[0]["id"] == source["id"]
 
@@ -58,7 +67,7 @@ def test_source_intake_is_persistent_and_requires_human_review(client):
     assert approved.status_code == 200
     assert approved.json()["status"] == "approved"
     assert approved.json()["review_notes"] == "Public terms reviewed manually"
-    assert client.get("/api/sources?status=pending").json() == []
+    assert owner_get(client, "/api/sources?status=pending").json() == []
 
 
 def test_source_intake_rejects_unsafe_terms_url(client):
@@ -141,7 +150,7 @@ def test_opportunity_duplicate_race_is_rejected_by_unique_index(client):
     )
     assert response.status_code == 409
     assert response.json()["detail"] == "This opportunity URL is already registered."
-    assert client.get("/api/opportunities").status_code == 200
+    assert owner_get(client, "/api/opportunities").status_code == 200
 
 
 def test_normalizes_duplicate_urls(client):
@@ -213,7 +222,7 @@ def test_opportunity_records_region_and_payout_requirements(client):
     assert item["withdrawal_currency"] == "EUR"
     assert item["payout_methods"] == ["PayPal", "Bank transfer"]
 
-    listed = client.get("/api/opportunities").json()
+    listed = owner_get(client, "/api/opportunities").json()
     assert listed[0]["payout_methods"] == ["PayPal", "Bank transfer"]
 
 
@@ -279,12 +288,12 @@ def test_verification_returns_404_for_missing_opportunity(client):
 
 def test_opportunities_can_be_filtered_by_verification_status(client):
     item = opportunity(client)
-    assert len(client.get("/api/opportunities?verification_status=pending").json()) == 1
+    assert len(owner_get(client, "/api/opportunities?verification_status=pending").json()) == 1
     client.patch(f"/api/opportunities/{item['id']}/verification", headers={"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}, json={
         "status": "verified", "notes": "Manually checked"
     })
-    assert client.get("/api/opportunities?verification_status=pending").json() == []
-    verified = client.get("/api/opportunities?verification_status=verified").json()
+    assert owner_get(client, "/api/opportunities?verification_status=pending").json() == []
+    verified = owner_get(client, "/api/opportunities?verification_status=verified").json()
     assert len(verified) == 1
     assert verified[0]["id"] == item["id"]
 
@@ -447,7 +456,7 @@ def test_rss_discovery_persists_only_pending_candidates_and_deduplicates(
     assert result["inserted_count"] == 1
     assert result["duplicate_count"] == 1
     assert result["review_required"] is True
-    candidates = client.get("/api/sources?status=pending").json()
+    candidates = owner_get(client, "/api/sources?status=pending").json()
     assert len(candidates) == 1
     assert candidates[0]["name"] == "Paid survey listing"
     assert candidates[0]["category"] == "surveys_microtasks"
@@ -768,4 +777,4 @@ def test_rss_discovery_skips_opportunities_already_in_catalog(client, monkeypatc
     result = response.json()
     assert result["inserted_count"] == 0
     assert result["duplicate_count"] == 1
-    assert client.get("/api/sources").json() == []
+    assert owner_get(client, "/api/sources").json() == []
