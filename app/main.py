@@ -430,6 +430,7 @@ class OpportunityEvaluationIn(BaseModel):
     payment_probability: int | None = Field(default=None, ge=0, le=100)
     acceptance_probability: int | None = Field(default=None, ge=0, le=100)
     payout_reliability: int | None = Field(default=None, ge=0, le=100)
+    supports_balance_accumulation: bool | None = None
     # Must be explicitly confirmed for the selected residence country; unknown is not supported.
     payout_supported: bool | None = None
     risk_score: int | None = Field(default=None, ge=0, le=100)
@@ -936,16 +937,14 @@ def evaluate_opportunity(opportunity_id: int, data: OpportunityEvaluationIn,
             payout_fee_fixed=data.payout_fee_fixed,
             payout_fee_percent=data.payout_fee_percent,
             conversion_fee_percent=data.conversion_fee_percent,
-            minimum_withdrawal_amount=(
-                opportunity["minimum_withdrawal_amount"]
-                if opportunity["minimum_withdrawal_amount"] is not None
-                and opportunity["withdrawal_currency"].upper() == data.reward_currency.upper()
-                else None
-            ),
+            minimum_withdrawal_amount=opportunity["minimum_withdrawal_amount"],
+            minimum_withdrawal_currency=opportunity["withdrawal_currency"],
+            supports_balance_accumulation=data.supports_balance_accumulation,
             estimated_minutes=data.estimated_minutes,
             payment_probability=data.payment_probability,
             acceptance_probability=data.acceptance_probability,
             payout_reliability=data.payout_reliability,
+            supports_balance_accumulation=data.supports_balance_accumulation,
             payout_supported=data.payout_supported,
             risk_score=data.risk_score,
             evidence=tuple(clean_list(data.evidence, "evidence")),
