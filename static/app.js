@@ -39,13 +39,14 @@ let competitions=[];
 let discoveryFeeds=[];
 let discoveryLeads=[];
 let discoveryScheduler={};
+let discoveryHealth={};
 async function refresh(){
-  const [dash,opps,tasks,earnings,sourceRows,competitionRows,feedRows,leadRows,schedulerState]=await Promise.all([api("/api/dashboard"),api("/api/opportunities"),api("/api/tasks"),api("/api/earnings"),api("/api/sources"),api("/api/competitions"),api("/api/discovery/feeds"),api("/api/discovery/leads"),api("/api/discovery/scheduler")]);
-  opportunities=opps;sources=sourceRows;competitions=competitionRows;discoveryFeeds=feedRows;discoveryLeads=leadRows;discoveryScheduler=schedulerState;
+  const [dash,opps,tasks,earnings,sourceRows,competitionRows,feedRows,leadRows,schedulerState,healthState]=await Promise.all([api("/api/dashboard"),api("/api/opportunities"),api("/api/tasks"),api("/api/earnings"),api("/api/sources"),api("/api/competitions"),api("/api/discovery/feeds"),api("/api/discovery/leads"),api("/api/discovery/scheduler"),api("/api/discovery/health")]);
+  opportunities=opps;sources=sourceRows;competitions=competitionRows;discoveryFeeds=feedRows;discoveryLeads=leadRows;discoveryScheduler=schedulerState;discoveryHealth=healthState;
   $("stat-opps").textContent=dash.opportunities;$("stat-tasks").textContent=dash.tasks;
   $("stat-approval").textContent=dash.awaiting_approval;$("stat-paid").textContent=ledgerTotals(dash.earnings_totals,["paid"]);
   $("stat-pending").textContent="در جریان: "+ledgerTotals(dash.earnings_totals,["estimated","earned","pending","withdrawable"]);
-  renderOpportunities();renderSources();renderDiscoveryFeeds();renderDiscoveryScheduler();renderDiscoveryLeads();renderCompetitions();renderTasks(tasks);renderEarnings(earnings);fillRewardOptions();
+  renderOpportunities();renderSources();renderDiscoveryFeeds();renderDiscoveryScheduler();renderDiscoveryHealth();renderDiscoveryLeads();renderCompetitions();renderTasks(tasks);renderEarnings(earnings);fillRewardOptions();
 }
 function renderOpportunities(){
   const q=$("search").value.toLowerCase(),status=$("filter").value,verification=$("verification-filter").value;
@@ -131,6 +132,16 @@ function renderDiscoveryScheduler(){
     " · آخرین بررسی: "+last+
     " · مورد تازه: "+(result.inserted_count||0)+
     " · بررسی بعدی: "+next+error;
+}
+function renderDiscoveryHealth(){
+  const host=$("discovery-health-panel");
+  if(!host)return;
+  const c=discoveryHealth.counts||{};
+  const labels={healthy:"سالم",error:"دارای خطا",stale:"قدیمی",never_checked:"بررسی‌نشده",pending_review:"در انتظار تأیید",rejected:"ردشده"};
+  const summary=["healthy","error","stale","never_checked","pending_review","rejected"].map(k=>labels[k]+": "+Number(c[k]||0)).join(" · ");
+  const rows=(discoveryHealth.feeds||[]).filter(f=>f.review_status==="approved");
+  host.innerHTML='<div><b>سلامت خبرخوان‌ها</b><p>'+esc(summary||"هنوز منبعی ثبت نشده است")+'</p></div>'+
+    (rows.length?'<div>'+rows.map(f=>'<p><b>'+esc(f.name)+'</b> · '+esc(labels[f.health]||"غیرفعال")+' · خطاهای متوالی: '+Number(f.consecutive_failures||0)+(f.last_error?' · '+esc(f.last_error):'')+'</p>').join('')+'</div>':'');
 }
 function renderDiscoveryFeeds(){
   const host=$("discovery-feed-list");
