@@ -147,7 +147,11 @@ class PublicRssAdapter:
             description = _plain_text(item.findtext("description", ""))
             if not title or not link:
                 continue
-            canonical_link = _validate_public_https(link, self.allowed_domains)
+            try:
+                canonical_link = _validate_public_https(link, self.allowed_domains)
+            except ValueError:
+                # Reject this item without discarding otherwise valid feed entries.
+                continue
             results.append(DiscoveredLead(
                 title=title,
                 url=canonical_link,
@@ -170,7 +174,11 @@ class PublicRssAdapter:
                 summary = _plain_text(entry.findtext("a:summary", default="", namespaces=ns))
                 if not title or not link:
                     continue
-                canonical_link = _validate_public_https(link, self.allowed_domains)
+                try:
+                    canonical_link = _validate_public_https(link, self.allowed_domains)
+                except ValueError:
+                    # Reject this item without discarding otherwise valid feed entries.
+                    continue
                 results.append(DiscoveredLead(
                     title=title,
                     url=canonical_link,

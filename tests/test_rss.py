@@ -82,3 +82,21 @@ def test_feed_rejects_dtd_and_entity_declarations():
     payload = b'<!DOCTYPE rss [<!ENTITY x "expanded">]><rss><channel></channel></rss>'
     with pytest.raises(ValueError, match="DTD/entities"):
         adapter(fetcher=lambda url: payload).discover()
+
+
+def test_invalid_item_link_is_skipped_without_losing_valid_rss_items():
+    payload = b'''<rss><channel>
+      <item><title>Unsafe</title><link>https://evil.example/task</link></item>
+      <item><title>Safe</title><link>https://feed.example/good</link></item>
+    </channel></rss>'''
+    leads = adapter(fetcher=lambda url: payload).discover()
+    assert [lead.title for lead in leads] == ["Safe"]
+
+
+def test_invalid_atom_link_is_skipped_without_losing_valid_entries():
+    payload = b'''<feed xmlns="http://www.w3.org/2005/Atom">
+      <entry><title>Unsafe</title><link href="https://evil.example/task"/></entry>
+      <entry><title>Safe</title><link href="https://feed.example/good"/></entry>
+    </feed>'''
+    leads = adapter(fetcher=lambda url: payload).discover()
+    assert [lead.title for lead in leads] == ["Safe"]
