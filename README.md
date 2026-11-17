@@ -29,6 +29,14 @@ The first release is a local-first MVP. It helps users record opportunity metada
 - `PATCH /api/sources/{id}/review` records a human decision (`pending`, `approved`, or `rejected`) and reviewer notes.
 - Canonical source URLs are unique. Duplicate submissions return HTTP 409. The intake stores supplied metadata only; it does not crawl websites or verify claims automatically.
 
+## Earnings ledger
+
+- `GET /api/earnings` lists owner-authenticated earnings records with their linked opportunity, evidence, and current state.
+- `POST /api/earnings` records an estimated, earned, pending, withdrawable, or paid amount. Currency is stored per record; dashboard totals are grouped by currency and are never combined across currencies.
+- `PATCH /api/earnings/{id}/state` applies only allowed forward state transitions. Paid records are terminal.
+- `GET /api/earnings/{id}/history` returns the append-only state-change audit trail, including actor, prior state, new state, note, and timestamp.
+- Every ledger route requires the owner token. The ledger records claims and evidence supplied by the owner; it does not independently verify payments or initiate withdrawals.
+
 ## Discovery adapter contract
 
 Implementations must register a local Python adapter with an explicit `AdapterManifest`. Each adapter returns `DiscoveredLead` records with provenance and observation timestamps. The registry rejects leads outside the adapter's declared categories or allowed domains. The framework does not crawl arbitrary websites, run source-provided code, or perform platform actions. New leads are converted to pending source candidates and require human review.
