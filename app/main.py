@@ -2031,6 +2031,12 @@ def submit_competition_entry(competition_id: int, data: CompetitionSubmitIn,
         readiness = assess_competition(competition)
         if not readiness.ready:
             raise HTTPException(409, {"message": "Competition is not ready for automated entry.", "blockers": list(readiness.blockers)})
+        # Serialize the pause check with owner pause updates. Once this
+        # submission acquires the write reservation, a concurrent pause
+        # request waits until the in-flight adapter call and audit write finish.
+        # The pause endpoint returning therefore guarantees no later submission
+        # can pass this gate while the pause remains enabled.
+        db.execute("BEGIN IMMEDIATE")
         control = db.execute(
             "SELECT paused FROM execution_control WHERE id = 1"
         ).fetchone()
