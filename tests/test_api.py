@@ -365,3 +365,66 @@ def test_source_review_cannot_be_changed_without_owner_auth(client):
     response = client.patch(f"/api/sources/{source['id']}/review",
         json={"status": "approved", "notes": "unauthorized"})
     assert response.status_code == 401
+
+
+def test_rss_discovery_requires_owner_token(client):
+    response = client.post("/api/discovery/rss", json={
+        "adapter_id": "feed-1", "display_name": "Public feed",
+        "feed_url": "https://feeds.example.com/rss",
+        "category": "surveys_microtasks",
+        "allowed_domains": ["feeds.example.com", "tasks.example.com"]
+    })
+    assert response.status_code == 401
+
+
+def test_rss_discovery_persists_only_pending_candidates_and_deduplicates(
+    client, monkeypatch
+):
+    from types import SimpleNamespace
+    from app import main
+
+    class FakeRssAdapter:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def discover(self):
+            return [
+                SimpleNamespace(
+                    title="Paid survey listing",
+                    url="https://tasks.example.com/listing/1",
+                    category="surveys_microtasks",
+                    terms_url="",
+                    summary="Public listing summary",
+                    observed_at="2026-11-17T00:00:00+00:00",
+                ),
+                SimpleNamespace(
+                    title="Duplicate listing",
+                    url="https://tasks.example.com/listing/1",
+                    category="surveys_microtasks",
+                    terms_url="",
+                    summary="Duplicate",
+                    observed_at="2026-11-17T00:00:00+00:00",
+                ),
+            ]
+
+    monkeypatch.setattr(main, "PublicRssAdapter", FakeRssAdapter)
+    response = client.post("/api/discovery/rss",
+        headers={"X-AutoEarn-Owner-Token": "test-owner-secret"},
+        json={
+            "adapter_id": "feed-1", "display_name": "Public feed",
+            "feed_url": "https://feeds.example.com/rss",
+            "category": "surveys_microtasks",
+            "allowed_domains": ["feeds.example.com", "tasks.example.com"],
+            "max_items": 10,
+        })
+    assert response.status_code == 200
+    result = response.json()
+    assert result["discovered_count"] == 2
+    assert result["inserted_count"] == 1
+    assert result["duplicate_count"] == 1
+    assert result["review_required"] is True
+    candidates = client.get("/api/sources?status=pending").json()
+    assert len(candidates) == 1
+    assert candidates[0]["name"] == "Paid survey listing"
+    assert candidates[0]["category"] == "surveys_microtasks"
+    assert candidates[0]["status"] == "pending"
