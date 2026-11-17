@@ -130,6 +130,9 @@ class PublicRssAdapter:
         payload = self.fetcher(self.feed_url)
         if not isinstance(payload, bytes) or len(payload) > MAX_FEED_BYTES:
             raise ValueError("feed fetcher must return at most 1 MB of bytes")
+        upper_payload = payload.upper()
+        if b"<!DOCTYPE" in upper_payload or b"<!ENTITY" in upper_payload:
+            raise ValueError("feed XML declarations with DTD/entities are not accepted")
         try:
             root = ET.fromstring(payload)
         except ET.ParseError as exc:
