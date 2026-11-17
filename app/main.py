@@ -275,14 +275,17 @@ def _is_wallet_provider(provider: str) -> bool:
     return any(marker in normalized for marker in _WALLET_PROVIDER_MARKERS)
 
 
+def _looks_like_recovery_phrase(secret: str) -> bool:
+    """Block common 12/24-word recovery phrases regardless of the selected field type."""
+    words = secret.strip().split()
+    return len(words) in {12, 24} and all(word.isascii() and word.isalpha() for word in words)
+
+
 def _looks_like_wallet_private_material(secret: str) -> bool:
-    """Conservative format guard for common raw wallet keys and recovery phrases."""
+    """Conservative format guard for common raw hexadecimal wallet private keys."""
     candidate = secret.strip()
     hexadecimal = candidate[2:] if candidate.startswith(("0x", "0X")) else candidate
-    if len(hexadecimal) == 64 and all(char in "0123456789abcdefABCDEF" for char in hexadecimal):
-        return True
-    words = candidate.split()
-    return len(words) in {12, 24} and all(word.isascii() and word.isalpha() for word in words)
+    return len(hexadecimal) == 64 and all(char in "0123456789abcdefABCDEF" for char in hexadecimal)
 
 
 class VaultCredentialIn(BaseModel):
@@ -343,8 +346,10 @@ def vault_list_credentials():
 
 @app.post("/api/vault/credentials", status_code=201)
 def vault_add_credential(data: VaultCredentialIn):
-    if data.credential_type == "signing_key" and (
-        _is_wallet_provider(data.provider) or _looks_like_wallet_private_material(data.secret)
+    if _looks_like_recovery_phrase(data.secret) or (
+        data.credential_type == "signing_key" and (
+            _is_wallet_provider(data.provider) or _looks_like_wallet_private_material(data.secret)
+        )
     ):
         raise HTTPException(
             422,
