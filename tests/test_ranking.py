@@ -52,3 +52,16 @@ def test_ranking_never_authorizes_execution():
     item = result["groups"][0]["items"][0]
     assert item["execution_allowed"] is True
     assert item["execution_authorized"] is False
+
+
+def test_ai_fit_is_reported_separately_from_financial_priority():
+    candidate = record(1, "AI task", "EUR", 85)
+    candidate["evaluation"]["ai_task_assessment"] = {
+        "suitability": "ai_draft_candidate", "score": 85,
+    }
+    result = rank_evaluations([candidate])
+    item = result["groups"][0]["items"][0]
+    assert item["priority_tier"] == "priority_candidate"
+    assert item["ai_fit"] == "bounded_ai_draft_candidate"
+    assert item["ai_suitability_score"] == 85
+    assert item["execution_authorized"] is False
