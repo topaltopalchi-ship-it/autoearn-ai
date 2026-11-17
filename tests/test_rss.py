@@ -99,3 +99,41 @@ def test_invalid_atom_link_is_skipped_without_losing_valid_entries():
     </feed>'''
     leads = adapter(fetcher=lambda url: payload).discover()
     assert [lead.title for lead in leads] == ["Safe"]
+
+
+def test_feed_hostname_rejects_private_dns_answers(monkeypatch):
+    monkeypatch.setattr(
+        "autoearn.rss.socket.getaddrinfo",
+        lambda host, port, type=None: [
+            (2, 1, 6, "", ("127.0.0.1", port or 443))
+        ],
+    )
+    with pytest.raises(ValueError, match="non-public"):
+        adapter()
+
+
+def test_feed_hostname_rejects_mixed_public_and_private_dns_answers(monkeypatch):
+    monkeypatch.setattr(
+        "autoearn.rss.socket.getaddrinfo",
+        lambda host, port, type=None: [
+            (2, 1, 6, "", ("93.184.216.34", port or 443)),
+            (2, 1, 6, "", ("10.0.0.8", port or 443)),
+        ],
+    )
+    with pytest.raises(ValueError, match="non-public"):
+        adapter()
+
+
+def test_feed_hostname_rejects_empty_dns_answer(monkeypatch):
+    monkeypatch.setattr("autoearn.rss.socket.getaddrinfo", lambda *args, **kwargs: [])
+    with pytest.raises(ValueError, match="did not resolve"):
+        adapter()
+
+
+def test_feed_rejects_private_ip_literal():
+    with pytest.raises(ValueError, match="non-public"):
+        PublicRssAdapter(
+            adapter_id="private-ip", display_name="Private IP",
+            feed_url="https://127.0.0.1/rss",
+            category="other", allowed_domains=("127.0.0.1",),
+        )

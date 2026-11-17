@@ -64,6 +64,8 @@ def _validate_public_https(url: str, allowed_domains: tuple[str, ...]) -> str:
             addresses = socket.getaddrinfo(host, parsed.port or 443, type=socket.SOCK_STREAM)
         except OSError as dns_error:
             raise ValueError("feed hostname could not be resolved") from dns_error
+        if not addresses:
+            raise ValueError("feed hostname did not resolve to a public address")
         for address in addresses:
             resolved = ipaddress.ip_address(address[4][0])
             if not resolved.is_global:
