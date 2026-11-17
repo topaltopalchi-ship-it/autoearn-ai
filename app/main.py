@@ -985,11 +985,18 @@ def upload_earning_evidence(
     # Do not follow a pre-existing symlink for private financial evidence.
     # Check both sides of mkdir: the first rejects configured symlinks, while
     # the second also catches a path replaced during directory creation.
-    if EVIDENCE_DIR.is_symlink():
-        raise HTTPException(409, "Evidence storage directory must not be a symbolic link.")
+    def reject_symlinked_evidence_path():
+        # Check every existing component, not just the final directory: a
+        # symlinked parent would redirect the supposedly private storage too.
+        for component in (EVIDENCE_DIR, *EVIDENCE_DIR.parents):
+            if component.is_symlink():
+                raise HTTPException(
+                    409, "Evidence storage path must not contain symbolic links."
+                )
+
+    reject_symlinked_evidence_path()
     EVIDENCE_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
-    if EVIDENCE_DIR.is_symlink():
-        raise HTTPException(409, "Evidence storage directory must not be a symbolic link.")
+    reject_symlinked_evidence_path()
     # Receipt files contain potentially sensitive financial information. Keep
     # the directory owner-only even when it already existed with loose modes.
     if os.name == "posix":
