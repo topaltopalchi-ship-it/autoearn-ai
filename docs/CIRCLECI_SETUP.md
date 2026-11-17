@@ -1,4 +1,4 @@
-# CircleCI setup for the private AutoEarn AI repository
+# CircleCI setup for AutoEarn AI
 
 CircleCI can run the repository's checks on hosted machines without changing
 GitHub visibility. The repository may remain public during development and be
@@ -17,7 +17,7 @@ The jobs do not deploy the application, interact with earning platforms, or
 perform account actions. No repository secrets or personal access tokens are
 needed by the test jobs.
 
-## Connect the private GitHub repository
+## Connect the GitHub repository
 
 1. Open [CircleCI](https://circleci.com/) on your phone and sign up using the
    GitHub account that owns `topaltopalchi-ship-it/autoearn-ai`.
@@ -50,6 +50,6 @@ until the next monthly refill unless the account owner chooses a paid plan.
 - CircleCI receives access only after the repository owner authorizes it.
 - Never paste a GitHub token, password, or recovery code into source files,
   issues, or chat.
-- Do not make the GitHub repository public to obtain free CI minutes.
+- Do not change repository visibility solely to obtain CI minutes; keep the agreed public status during development and make it private only at final release.
 - Keep PRs open until the first CircleCI run has completed and the changes
   have been reviewed.
