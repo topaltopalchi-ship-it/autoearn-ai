@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from math import isfinite
 from typing import Literal
 
 Eligibility = Literal["eligible", "ineligible", "unknown"]
@@ -53,6 +54,15 @@ class OpportunityCandidate:
             raise ValueError("unsupported source status")
         if self.verification_status not in ("pending", "verified", "rejected"):
             raise ValueError("unsupported verification status")
+        monetary_fields = (
+            "reward_amount", "estimated_cost", "payout_fee_fixed",
+            "payout_fee_percent", "conversion_fee_percent",
+            "minimum_withdrawal_amount",
+        )
+        for field_name in monetary_fields:
+            value = getattr(self, field_name)
+            if value is not None and not isfinite(value):
+                raise ValueError(f"{field_name} must be a finite number")
         if self.reward_amount is not None and self.reward_amount < 0:
             raise ValueError("reward_amount cannot be negative")
         if self.estimated_cost < 0:
