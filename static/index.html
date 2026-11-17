@@ -87,6 +87,11 @@
     <label>وضعیت<select name="status"><option value="pending">در انتظار</option><option value="confirmed">تأییدشده</option><option value="paid">پرداخت‌شده</option><option value="rejected">ردشده</option></select></label>
     <label>شناسه / یادداشت<input name="reference"></label><button class="primary" type="submit">ذخیرهٔ درآمد</button>
   </form></dialog>
+  <dialog id="evaluation-history-dialog">
+    <div class="dialog-head"><h2>سوابق ارزیابی</h2><button type="button" class="icon-btn" data-close>×</button></div>
+    <div id="evaluation-history-list"></div>
+    <button type="button" class="secondary" data-close>بستن</button>
+  </dialog>
   <div id="toast" role="status"></div>
   <script src="/static/app.js"></script>
 </body></html>
