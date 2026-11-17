@@ -24,6 +24,7 @@ const riskFlagFa = (v) => ({
   "opportunity has not been verified":"فرصت هنوز بررسی و تأیید نشده است",
   "no supporting evidence recorded":"مدرک پشتیبان ثبت نشده است",
   "payment probability is unknown":"احتمال پرداخت مشخص نیست",
+  "estimated payment probability is zero":"احتمال تخمینی پرداخت صفر است؛ اجرای خودکار مسدود شد",
   "time estimate is missing or invalid":"برآورد زمان ثبت نشده یا معتبر نیست",
   "advertised reward is unknown":"مبلغ پاداش اعلام‌شده مشخص نیست",
   "risk assessment is missing":"ارزیابی ریسک انجام نشده است",
@@ -47,6 +48,8 @@ async function refresh(){
   $("stat-approval").textContent=dash.awaiting_approval;$("stat-paid").textContent=ledgerTotals(dash.earnings_totals,["paid"]);
   $("stat-pending").textContent="در جریان: "+ledgerTotals(dash.earnings_totals,["estimated","earned","pending","withdrawable"]);
   renderOpportunities();renderSources();renderDiscoveryFeeds();renderDiscoveryScheduler();renderDiscoveryHealth();renderDiscoveryLeads();renderCompetitions();renderTasks(tasks);renderEarnings(earnings);fillRewardOptions();
+  // Keep the research-priority queue current whenever the owner dashboard refreshes.
+  loadPrioritizedDiscovery().catch(()=>{});
 }
 function renderOpportunities(){
   const q=$("search").value.toLowerCase(),status=$("filter").value,verification=$("verification-filter").value;
@@ -70,7 +73,10 @@ async function showEvaluationHistory(id){
         کشور: ${esc(row.country)}<br>
         وضعیت صلاحیت: ${esc(statusFa(e.eligibility))}<br>
         امتیاز: ${e.ranking_score??"—"} از ۱۰۰<br>
-        پاداش خالص: ${e.net_reward_estimate==null?"نامشخص":esc(e.net_reward_estimate)+" "+(e.currency?currencyFa(e.currency):"")}<br>
+        پاداش خالص در صورت پرداخت: ${e.net_reward_estimate==null?"نامشخص":esc(e.net_reward_estimate)+" "+(e.currency?currencyFa(e.currency):"")}<br>
+        درآمد مورد انتظار با احتمال پرداخت: ${e.expected_net_reward_estimate==null?"نامشخص":esc(e.expected_net_reward_estimate)+" "+(e.currency?currencyFa(e.currency):"")}<br>
+        درآمد ساعتی مورد انتظار: ${e.expected_net_hourly_estimate==null?"نامشخص":esc(e.expected_net_hourly_estimate)+" "+(e.currency?currencyFa(e.currency):"")}<br>
+        احتمال پرداخت ثبت‌شده: ${e.payment_probability_percent==null?"نامشخص":esc(e.payment_probability_percent)+"٪"}<br>
         روش مشارکت: ${esc(statusFa(row.execution_mode))}</p>
       </div></article>`;
     }).join("");
@@ -93,6 +99,34 @@ function openEvaluation(id){
   $("evaluation-form").elements.opportunity_id.value=id;
   $("evaluation-form").elements.country.value="";
   $("evaluation-dialog").showModal();
+}
+async function loadRankedOpportunities(){
+  const country=$("rank-country").value.trim();
+  if(country.length<2){toast("نام کشور را کامل وارد کنید");return}
+  const host=$("ranked-opportunity-list");
+  host.textContent="در حال محاسبهٔ اولویت‌ها…";
+  try{
+    const result=await api("/api/opportunities/ranked?country="+encodeURIComponent(country));
+    if(!result.total){host.innerHTML='<div class="empty">برای این کشور هنوز ارزیابی ثبت نشده است. ابتدا فرصت‌ها را ارزیابی کنید.</div>';return}
+    const tierLabels={priority_candidate:"اولویت بالاتر",needs_review:"نیازمند بررسی بیشتر",blocked_pending_research:"مسدود تا تأیید کشور، پرداخت و مجوز AI",blocked_api_unverified:"API رسمی هنوز تأیید نشده",low_priority:"اولویت پایین"};
+    const aiLabels={bounded_ai_draft_candidate:"مناسب تهیهٔ پیش‌نویس با AI",policy_blocked:"استفاده از AI مسدود",human_review_or_policy_check:"نیازمند بررسی انسانی یا قوانین"};
+    host.innerHTML=result.groups.map(group=>'<div class="rank-currency"><h3>گروه '+esc(currencyFa(group.currency))+' · '+group.count+' فرصت</h3>'+
+      group.items.map(item=>{
+        const e=item.evaluation||{};
+        return '<article class="item"><div><h3>#'+item.rank_in_currency+' · '+esc(item.title)+' <span class="pill">'+esc(tierLabels[item.priority_tier]||item.priority_tier)+'</span></h3>'+
+          '<p>'+esc(item.platform)+' · امتیاز '+item.ranking_score+'/100 · '+esc(e.eligibility||"نامشخص")+'<br>'+
+          'خالص در صورت پرداخت: '+(e.net_reward_estimate==null?"نامشخص":esc(e.net_reward_estimate)+" "+esc(currencyFa(e.currency)))+'<br>'+
+          'درآمد مورد انتظار: '+(e.expected_net_reward_estimate==null?"نامشخص":esc(e.expected_net_reward_estimate)+" "+esc(currencyFa(e.currency)))+
+          ' · ساعتی مورد انتظار: '+(e.expected_net_hourly_estimate==null?"نامشخص":esc(e.expected_net_hourly_estimate)+" "+esc(currencyFa(e.currency)))+'<br>'+
+          'احتمال پرداخت: '+(e.payment_probability_percent==null?"نامشخص":esc(e.payment_probability_percent)+"٪")+'<br>'+
+          'تناسب AI: '+esc(aiLabels[item.ai_fit]||item.ai_fit)+' · مجوز اقدام واقعی: خیر<br>'+
+          'تحقیق کشور: '+esc(item.research_status?.country||"نامشخص")+' · برداشت: '+esc(item.research_status?.payout||"نامشخص")+' · مجوز AI: '+esc(item.research_status?.ai_permission||"نامشخص")+
+          ' · تازگی بررسی: '+(item.research_fresh?'معتبر (حداکثر ۳۰ روز)':'منقضی یا ثبت‌نشده')+
+          (item.execution_mode==="official_api"?' · API: '+(item.api_research_ready?"تأییدشده":"تأییدنشده"):"")+'<br>'+
+          'هشدارها: '+(Array.isArray(e.risk_flags)?e.risk_flags.length:0)+'</p>'+
+          '<a href="'+esc(item.url)+'" target="_blank" rel="noopener noreferrer">بازکردن فرصت ↗</a></div></article>';
+      }).join("")+'</div>').join("")+'<p class="muted">'+esc(result.comparison_note)+'</p>';
+  }catch(error){host.textContent="دریافت رتبه‌بندی ناموفق بود: "+error.message}
 }
 function renderCompetitions(){
   const host=$("competition-list");
@@ -158,10 +192,71 @@ function renderDiscoveryLeads(){
     if(!confirm("این مورد به فهرست فرصت‌ها منتقل شود؟ وضعیت آن همچنان کشف‌شده و تأییدنشده می‌ماند."))return;
     try{const result=await api("/api/discovery/leads/"+button.dataset.promoteLead+"/promote",{method:"POST"});toast("فرصت به فهرست اصلی منتقل شد؛ بررسی و تأیید آن هنوز لازم است");refresh()}catch(error){toast(error.message)}
   });
+  host.querySelectorAll("[data-research-lead]").forEach(button=>button.onclick=()=>editDiscoveryResearch(Number(button.dataset.researchLead)));
   host.querySelectorAll("[data-reject-lead]").forEach(button=>button.onclick=async()=>{
     const notes=prompt("دلیل رد این فرصت را وارد کنید (اختیاری):")||"";
     try{await api("/api/discovery/leads/"+button.dataset.rejectLead+"/review",{method:"PATCH",body:JSON.stringify({status:"rejected",notes})});toast("فرصت رد شد");refresh()}catch(error){toast(error.message)}
   });
+}
+async function editDiscoveryResearch(leadId){
+  const country="Azerbaijan";
+  const path="/api/discovery/leads/"+leadId+"/research";
+  try{
+    const current=await api(path+"?country="+encodeURIComponent(country));
+    const choose=(label,options,currentValue)=>{
+      const answer=prompt(label+"\\n"+options+"\\nمقدار فعلی: "+currentValue);
+      return answer===null?null:answer.trim();
+    };
+    const countryChoice=choose("وضعیت پشتیبانی کشور", "0 نامشخص | 1 تأییدشده | 2 غیرمجاز", current.country_status);
+    if(countryChoice===null)return;
+    const payoutChoice=choose("وضعیت برداشت پول", "0 نامشخص | 1 تأییدشده | 2 در دسترس نیست", current.payout_status);
+    if(payoutChoice===null)return;
+    const aiChoice=choose("مجوز استفاده از AI", "0 نامشخص | 1 مجاز | 2 ممنوع", current.ai_permission);
+    if(aiChoice===null)return;
+    const apiChoice=choose("وضعیت API رسمی", "0 نامشخص | 1 موجود | 2 موجود نیست", current.api_status);
+    if(apiChoice===null)return;
+    const map=(v,values)=>values[Number(v)]??"unknown";
+    const data={
+      country, country_status:map(countryChoice,["unknown","verified","blocked"]),
+      payout_status:map(payoutChoice,["unknown","verified","unavailable"]),
+      ai_permission:map(aiChoice,["unknown","allowed","prohibited"]),
+      api_status:map(apiChoice,["unknown","available","unavailable"]),
+      notes:prompt("یادداشت و خلاصهٔ شواهد رسمی",current.notes||"")||""
+    };
+    for(const [status,urlKey,label] of [
+      ["country_status","country_evidence_url","منبع رسمی وضعیت کشور"],
+      ["payout_status","payout_evidence_url","منبع رسمی روش برداشت"],
+      ["ai_permission","ai_evidence_url","منبع رسمی سیاست AI"],
+      ["api_status","api_evidence_url","منبع رسمی API"]
+    ]){
+      if(data[status]!=="unknown"){
+        const prior=current[urlKey]||"";
+        const url=prompt(label+" (نشانی HTTPS)",prior);
+        if(url===null)return;
+        data[urlKey]=url.trim();
+      }else data[urlKey]="";
+    }
+    await api(path,{method:"PUT",body:JSON.stringify(data)});
+    toast("نتایج تحقیق ذخیره شد؛ این ثبت به‌تنهایی مجوز اجرا نیست");
+  }catch(error){toast(error.message)}
+}
+async function loadPrioritizedDiscovery(){
+  const host=$("prioritized-discovery-list");
+  host.textContent="در حال مرتب‌سازی فرصت‌های تازه…";
+  try{
+    const result=await api("/api/discovery/leads/prioritized");
+    if(!result.total){host.innerHTML='<div class="empty">فرصت تازه‌ای در صف بررسی نیست.</div>';return}
+    const labels={research_first:"بررسی در اولویت",review:"بررسی معمولی",low_signal:"اطلاعات ناکافی"};
+    host.innerHTML=result.items.map(item=>'<article class="item"><div><h3>'+esc(item.title)+' <span class="pill">'+esc(labels[item.research_priority]||item.research_priority)+'</span></h3>'+
+      '<p>امتیاز اولویت تحقیق: '+item.research_priority_score+'/100 · منبع: '+esc(item.source_name)+'<br>'+
+      'سابقهٔ خبرخوان: '+(item.feed_reliability_percent==null?"نمونهٔ ناکافی":item.feed_reliability_percent+"٪")+
+      ' · قوانین: '+(item.terms_url?'<a href="'+esc(item.terms_url)+'" target="_blank" rel="noopener noreferrer">مشاهده ↗</a>':"ثبت نشده")+'<br>'+
+      'صلاحیت کشور: هنوز بررسی نشده · پرداخت: هنوز بررسی نشده · مجوز AI: نامشخص<br>'+
+      '<b>گام‌های بررسی بعدی:</b> '+(item.next_research_actions||[]).map(esc).join(' · ')+'<br>'+
+      esc(item.research_reasons.join("؛ "))+'<br><a href="'+esc(item.url)+'" target="_blank" rel="noopener noreferrer">بازکردن فرصت ↗</a> '+
+      '<button class="secondary" data-research-lead="'+item.id+'">ثبت نتیجهٔ بررسی رسمی</button></p></div></article>'
+    ).join("")+'<p class="muted">'+esc(result.note)+'</p>';
+  }catch(error){host.textContent="مرتب‌سازی صف ناموفق بود: "+error.message}
 }
 function renderTasks(tasks){$("task-list").innerHTML=tasks.length?tasks.map(t=>`<div class="item"><div><h3>${esc(t.description)}</h3><p>${esc(t.opportunity_title)} · ${esc(t.platform)} · ${esc(statusFa(t.status))}</p></div><div class="item-actions">${t.status==="pending_approval"?'<button class="primary" data-approve="'+t.id+'">تأیید کار</button>':''}${t.status==="approved"?'<button class="secondary" data-complete="'+t.id+'">علامت‌گذاری به‌عنوان تکمیل‌شده</button>':''}</div></div>`).join(""):'<div class="empty">هنوز کاری ثبت نشده است. از یک فرصت، کار جدید بسازید.</div>';
   $("task-list").querySelectorAll("[data-approve]").forEach(b=>b.onclick=async()=>{if(!confirm("این کار را تأیید می‌کنید؟ مسئولیت رعایت قوانین پلتفرم همچنان با شماست."))return;try{await api(`/api/tasks/${b.dataset.approve}/approve`,{method:"POST"});toast("کار تأیید شد")}catch(e){toast(e.message)}refresh()});
@@ -261,6 +356,18 @@ $("evaluation-form").onsubmit=async e=>{
   for(const field of ["estimated_cost","payout_fee_fixed","payout_fee_percent","conversion_fee_percent"])
     data[field]=Number(data[field]||0);
   data.evidence=String(data.evidence||"").split("\n").map(x=>x.trim()).filter(Boolean);
+  const form=e.target;
+  const aiFields=[
+    "requires_physical_presence","requires_personal_experience",
+    "requires_identity_attestation","requires_captcha",
+    "requires_live_human_interaction","contains_sensitive_personal_data",
+    "repetitive_information_processing","output_is_objectively_verifiable",
+    "human_signoff_required"
+  ];
+  data.ai_task_profile={title:opportunities.find(o=>o.id===data.opportunity_id)?.title||"Opportunity task",
+    ai_permission:data.ai_permission||"unknown"};
+  for(const field of aiFields)data.ai_task_profile[field]=form.elements[field].checked;
+  delete data.ai_permission;
   try{
     const result=await api("/api/opportunities/"+data.opportunity_id+"/evaluate",{method:"POST",body:JSON.stringify(data)});
     const value=result.evaluation;
@@ -268,17 +375,22 @@ $("evaluation-form").onsubmit=async e=>{
     alert("وضعیت صلاحیت: "+statusFa(value.eligibility)+
       "\nمیزان اطمینان: "+value.confidence+"/100"+
       "\nامتیاز رتبه‌بندی: "+value.ranking_score+"/100"+
-      "\nپاداش خالص تخمینی: "+(value.net_reward_estimate==null?"نامشخص":value.net_reward_estimate+" "+currencyFa(value.currency))+
-      "\nدرآمد خالص ساعتی تخمینی: "+(value.net_hourly_estimate==null?"نامشخص":value.net_hourly_estimate+" "+currencyFa(value.currency)+" در ساعت")+
+      "\nخالص در صورت پرداخت: "+(value.net_reward_estimate==null?"نامشخص":value.net_reward_estimate+" "+currencyFa(value.currency))+
+      "\nدرآمد مورد انتظار با احتمال پرداخت: "+(value.expected_net_reward_estimate==null?"نامشخص":value.expected_net_reward_estimate+" "+currencyFa(value.currency))+
+      "\nدرآمد ساعتی مورد انتظار: "+(value.expected_net_hourly_estimate==null?"نامشخص":value.expected_net_hourly_estimate+" "+currencyFa(value.currency)+" در ساعت")+
+      "\nاحتمال پرداخت ثبت‌شده: "+(value.payment_probability_percent==null?"نامشخص":value.payment_probability_percent+"٪")+
+      "\nدرآمد خالص ساعتی در صورت پرداخت: "+(value.net_hourly_estimate==null?"نامشخص":value.net_hourly_estimate+" "+currencyFa(value.currency)+" در ساعت")+
       "\nکارمزد برداشت تخمینی: "+money(value.payout_fee_estimate,value.currency)+
       "\nکارمزد تبدیل تخمینی: "+money(value.conversion_fee_estimate,value.currency)+
       "\nوضعیت حداقل برداشت: "+(value.withdrawal_threshold_currency_mismatch?"نامشخص؛ ارز متفاوت است":value.withdrawal_reachable_estimate===null?"حداقل برداشت قابل محاسبه نیست":value.withdrawal_reachable_estimate?"قابل دستیابی":"کمتر از حداقل برداشت")+
       "\nآمادگی اجرا: "+(value.execution_allowed?"پیش‌نیازها فراهم است":"مسدود است")+
+      "\nارزیابی AI: "+(value.ai_task_assessment?value.ai_task_assessment.suitability:"ثبت نشده")+
+      "\nنقش مجاز AI: "+(value.ai_task_assessment?.permitted_ai_role||"—")+
       "\n\nهشدارها:\n"+(value.risk_flags.map(riskFlagFa).join("\n")||"بدون هشدار")+
       "\n\nهیچ اقدامی در پلتفرم انجام نشد.");
   }catch(err){toast(err.message)}
 };
 $("reward-form").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));data.opportunity_id=data.opportunity_id?Number(data.opportunity_id):null;data.amount=Number(data.amount);try{await api("/api/earnings",{method:"POST",body:JSON.stringify(data)});e.target.closest("dialog").close();e.target.reset();toast("درآمد در دفتر درآمد ذخیره شد");refresh()}catch(err){toast(err.message)}};
-$("source-filter").onchange=renderSources;$("search").oninput=renderOpportunities;$("filter").onchange=renderOpportunities;$("verification-filter").onchange=renderOpportunities;
+$("prioritize-discovery").onclick=loadPrioritizedDiscovery;$("rank-opportunities").onclick=loadRankedOpportunities;$("source-filter").onchange=renderSources;$("search").oninput=renderOpportunities;$("filter").onchange=renderOpportunities;$("verification-filter").onchange=renderOpportunities;
 refresh().catch(e=>toast(e.message));
 setInterval(()=>refresh().catch(()=>{}),60000);

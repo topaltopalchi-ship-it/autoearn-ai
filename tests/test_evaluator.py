@@ -38,6 +38,41 @@ def test_explicit_country_eligibility_and_net_hourly_estimate():
     assert result["execution_allowed"] is True
 
 
+def test_probability_weighted_expected_net_earnings():
+    result = evaluate_candidate(
+        complete_candidate(payment_probability=50),
+        "Germany",
+        now=NOW,
+    )
+    assert result["net_reward_estimate"] == 10.0
+    assert result["net_hourly_estimate"] == 20.0
+    assert result["expected_net_reward_estimate"] == 5.0
+    assert result["expected_net_hourly_estimate"] == 10.0
+    assert result["payment_probability_percent"] == 50
+
+
+def test_unknown_payment_probability_keeps_expected_earnings_unknown():
+    result = evaluate_candidate(
+        complete_candidate(payment_probability=None),
+        "Germany",
+        now=NOW,
+    )
+    assert result["net_reward_estimate"] == 10.0
+    assert result["expected_net_reward_estimate"] is None
+    assert result["expected_net_hourly_estimate"] is None
+
+
+def test_zero_payment_probability_blocks_execution():
+    result = evaluate_candidate(
+        complete_candidate(payment_probability=0),
+        "Germany",
+        now=NOW,
+    )
+    assert result["expected_net_reward_estimate"] == 0.0
+    assert result["execution_allowed"] is False
+    assert "estimated payment probability is zero" in result["risk_flags"]
+
+
 def test_country_not_listed_is_ineligible_when_allowlist_exists():
     result = evaluate_candidate(complete_candidate(), "France", now=NOW)
     assert result["eligibility"] == "ineligible"
@@ -72,6 +107,20 @@ def test_stale_evidence_blocks_execution():
     assert result["evidence_stale"] is True
     assert result["execution_allowed"] is False
     assert "evidence is stale" in result["risk_flags"]
+
+
+def test_any_future_evidence_timestamp_blocks_execution():
+    from datetime import timedelta
+
+    future = (NOW + timedelta(hours=12)).isoformat()
+    result = evaluate_candidate(
+        complete_candidate(observed_at=future),
+        "Germany",
+        now=NOW,
+    )
+    assert result["evidence_stale"] is True
+    assert result["execution_allowed"] is False
+    assert "evidence timestamp is in the future" in result["risk_flags"]
 
 
 def test_manual_or_assisted_mode_never_auto_executes():
@@ -118,6 +167,23 @@ def test_candidate_rejects_invalid_probability_and_negative_cost():
         complete_candidate(payment_probability=101)
     with pytest.raises(ValueError, match="estimated_cost"):
         complete_candidate(estimated_cost=-1)
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("reward_amount", float("nan")),
+        ("reward_amount", float("inf")),
+        ("estimated_cost", float("nan")),
+        ("payout_fee_fixed", float("inf")),
+        ("payout_fee_percent", float("nan")),
+        ("conversion_fee_percent", float("inf")),
+        ("minimum_withdrawal_amount", float("nan")),
+    ],
+)
+def test_non_finite_money_values_are_rejected(field, value):
+    with pytest.raises(ValueError, match=field):
+        complete_candidate(**{field: value})
 
 
 def test_unknown_execution_mode_is_rejected():

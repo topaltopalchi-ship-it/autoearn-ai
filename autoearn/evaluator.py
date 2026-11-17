@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from math import isfinite
 from typing import Literal
 
 Eligibility = Literal["eligible", "ineligible", "unknown"]
@@ -53,6 +54,15 @@ class OpportunityCandidate:
             raise ValueError("unsupported source status")
         if self.verification_status not in ("pending", "verified", "rejected"):
             raise ValueError("unsupported verification status")
+        monetary_fields = (
+            "reward_amount", "estimated_cost", "payout_fee_fixed",
+            "payout_fee_percent", "conversion_fee_percent",
+            "minimum_withdrawal_amount",
+        )
+        for field_name in monetary_fields:
+            value = getattr(self, field_name)
+            if value is not None and not isfinite(value):
+                raise ValueError(f"{field_name} must be a finite number")
         if self.reward_amount is not None and self.reward_amount < 0:
             raise ValueError("reward_amount cannot be negative")
         if self.estimated_cost < 0:
@@ -121,7 +131,7 @@ def evaluate_candidate(
             if current.tzinfo is None:
                 current = current.replace(tzinfo=timezone.utc)
             age_days = (current - observed).total_seconds() / 86400
-            if age_days < -1:
+            if age_days < 0:
                 stale = True
                 flags.append("evidence timestamp is in the future")
             elif age_days > max_evidence_age_days:
@@ -139,6 +149,8 @@ def evaluate_candidate(
         flags.append("no supporting evidence recorded")
     if candidate.payment_probability is None:
         flags.append("payment probability is unknown")
+    elif candidate.payment_probability == 0:
+        flags.append("estimated payment probability is zero")
     if candidate.estimated_minutes is None or candidate.estimated_minutes <= 0:
         flags.append("time estimate is missing or invalid")
     if candidate.reward_amount is None:
@@ -169,6 +181,7 @@ def evaluate_candidate(
         and candidate.execution_mode == "official_api"
         and candidate.reward_amount is not None
         and candidate.payment_probability is not None
+        and candidate.payment_probability > 0
         and candidate.estimated_minutes is not None
         and candidate.risk_score is not None
         and withdrawal_reachable is True
@@ -195,6 +208,8 @@ def evaluate_candidate(
 
     net_reward = None
     hourly_net = None
+    expected_net_reward = None
+    expected_hourly_net = None
     withdrawal_reachable = None
     if candidate.reward_amount is not None:
         gross_after_cost = max(0.0, candidate.reward_amount - candidate.estimated_cost)
@@ -203,8 +218,12 @@ def evaluate_candidate(
         net_reward = round(max(0.0, gross_after_cost - payout_fee - conversion_fee), 2)
         if candidate.minimum_withdrawal_amount is not None:
             withdrawal_reachable = net_reward >= candidate.minimum_withdrawal_amount
+        if candidate.payment_probability is not None:
+            expected_net_reward = round(net_reward * candidate.payment_probability / 100, 2)
         if candidate.estimated_minutes and candidate.estimated_minutes > 0:
             hourly_net = round(net_reward / (candidate.estimated_minutes / 60), 2)
+            if expected_net_reward is not None:
+                expected_hourly_net = round(expected_net_reward / (candidate.estimated_minutes / 60), 2)
 
     score = 0
     if eligibility == "eligible":
@@ -215,8 +234,8 @@ def evaluate_candidate(
         score += 15
     if candidate.payment_probability is not None:
         score += round(max(0, min(100, candidate.payment_probability)) * 0.20)
-    if hourly_net is not None:
-        score += max(0, min(20, round(hourly_net)))
+    if expected_hourly_net is not None:
+        score += max(0, min(20, round(expected_hourly_net)))
     if candidate.risk_score is not None:
         score -= round(max(0, min(100, candidate.risk_score)) * 0.10)
     if stale:
@@ -230,6 +249,9 @@ def evaluate_candidate(
         "ranking_score": score,
         "net_reward_estimate": net_reward,
         "net_hourly_estimate": hourly_net,
+        "expected_net_reward_estimate": expected_net_reward,
+        "expected_net_hourly_estimate": expected_hourly_net,
+        "payment_probability_percent": candidate.payment_probability,
         "withdrawal_reachable_estimate": withdrawal_reachable,
         "payout_fee_estimate": round((candidate.payout_fee_fixed + (max(0.0, (candidate.reward_amount or 0) - candidate.estimated_cost) * candidate.payout_fee_percent / 100)), 2),
         "conversion_fee_estimate": round(max(0.0, (candidate.reward_amount or 0) - candidate.estimated_cost) * candidate.conversion_fee_percent / 100, 2),

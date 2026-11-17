@@ -25,6 +25,9 @@ from autoearn.evaluator import OpportunityCandidate, evaluate_candidate
 from autoearn.competitions import (
     AIProviderError, Competition, CompetitionAdapterRegistry, assess_competition, build_strategy,
 )
+from autoearn.task_suitability import TaskProfile, assess_task_suitability
+from autoearn.ranking import rank_evaluations
+from autoearn.discovery_ranking import prioritize_discovery_leads
 
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.getenv("AUTOEARN_DB", ROOT / "autoearn.db"))
@@ -116,6 +119,24 @@ def init_db() -> None:
             review_notes TEXT NOT NULL DEFAULT '',
             opportunity_id INTEGER REFERENCES opportunities(id) ON DELETE SET NULL
         );
+        CREATE TABLE IF NOT EXISTS discovery_research (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            lead_id INTEGER NOT NULL REFERENCES discovery_leads(id) ON DELETE CASCADE,
+            country TEXT NOT NULL,
+            country_status TEXT NOT NULL DEFAULT 'unknown',
+            country_evidence_url TEXT NOT NULL DEFAULT '',
+            payout_status TEXT NOT NULL DEFAULT 'unknown',
+            payout_evidence_url TEXT NOT NULL DEFAULT '',
+            ai_permission TEXT NOT NULL DEFAULT 'unknown',
+            ai_evidence_url TEXT NOT NULL DEFAULT '',
+            api_status TEXT NOT NULL DEFAULT 'unknown',
+            api_evidence_url TEXT NOT NULL DEFAULT '',
+            notes TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL,
+            UNIQUE(lead_id, country)
+        );
+        CREATE INDEX IF NOT EXISTS idx_discovery_research_lead
+            ON discovery_research(lead_id, country);
         CREATE TABLE IF NOT EXISTS discovery_scheduler (
             id INTEGER PRIMARY KEY CHECK(id = 1),
             enabled INTEGER NOT NULL DEFAULT 1,
@@ -372,6 +393,19 @@ class DiscoveryLeadReviewIn(BaseModel):
     notes: str = Field(default="", max_length=1000)
 
 
+class DiscoveryResearchIn(BaseModel):
+    country: str = Field(min_length=2, max_length=80)
+    country_status: Literal["unknown", "verified", "blocked"] = "unknown"
+    country_evidence_url: str = Field(default="", max_length=500)
+    payout_status: Literal["unknown", "verified", "unavailable"] = "unknown"
+    payout_evidence_url: str = Field(default="", max_length=500)
+    ai_permission: Literal["unknown", "allowed", "prohibited"] = "unknown"
+    ai_evidence_url: str = Field(default="", max_length=500)
+    api_status: Literal["unknown", "available", "unavailable"] = "unknown"
+    api_evidence_url: str = Field(default="", max_length=500)
+    notes: str = Field(default="", max_length=2000)
+
+
 class DiscoveryFeedReviewIn(BaseModel):
     status: Literal["pending", "approved", "rejected"]
 
@@ -395,6 +429,22 @@ class OpportunityEvaluationIn(BaseModel):
     payment_probability: int | None = Field(default=None, ge=0, le=100)
     risk_score: int | None = Field(default=None, ge=0, le=100)
     evidence: list[str] = Field(default_factory=list, max_length=20)
+    # Required for official-API readiness: explicit AI policy and task characteristics.
+    ai_task_profile: dict[str, object] | None = None
+
+
+class TaskSuitabilityIn(BaseModel):
+    title: str = Field(min_length=1, max_length=300)
+    ai_permission: Literal["allowed", "prohibited", "unknown"] = "unknown"
+    requires_physical_presence: bool = False
+    requires_personal_experience: bool = False
+    requires_identity_attestation: bool = False
+    requires_captcha: bool = False
+    requires_live_human_interaction: bool = False
+    contains_sensitive_personal_data: bool = False
+    repetitive_information_processing: bool = False
+    output_is_objectively_verifiable: bool = False
+    human_signoff_required: bool = True
 
 
 class CompetitionIn(BaseModel):
@@ -785,6 +835,22 @@ def earning_history(ledger_id: int, actor: str = Depends(require_owner)):
         """, (ledger_id,)).fetchall()]
 
 
+@app.post("/api/task-suitability/assess")
+def assess_task_suitability_api(data: TaskSuitabilityIn, actor: str = Depends(require_owner)):
+    """Assess AI suitability for a task; this never authorizes execution."""
+    profile = TaskProfile(**data.model_dump())
+    assessment = assess_task_suitability(profile)
+    return {
+        "title": profile.title,
+        "suitability": assessment.suitability,
+        "score": assessment.score,
+        "reasons": list(assessment.reasons),
+        "permitted_ai_role": assessment.permitted_ai_role,
+        "execution_authorized": False,
+        "disclaimer": "Suitability is a screening aid, not proof of platform permission or a guarantee of earnings.",
+    }
+
+
 @app.post("/api/opportunities/{opportunity_id}/evaluate")
 def evaluate_opportunity(opportunity_id: int, data: OpportunityEvaluationIn,
                          actor: str = Depends(require_owner)):
@@ -837,6 +903,35 @@ def evaluate_opportunity(opportunity_id: int, data: OpportunityEvaluationIn,
             evidence=tuple(clean_list(data.evidence, "evidence")),
         )
         evaluation = evaluate_candidate(candidate, data.country)
+        ai_task_assessment = None
+        if data.ai_task_profile is not None:
+            try:
+                task_profile = TaskSuitabilityIn.model_validate(data.ai_task_profile)
+                ai_assessment = assess_task_suitability(
+                    TaskProfile(**task_profile.model_dump())
+                )
+                ai_task_assessment = {
+                    "suitability": ai_assessment.suitability,
+                    "score": ai_assessment.score,
+                    "reasons": list(ai_assessment.reasons),
+                    "permitted_ai_role": ai_assessment.permitted_ai_role,
+                    "execution_authorized": False,
+                }
+            except (ValueError, TypeError) as exc:
+                raise HTTPException(422, f"AI task profile is invalid: {exc}")
+        if data.execution_mode == "official_api":
+            if ai_task_assessment is None:
+                evaluation["execution_allowed"] = False
+                evaluation["risk_flags"].append(
+                    "AI task profile and explicit AI permission are required for official-API readiness"
+                )
+            elif ai_task_assessment["suitability"] != "ai_draft_candidate":
+                evaluation["execution_allowed"] = False
+                evaluation["risk_flags"].append(
+                    "AI task suitability is not cleared for bounded draft preparation"
+                )
+        evaluation["ai_task_assessment"] = ai_task_assessment
+        evaluation["execution_authorized"] = False
         threshold_currency_mismatch = (
             opportunity["minimum_withdrawal_amount"] is not None
             and opportunity["withdrawal_currency"].upper() != data.reward_currency.upper()
@@ -874,7 +969,8 @@ def evaluate_opportunity(opportunity_id: int, data: OpportunityEvaluationIn,
         "source_status": source["status"],
         "opportunity_status": opportunity["status"],
         "evaluation": evaluation,
-        "execution_note": "This is a readiness assessment only; no external platform action is executed.",
+        "execution_authorized": False,
+        "execution_note": "This is a readiness assessment only; AI may prepare a bounded draft only when explicitly permitted and suitable. Human review and owner confirmation are still required; no external platform action is executed.",
     }
 
 
@@ -900,6 +996,79 @@ def list_opportunity_evaluations(opportunity_id: int, actor: str = Depends(requi
         "evaluation": json.loads(row["result_json"]),
         "created_at": row["created_at"],
     } for row in rows]
+
+
+@app.get("/api/opportunities/ranked")
+def ranked_opportunities(
+    country: str = Query(min_length=2, max_length=80),
+    actor: str = Depends(require_owner),
+):
+    """Rank the latest evaluation per opportunity, separated by currency."""
+    with connect() as db:
+        rows = db.execute(
+            """SELECT eh.id AS evaluation_id, eh.opportunity_id, eh.source_id,
+                      eh.country, eh.execution_mode, eh.result_json, eh.created_at,
+                      o.title, o.platform, o.url, o.category, o.status,
+                      o.verification_status,
+                      dr.country_status AS research_country_status,
+                      dr.payout_status AS research_payout_status,
+                      dr.ai_permission AS research_ai_permission,
+                      dr.api_status AS research_api_status,
+                      dr.updated_at AS research_checked_at,
+                      dr.country_evidence_url AS research_country_evidence_url,
+                      dr.payout_evidence_url AS research_payout_evidence_url,
+                      dr.ai_evidence_url AS research_ai_evidence_url,
+                      dr.api_evidence_url AS research_api_evidence_url
+               FROM evaluation_history eh
+               JOIN opportunities o ON o.id = eh.opportunity_id
+               LEFT JOIN discovery_leads dl ON dl.opportunity_id = o.id
+               LEFT JOIN discovery_research dr
+                 ON dr.lead_id = dl.id AND lower(trim(dr.country)) = lower(trim(eh.country))
+               WHERE lower(trim(eh.country)) = lower(trim(?))
+                 AND eh.id = (
+                    SELECT MAX(latest.id)
+                    FROM evaluation_history latest
+                    WHERE latest.opportunity_id = eh.opportunity_id
+                      AND lower(trim(latest.country)) = lower(trim(eh.country))
+                 )
+               ORDER BY eh.id DESC""",
+            (country.strip(),),
+        ).fetchall()
+    records = []
+    for row in rows:
+        try:
+            evaluation = json.loads(row["result_json"])
+        except (TypeError, json.JSONDecodeError):
+            evaluation = {}
+        records.append({
+            "evaluation_id": row["evaluation_id"],
+            "opportunity_id": row["opportunity_id"],
+            "source_id": row["source_id"],
+            "country": row["country"],
+            "execution_mode": row["execution_mode"],
+            "title": row["title"],
+            "platform": row["platform"],
+            "url": row["url"],
+            "category": row["category"],
+            "opportunity_status": row["status"],
+            "verification_status": row["verification_status"],
+            "created_at": row["created_at"],
+            "research": {
+                "country_status": row["research_country_status"] or "unknown",
+                "payout_status": row["research_payout_status"] or "unknown",
+                "ai_permission": row["research_ai_permission"] or "unknown",
+                "api_status": row["research_api_status"] or "unknown",
+                "checked_at": row["research_checked_at"],
+                "country_evidence_url": row["research_country_evidence_url"] or "",
+                "payout_evidence_url": row["research_payout_evidence_url"] or "",
+                "ai_evidence_url": row["research_ai_evidence_url"] or "",
+                "api_evidence_url": row["research_api_evidence_url"] or "",
+            },
+            "evaluation": evaluation,
+        })
+    ranked = rank_evaluations(records)
+    ranked["country"] = country.strip()
+    return ranked
 
 
 @app.post("/api/discovery/rss", status_code=200)
@@ -962,6 +1131,99 @@ def list_discovery_leads(status: Literal["pending", "converted", "rejected"] | N
     sql += " ORDER BY last_seen_at DESC, id DESC"
     with connect() as db:
         return [row_dict(row) for row in db.execute(sql, params).fetchall()]
+
+
+@app.get("/api/discovery/leads/prioritized")
+def prioritized_discovery_leads(actor: str = Depends(require_owner)):
+    """Return a research-first queue; never implies country or payout eligibility."""
+    with connect() as db:
+        rows = db.execute(
+            """SELECT l.*, f.status AS feed_status,
+                      f.total_checks, f.total_successes,
+                      f.consecutive_failures, f.last_success_at
+               FROM discovery_leads l
+               LEFT JOIN discovery_feeds f ON f.id = l.source_feed_id
+               WHERE l.status = 'pending'
+               ORDER BY l.last_seen_at DESC, l.id DESC"""
+        ).fetchall()
+    result = prioritize_discovery_leads([row_dict(row) for row in rows])
+    return result
+
+
+@app.get("/api/discovery/leads/{lead_id}/research")
+def get_discovery_research(lead_id: int, country: str = Query(min_length=2, max_length=80),
+                           actor: str = Depends(require_owner)):
+    with connect() as db:
+        lead = db.execute("SELECT id FROM discovery_leads WHERE id = ?", (lead_id,)).fetchone()
+        if lead is None:
+            raise HTTPException(404, "Discovery lead not found.")
+        row = db.execute(
+            "SELECT * FROM discovery_research WHERE lead_id = ? AND country = ?",
+            (lead_id, country.strip()),
+        ).fetchone()
+    if row is None:
+        return {
+            "lead_id": lead_id, "country": country.strip(),
+            "country_status": "unknown", "country_evidence_url": "",
+            "payout_status": "unknown", "payout_evidence_url": "",
+            "ai_permission": "unknown", "ai_evidence_url": "",
+            "api_status": "unknown", "api_evidence_url": "",
+            "notes": "", "execution_authorized": False,
+        }
+    result = row_dict(row)
+    result["execution_authorized"] = False
+    return result
+
+
+@app.put("/api/discovery/leads/{lead_id}/research")
+def save_discovery_research(lead_id: int, data: DiscoveryResearchIn,
+                            actor: str = Depends(require_owner)):
+    fields = (
+        ("country_status", data.country_status, data.country_evidence_url),
+        ("payout_status", data.payout_status, data.payout_evidence_url),
+        ("ai_permission", data.ai_permission, data.ai_evidence_url),
+        ("api_status", data.api_status, data.api_evidence_url),
+    )
+    for field_name, status, evidence_url in fields:
+        if status != "unknown":
+            if not evidence_url or not safe_url(evidence_url):
+                raise HTTPException(422, f"{field_name} requires a valid evidence URL.")
+            if urlparse(evidence_url).scheme != "https":
+                raise HTTPException(422, f"{field_name} evidence URL must use HTTPS.")
+    for _, _, evidence_url in fields:
+        if evidence_url and (not safe_url(evidence_url) or urlparse(evidence_url).scheme != "https"):
+            raise HTTPException(422, "Evidence URLs must be valid HTTPS URLs.")
+    with connect() as db:
+        lead = db.execute("SELECT id FROM discovery_leads WHERE id = ?", (lead_id,)).fetchone()
+        if lead is None:
+            raise HTTPException(404, "Discovery lead not found.")
+        db.execute(
+            """INSERT INTO discovery_research
+               (lead_id, country, country_status, country_evidence_url,
+                payout_status, payout_evidence_url, ai_permission, ai_evidence_url,
+                api_status, api_evidence_url, notes, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(lead_id, country) DO UPDATE SET
+                country_status=excluded.country_status,
+                country_evidence_url=excluded.country_evidence_url,
+                payout_status=excluded.payout_status,
+                payout_evidence_url=excluded.payout_evidence_url,
+                ai_permission=excluded.ai_permission,
+                ai_evidence_url=excluded.ai_evidence_url,
+                api_status=excluded.api_status,
+                api_evidence_url=excluded.api_evidence_url,
+                notes=excluded.notes, updated_at=excluded.updated_at""",
+            (lead_id, data.country.strip(), data.country_status, data.country_evidence_url.strip(),
+             data.payout_status, data.payout_evidence_url.strip(), data.ai_permission,
+             data.ai_evidence_url.strip(), data.api_status, data.api_evidence_url.strip(),
+             data.notes.strip(), now()),
+        )
+        result = row_dict(db.execute(
+            "SELECT * FROM discovery_research WHERE lead_id = ? AND country = ?",
+            (lead_id, data.country.strip()),
+        ).fetchone())
+    result["execution_authorized"] = False
+    return result
 
 
 @app.patch("/api/discovery/leads/{lead_id}/review")

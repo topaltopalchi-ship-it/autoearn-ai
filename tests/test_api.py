@@ -526,7 +526,12 @@ def test_opportunity_evaluation_uses_reviewed_source_country_and_evidence(client
     assert evaluation["eligibility"] == "eligible"
     assert evaluation["net_reward_estimate"] == 10
     assert evaluation["net_hourly_estimate"] == 20
-    assert evaluation["execution_allowed"] is True
+    # Official-API readiness must remain blocked until the task's AI
+    # permission is explicitly reviewed and a suitability profile is supplied.
+    assert evaluation["execution_allowed"] is False
+    assert evaluation["ai_task_assessment"] is None
+    assert any("AI task profile" in flag for flag in evaluation["risk_flags"])
+    assert result.json()["execution_authorized"] is False
     assert "no external platform action is executed" in result.json()["execution_note"]
 
 
@@ -1107,3 +1112,184 @@ def test_discovery_health_is_owner_only_and_reports_feed_state(client):
     assert failed["feeds"][0]["consecutive_failures"] == 2
     assert failed["feeds"][0]["last_error"] == "timeout"
     assert failed["feeds"][0]["reliability_percent"] == 60.0
+
+
+def test_ranked_opportunities_uses_latest_country_evaluation_and_separates_currencies(client):
+    from app import main
+
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    assert client.get("/api/opportunities/ranked?country=Germany").status_code == 401
+    first, source = _prepare_verified_source(client)
+    second_response = client.post("/api/opportunities", headers=headers, json={
+        "title": "Second reward task", "platform": "Example",
+        "url": "https://example.com/game-second",
+        "eligible_countries": ["Germany"],
+    })
+    assert second_response.status_code == 201
+    second = second_response.json()
+    client.patch(f"/api/opportunities/{second['id']}/status", headers=headers,
+                 params={"status": "eligible"})
+    client.patch(f"/api/opportunities/{second['id']}/verification", headers=headers,
+                 json={"status": "verified", "notes": "Reviewed"})
+
+    def evaluate(opp_id, currency, reward):
+        return client.post(f"/api/opportunities/{opp_id}/evaluate", headers=headers, json={
+            "source_id": source["id"], "country": "Germany",
+            "execution_mode": "manual", "reward_amount": reward,
+            "reward_currency": currency, "estimated_minutes": 30,
+            "payment_probability": 80, "risk_score": 20,
+            "evidence": ["Official terms reviewed"],
+        })
+
+    older = evaluate(first["id"], "EUR", 8)
+    latest = evaluate(first["id"], "EUR", 12)
+    other_currency = evaluate(second["id"], "USD", 15)
+    assert older.status_code == latest.status_code == other_currency.status_code == 200
+
+    # Link one promoted discovery lead to the first opportunity and attach
+    # country-specific evidence; the second opportunity remains unresearched.
+    with main.connect() as db:
+        lead_id = db.execute(
+            """INSERT INTO discovery_leads
+               (source_name, title, url, category, summary, terms_url, observed_at,
+                status, created_at, last_seen_at, opportunity_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 'converted', ?, ?, ?)""",
+            ("Official source", "First task", "https://example.com/game",
+             "other", "Listing", "https://example.com/terms", main.now(),
+             main.now(), main.now(), first["id"]),
+        ).lastrowid
+    evidence = client.put(
+        f"/api/discovery/leads/{lead_id}/research",
+        headers=headers,
+        json={
+            "country": "Germany",
+            "country_status": "verified",
+            "country_evidence_url": "https://official.example/country",
+            "payout_status": "verified",
+            "payout_evidence_url": "https://official.example/payout",
+            "ai_permission": "allowed",
+            "ai_evidence_url": "https://official.example/ai-policy",
+            "api_status": "available",
+            "api_evidence_url": "https://official.example/api",
+        },
+    )
+    assert evidence.status_code == 200
+
+    ranked = client.get("/api/opportunities/ranked?country=Germany", headers=headers)
+    assert ranked.status_code == 200
+    body = ranked.json()
+    assert body["total"] == 2
+    assert [group["currency"] for group in body["groups"]] == ["EUR", "USD"]
+    eur_item = body["groups"][0]["items"][0]
+    assert eur_item["opportunity_id"] == first["id"]
+    assert eur_item["evaluation_id"] == latest.json()["evaluation_id"]
+    assert eur_item["evaluation"]["net_reward_estimate"] == 12
+    assert eur_item["research_complete"] is True
+    usd_item = body["groups"][1]["items"][0]
+    assert usd_item["priority_tier"] == "blocked_pending_research"
+    assert usd_item["research_status"]["country"] == "unknown"
+    assert all(item["execution_authorized"] is False
+               for group in body["groups"] for item in group["items"])
+    assert "Different currencies" in body["comparison_note"] or "different currencies" in body["comparison_note"].lower()
+
+
+def test_prioritized_discovery_endpoint_is_owner_only_and_marks_unknowns(client):
+    from app import main
+
+    assert client.get("/api/discovery/leads/prioritized").status_code == 401
+    with main.connect() as db:
+        feed = db.execute(
+            """INSERT INTO discovery_feeds
+               (name, feed_url, category, allowed_domains, max_items, status, created_at,
+                total_checks, total_successes)
+               VALUES (?, ?, ?, ?, ?, 'approved', ?, 10, 9)""",
+            ("Trusted feed", "https://example.com/feed.xml", "surveys_microtasks",
+             '["example.com"]', 30, main.now()),
+        ).lastrowid
+        db.execute(
+            """INSERT INTO discovery_leads
+               (source_feed_id, source_name, title, url, category, summary,
+                terms_url, observed_at, status, created_at, last_seen_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)""",
+            (feed, "Trusted feed", "Example task", "https://example.com/task",
+             "surveys_microtasks", "Detailed public task description " * 8,
+             "https://example.com/terms", main.now(), main.now(), main.now()),
+        )
+
+    response = owner_get(client, "/api/discovery/leads/prioritized")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 1
+    item = body["items"][0]
+    assert item["research_priority"] == "research_first"
+    assert item["feed_reliability_percent"] == 90
+    assert item["financial_evaluation_status"] == "not_evaluated"
+    assert item["country_eligibility"] == "unknown"
+    assert item["payout_availability"] == "unknown"
+    assert item["ai_permission"] == "unknown"
+    assert item["execution_authorized"] is False
+
+
+def test_discovery_research_requires_official_https_evidence_and_is_owner_only(client):
+    from app import main
+
+    with main.connect() as db:
+        lead_id = db.execute(
+            """INSERT INTO discovery_leads
+               (source_name, title, url, category, summary, terms_url, observed_at,
+                status, created_at, last_seen_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)""",
+            ("Research source", "Research task", "https://research.example/task",
+             "freelancing_services", "Public listing", "https://research.example/terms",
+             main.now(), main.now(), main.now()),
+        ).lastrowid
+
+    path = f"/api/discovery/leads/{lead_id}/research"
+    assert client.get(path, params={"country": "Azerbaijan"}).status_code == 401
+    assert client.put(path, json={"country": "Azerbaijan"}).status_code == 401
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+
+    initial = client.get(path, headers=headers, params={"country": "Azerbaijan"})
+    assert initial.status_code == 200
+    assert initial.json()["country_status"] == "unknown"
+    assert initial.json()["payout_status"] == "unknown"
+    assert initial.json()["ai_permission"] == "unknown"
+    assert initial.json()["api_status"] == "unknown"
+    assert initial.json()["execution_authorized"] is False
+
+    missing_evidence = client.put(path, headers=headers, json={
+        "country": "Azerbaijan", "country_status": "verified",
+    })
+    assert missing_evidence.status_code == 422
+
+    insecure_evidence = client.put(path, headers=headers, json={
+        "country": "Azerbaijan", "country_status": "verified",
+        "country_evidence_url": "http://official.example/eligibility",
+    })
+    assert insecure_evidence.status_code == 422
+
+    payload = {
+        "country": "Azerbaijan",
+        "country_status": "verified",
+        "country_evidence_url": "https://official.example/eligibility",
+        "payout_status": "verified",
+        "payout_evidence_url": "https://official.example/payouts",
+        "ai_permission": "allowed",
+        "ai_evidence_url": "https://official.example/terms",
+        "api_status": "available",
+        "api_evidence_url": "https://official.example/developers",
+        "notes": "Official pages reviewed manually.",
+    }
+    saved = client.put(path, headers=headers, json=payload)
+    assert saved.status_code == 200
+    body = saved.json()
+    assert body["country_status"] == "verified"
+    assert body["payout_status"] == "verified"
+    assert body["ai_permission"] == "allowed"
+    assert body["api_status"] == "available"
+    assert body["execution_authorized"] is False
+
+    loaded = client.get(path, headers=headers, params={"country": "Azerbaijan"})
+    assert loaded.status_code == 200
+    assert loaded.json()["country_evidence_url"] == payload["country_evidence_url"]
+    assert loaded.json()["notes"] == payload["notes"]
