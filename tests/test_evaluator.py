@@ -19,6 +19,7 @@ def complete_candidate(**overrides):
         "observed_at": "2026-11-16T12:00:00+00:00",
         "reward_amount": 12.0,
         "reward_currency": "EUR",
+        "minimum_withdrawal_amount": 5.0,
         "estimated_cost": 2.0,
         "estimated_minutes": 30,
         "payment_probability": 90,
@@ -158,3 +159,13 @@ def test_invalid_payout_fee_is_rejected():
     import pytest
     with pytest.raises(ValueError, match="payout_fee_percent"):
         complete_candidate(payout_fee_percent=101)
+
+
+def test_unknown_withdrawal_threshold_blocks_automatic_execution():
+    result = evaluate_candidate(
+        complete_candidate(minimum_withdrawal_amount=None),
+        "Germany", now=NOW,
+    )
+    assert result["withdrawal_reachable_estimate"] is None
+    assert result["execution_allowed"] is False
+    assert "minimum withdrawal threshold or net reward is unknown" in result["risk_flags"]
