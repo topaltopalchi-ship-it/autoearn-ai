@@ -468,14 +468,19 @@ def test_rss_discovery_persists_only_pending_candidates_and_deduplicates(
     assert result["review_required"] is True
     candidates = owner_get(client, "/api/discovery/leads?status=pending").json()
     assert len(candidates) == 2
-    assert candidates[0]["title"] == "Paid survey listing"
-    assert candidates[0]["category"] == "surveys_microtasks"
-    assert candidates[0]["status"] == "pending"
-    assert candidates[0]["track_key"] == "microtasks"
-    assert candidates[0]["track_review_status"] == "matched"
-    assert candidates[1]["title"] == "فرصت حل پازل روزانه"
-    assert candidates[1]["track_key"] == "puzzle_solving"
-    assert candidates[1]["track_review_status"] == "matched"
+    candidates_by_title = {candidate["title"]: candidate for candidate in candidates}
+    assert set(candidates_by_title) == {
+        "Paid survey listing",
+        "فرصت حل پازل روزانه",
+    }
+    paid_survey = candidates_by_title["Paid survey listing"]
+    assert paid_survey["category"] == "surveys_microtasks"
+    assert paid_survey["status"] == "pending"
+    assert paid_survey["track_key"] == "microtasks"
+    assert paid_survey["track_review_status"] == "matched"
+    puzzle = candidates_by_title["فرصت حل پازل روزانه"]
+    assert puzzle["track_key"] == "puzzle_solving"
+    assert puzzle["track_review_status"] == "matched"
 
 
 def test_task_approval_and_reward_ledger_are_owner_only(client):
