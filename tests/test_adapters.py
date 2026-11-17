@@ -49,6 +49,31 @@ def test_manifest_requires_an_explicit_exact_domain_allowlist():
         )
 
 
+@pytest.mark.parametrize("domain", ["*.example.com", "Example.com", "example", "bad..example.com", "example.com/path", "example.com:443"])
+def test_manifest_rejects_non_exact_or_malformed_domains(domain):
+    with pytest.raises(ValueError, match="exact public hostnames"):
+        AdapterManifest(
+            adapter_id="invalid-domain",
+            display_name="Invalid domain",
+            categories=("other",),
+            allowed_domains=(domain,),
+        )
+
+
+def test_allowlist_does_not_implicitly_include_subdomains():
+    lead = DiscoveredLead(
+        title="Subdomain task",
+        url="https://sub.example.com/task",
+        category="surveys_microtasks",
+        source_name="Demo",
+        observed_at="2026-11-17T10:00:00+00:00",
+    )
+    registry = AdapterRegistry()
+    registry.register(DemoAdapter(leads=[lead]))
+    with pytest.raises(ValueError, match="allowlist"):
+        registry.discover("demo")
+
+
 def test_unknown_adapter_cannot_run():
     with pytest.raises(KeyError):
         AdapterRegistry().discover("not-installed")
