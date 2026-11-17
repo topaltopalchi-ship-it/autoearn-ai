@@ -1107,3 +1107,49 @@ def test_discovery_health_is_owner_only_and_reports_feed_state(client):
     assert failed["feeds"][0]["consecutive_failures"] == 2
     assert failed["feeds"][0]["last_error"] == "timeout"
     assert failed["feeds"][0]["reliability_percent"] == 60.0
+
+
+def test_ranked_opportunities_uses_latest_country_evaluation_and_separates_currencies(client):
+    from app import main
+
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    assert client.get("/api/opportunities/ranked?country=Germany").status_code == 401
+    first, source = _prepare_verified_source(client)
+    second_response = client.post("/api/opportunities", headers=headers, json={
+        "title": "Second reward task", "platform": "Example",
+        "url": "https://example.com/game-second",
+        "eligible_countries": ["Germany"],
+    })
+    assert second_response.status_code == 201
+    second = second_response.json()
+    client.patch(f"/api/opportunities/{second['id']}/status", headers=headers,
+                 params={"status": "eligible"})
+    client.patch(f"/api/opportunities/{second['id']}/verification", headers=headers,
+                 json={"status": "verified", "notes": "Reviewed"})
+
+    def evaluate(opp_id, currency, reward):
+        return client.post(f"/api/opportunities/{opp_id}/evaluate", headers=headers, json={
+            "source_id": source["id"], "country": "Germany",
+            "execution_mode": "manual", "reward_amount": reward,
+            "reward_currency": currency, "estimated_minutes": 30,
+            "payment_probability": 80, "risk_score": 20,
+            "evidence": ["Official terms reviewed"],
+        })
+
+    older = evaluate(first["id"], "EUR", 8)
+    latest = evaluate(first["id"], "EUR", 12)
+    other_currency = evaluate(second["id"], "USD", 15)
+    assert older.status_code == latest.status_code == other_currency.status_code == 200
+
+    ranked = client.get("/api/opportunities/ranked?country=Germany", headers=headers)
+    assert ranked.status_code == 200
+    body = ranked.json()
+    assert body["total"] == 2
+    assert [group["currency"] for group in body["groups"]] == ["EUR", "USD"]
+    eur_item = body["groups"][0]["items"][0]
+    assert eur_item["opportunity_id"] == first["id"]
+    assert eur_item["evaluation_id"] == latest.json()["evaluation_id"]
+    assert eur_item["evaluation"]["net_reward_estimate"] == 12
+    assert all(item["execution_authorized"] is False
+               for group in body["groups"] for item in group["items"])
+    assert "Different currencies" in body["comparison_note"] or "different currencies" in body["comparison_note"].lower()
