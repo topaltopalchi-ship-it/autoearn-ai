@@ -98,3 +98,17 @@ def test_concurrent_decisions_allow_only_one_transition(tmp_path):
     decisions = [event for event in store.audit_events(request.request_id)
                  if event.event_type in {"approved", "rejected"}]
     assert len(decisions) == 1
+
+
+def test_case_variant_system_actor_is_rejected_for_all_decisions(tmp_path):
+    store = make_store(tmp_path)
+    request = create(store)
+    with pytest.raises(SupervisionError, match="human actor"):
+        store.approve(request.request_id, actor="SYSTEM")
+    with pytest.raises(SupervisionError, match="human actor"):
+        store.reject(request.request_id, actor=" System ")
+    store.approve(request.request_id, actor="owner")
+    with pytest.raises(SupervisionError, match="human actor"):
+        store.complete(request.request_id, actor="SYSTEM", evidence="receipt")
+    with pytest.raises(SupervisionError, match="human actor"):
+        store.cancel(request.request_id, actor=" System ")
