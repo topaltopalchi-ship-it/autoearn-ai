@@ -682,3 +682,15 @@ def test_vault_rejects_recovery_phrase_even_when_mislabelled_as_api_key(client):
     })
     assert response.status_code == 422
     assert "عبارت بازیابی" in response.text
+
+
+def test_vault_rejects_prefixed_wallet_private_key_mislabelled_as_api_key(client):
+    response = client.post("/api/vault/credentials", json={
+        "label": "API credential",
+        "provider": "Generic API",
+        "credential_type": "api_key",
+        "secret": "0x" + "b" * 64,
+        "passphrase": "a-long-test-vault-passphrase",
+    })
+    assert response.status_code == 422
+    assert "کلید خصوصی کیف پول" in response.text
