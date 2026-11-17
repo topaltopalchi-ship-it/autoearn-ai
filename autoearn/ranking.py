@@ -75,10 +75,32 @@ def rank_evaluations(records: list[dict[str, Any]]) -> dict[str, Any]:
         else:
             ai_fit = "human_review_or_policy_check"
 
+        expected_hourly = evaluation.get("expected_net_hourly_estimate")
+        try:
+            expected_hourly = float(expected_hourly)
+            if not (expected_hourly >= 0 and expected_hourly < float("inf")):
+                expected_hourly = None
+        except (TypeError, ValueError, OverflowError):
+            expected_hourly = None
+        withdrawal_status = evaluation.get("withdrawal_status", "unknown")
+        accumulation_confirmed = evaluation.get("supports_balance_accumulation") is True
+        withdrawal_ready = (
+            withdrawal_status == "immediately_reachable"
+            or (withdrawal_status == "requires_accumulation" and accumulation_confirmed)
+        )
+        financial_readiness = (
+            "ready" if expected_hourly is not None
+            and evaluation.get("payout_supported") is True
+            and withdrawal_ready
+            else "needs_financial_verification"
+        )
         item = {
             **record,
             "currency_group": currency,
             "ranking_score": score,
+            "expected_net_hourly_estimate": expected_hourly,
+            "financial_readiness": financial_readiness,
+            "withdrawal_status": withdrawal_status,
             "priority_tier": tier,
             "execution_allowed": bool(evaluation.get("execution_allowed", False)),
             "execution_authorized": False,
@@ -101,6 +123,8 @@ def rank_evaluations(records: list[dict[str, Any]]) -> dict[str, Any]:
             grouped[currency],
             key=lambda item: (
                 tier_order[item["priority_tier"]],
+                item["financial_readiness"] != "ready",
+                -(item["expected_net_hourly_estimate"] or 0),
                 -item["ranking_score"],
                 item["ai_fit"] != "bounded_ai_draft_candidate",
                 not item["execution_allowed"],
