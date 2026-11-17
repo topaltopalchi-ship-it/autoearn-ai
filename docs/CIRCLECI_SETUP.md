@@ -1,8 +1,9 @@
 # CircleCI setup for the private AutoEarn AI repository
 
-CircleCI can run the repository's checks on hosted machines while the canonical
-GitHub repository remains private. The configuration uses the small Docker
-resource class and does not save caches or upload artifacts.
+CircleCI can run the repository's checks on hosted machines without changing
+GitHub visibility. The repository may remain public during development and be
+made private after the project is complete. The configuration uses the small
+Docker resource class and does not save caches or upload artifacts.
 
 ## Included checks
 
@@ -19,7 +20,7 @@ needed by the test jobs.
 ## Connect the private GitHub repository
 
 1. Open [CircleCI](https://circleci.com/) on your phone and sign up using the
-   GitHub account that owns the private repository.
+   GitHub account that owns `topaltopalchi-ship-it/autoearn-ai`.
 2. Authorize CircleCI to access the selected repository. Grant access only to
    `topaltopalchi-ship-it/autoearn-ai` if the GitHub authorization screen
    allows selecting individual repositories.
@@ -27,7 +28,9 @@ needed by the test jobs.
    set up a project using the existing `.circleci/config.yml`.
 4. Start the first pipeline. CircleCI should detect the configuration file and
    run the Python and JavaScript jobs.
-5. Confirm that the project remains private in GitHub and that both jobs pass.
+5. Confirm that both jobs pass. Do not change GitHub visibility just to set up CI.
+   At final release, after making the repository private, verify that CircleCI
+   still has access and rerun both jobs.
 
 ## Free-plan limits
 
