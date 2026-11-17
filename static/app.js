@@ -5,7 +5,11 @@ const api = async (path, options={}) => {
   if (ownerToken()) headers["X-AutoEarn-Owner-Token"] = ownerToken();
   const response = await fetch(path, {...options, headers});
   const body = await response.json().catch(()=>({}));
-  if (!response.ok) throw new Error("انجام درخواست با خطا روبه‌رو شد. اطلاعات و دسترسی را بررسی کنید.");
+  if (!response.ok) {
+    if (response.status === 401) throw new Error("رمز مالک وارد نشده یا نادرست است. رمز را وارد کنید و دوباره اتصال را بزنید.");
+    if (response.status === 503) throw new Error("دسترسی مالک روی سرور هنوز پیکربندی نشده است.");
+    throw new Error("انجام درخواست با خطا روبه‌رو شد. اطلاعات و دسترسی را بررسی کنید.");
+  }
   return body;
 };
 const statusFa = (v) => ({game_rewards:"پاداش بازی",survey_rewards:"پاداش نظرسنجی",microtasks:"کارهای کوچک",freelance_jobs:"کارهای آزاد",digital_products:"محصولات دیجیتال",discovered:"کشف‌شده",reviewing:"در حال بررسی",eligible:"مجاز",ineligible:"غیرمجاز",archived:"بایگانی‌شده",pending:"در انتظار",approved:"تأییدشده",rejected:"ردشده",verified:"تأییدشده",pending_approval:"در انتظار تأیید",confirmed:"تأییدشده",paid:"پرداخت‌شده",estimated:"تخمینی",earned:"کسب‌شده",withdrawable:"قابل برداشت",manual:"دستی",assist:"با کمک دستیار",official_api:"رابط رسمی برنامه‌نویسی",games_competitions:"بازی و مسابقه",surveys_microtasks:"نظرسنجی و کارهای کوچک",freelancing_services:"فریلنسری و خدمات",ai_content_products:"محتوای هوش مصنوعی و محصولات دیجیتال",other:"سایر","unknown":"نامشخص"})[v]||"نامشخص";
@@ -190,7 +194,13 @@ if ("serviceWorker" in navigator && window.isSecureContext) {
 function updateConnectionLabel() {
   const label = document.getElementById("connection-label");
   if (!label) return;
-  label.textContent = navigator.onLine ? "اتصال اینترنت برقرار" : "بدون اینترنت؛ فقط پوستهٔ ذخیره‌شده";
+  if (!navigator.onLine) {
+    label.textContent = "بدون اینترنت؛ فقط پوستهٔ ذخیره‌شده";
+  } else if (!ownerToken()) {
+    label.textContent = "برای مشاهده اطلاعات، رمز مالک را وارد کنید";
+  } else {
+    label.textContent = "اتصال اینترنت برقرار؛ در حال بررسی دسترسی";
+  }
 }
 window.addEventListener("online", updateConnectionLabel);
 window.addEventListener("offline", updateConnectionLabel);
