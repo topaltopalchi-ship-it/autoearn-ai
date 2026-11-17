@@ -1406,6 +1406,9 @@ def test_discovery_track_assignment_is_persistent_and_category_scoped(client):
     options = owner_get(client, "/api/discovery/tracks?category=games_competitions")
     assert options.status_code == 200
     assert "puzzle_solving" in [item["key"] for item in options.json()]
+    puzzle = next(item for item in options.json() if item["key"] == "puzzle_solving")
+    assert puzzle["execution_guidance"] == "assist_if_permitted"
+    assert "اجازه" in puzzle["description"]
 
     assigned = client.put(
         f"/api/discovery/leads/{lead_id}/track", headers=headers,

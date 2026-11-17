@@ -1183,7 +1183,8 @@ def list_discovery_tracks(category: str = Query(min_length=2, max_length=80),
     """List only tracks compatible with a lead parent category."""
     return [{"key": track.key, "label": track.label,
              "execution_guidance": track.execution_guidance,
-             "priority": track.priority}
+             "priority": track.priority,
+             "description": track.description}
             for track in tracks_for_category(category)]
 
 
