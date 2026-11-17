@@ -6,6 +6,7 @@ import os
 import hmac
 import hashlib
 import ipaddress
+import logging
 import sqlite3
 import uuid
 from contextlib import asynccontextmanager
@@ -335,9 +336,11 @@ async def _discovery_scheduler_loop() -> None:
         await asyncio.sleep(30)
         try:
             await asyncio.to_thread(_run_discovery_if_due)
-        except Exception:
-            # The durable scheduler row records failures; never kill the app loop.
-            continue
+        except Exception as exc:
+            # Keep the scheduler alive while recording a non-sensitive failure signal.
+            logging.getLogger(__name__).error(
+                "Discovery scheduler iteration failed (%s)", type(exc).__name__
+            )
 
 
 @asynccontextmanager
