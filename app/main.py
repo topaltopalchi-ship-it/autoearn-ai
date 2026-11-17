@@ -113,7 +113,8 @@ def init_db() -> None:
             consecutive_failures INTEGER NOT NULL DEFAULT 0,
             total_checks INTEGER NOT NULL DEFAULT 0,
             total_successes INTEGER NOT NULL DEFAULT 0,
-            last_error TEXT NOT NULL DEFAULT ''
+            last_error TEXT NOT NULL DEFAULT '',
+            next_retry_at TEXT
         );
         CREATE TABLE IF NOT EXISTS discovery_leads (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -300,6 +301,7 @@ def init_db() -> None:
             "consecutive_failures": "INTEGER NOT NULL DEFAULT 0",
             "total_checks": "INTEGER NOT NULL DEFAULT 0",
             "total_successes": "INTEGER NOT NULL DEFAULT 0",
+            "next_retry_at": "TEXT",
         }
         for name, definition in feed_migrations.items():
             if name not in feed_columns:
@@ -1666,6 +1668,23 @@ def _run_approved_discovery_batch():
     successful_feeds = 0
     for feed in feeds:
         feed_id = feed["id"]
+        next_retry_at = feed["next_retry_at"]
+        if next_retry_at:
+            try:
+                retry_time = datetime.fromisoformat(next_retry_at)
+                if retry_time.tzinfo is None:
+                    retry_time = retry_time.replace(tzinfo=timezone.utc)
+                retry_delay = (retry_time - datetime.now(timezone.utc)).total_seconds()
+                if retry_delay > 0:
+                    feed_results.append({
+                        "feed_id": feed_id, "name": feed["name"],
+                        "status": "backoff", "inserted": 0, "duplicates": 0,
+                        "retry_after_seconds": max(1, int(retry_delay)),
+                    })
+                    continue
+            except (TypeError, ValueError):
+                # A malformed legacy retry timestamp must not disable a feed.
+                pass
         last_checked_at = feed["last_checked_at"]
         if last_checked_at:
             try:
@@ -1725,7 +1744,7 @@ def _run_approved_discovery_batch():
                     except sqlite3.IntegrityError:
                         feed_duplicates += 1
                 db.execute(
-                    "UPDATE discovery_feeds SET last_checked_at = ?, last_success_at = ?, consecutive_failures = 0, total_checks = total_checks + 1, total_successes = total_successes + 1, last_error = '' WHERE id = ?",
+                    "UPDATE discovery_feeds SET last_checked_at = ?, last_success_at = ?, consecutive_failures = 0, total_checks = total_checks + 1, total_successes = total_successes + 1, last_error = '', next_retry_at = NULL WHERE id = ?",
                     (now(), now(), feed_id),
                 )
             successful_feeds += 1
@@ -1740,9 +1759,16 @@ def _run_approved_discovery_batch():
             # One malformed or unavailable feed must not abort the whole batch.
             message = f"{type(exc).__name__}: {exc}"[:500]
             with connect() as db:
+                failure_count = int(feed["consecutive_failures"] or 0) + 1
+                backoff_seconds = min(21600, 60 * (2 ** min(failure_count - 1, 8)))
+                retry_at = (datetime.now(timezone.utc) + timedelta(seconds=backoff_seconds)).isoformat()
                 db.execute(
-                    "UPDATE discovery_feeds SET last_checked_at = ?, consecutive_failures = consecutive_failures + 1, total_checks = total_checks + 1, last_error = ? WHERE id = ?",
-                    (now(), message, feed_id),
+                    """UPDATE discovery_feeds
+                       SET last_checked_at = ?, consecutive_failures = ?,
+                           total_checks = total_checks + 1, last_error = ?,
+                           next_retry_at = ?
+                       WHERE id = ?""",
+                    (now(), failure_count, message, retry_at, feed_id),
                 )
             feed_results.append({
                 "feed_id": feed_id, "name": feed["name"], "status": "error",
