@@ -2054,8 +2054,8 @@ def test_legacy_discovery_feed_schema_migrates_retry_schedule(tmp_path, monkeypa
     main.init_db()
     with main.connect() as db:
         columns = {row["name"] for row in db.execute("PRAGMA table_info(discovery_feeds)")}
-    assert {"last_success_at", "consecutive_failures", "total_checks",
-            "total_successes", "next_retry_at"}.issubset(columns)
+    assert {"last_success_at", "etag", "last_modified", "consecutive_failures",
+            "total_checks", "total_successes", "next_retry_at"}.issubset(columns)
 
 
 def test_competition_adapter_rate_limit_persists_across_registry_restarts(client, monkeypatch):
@@ -2255,3 +2255,80 @@ def test_database_path_rejects_symbolic_links_on_posix(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match="symbolic link"):
         main.connect()
     assert real_database.stat().st_size == 0
+
+
+def test_discovery_feed_persists_conditional_request_validators(client, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    from app import main
+    from autoearn.adapters import DiscoveredLead
+
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    created = client.post("/api/discovery/feeds", headers=headers, json={
+        "name": "Cacheable feed",
+        "feed_url": "https://feed.example/rss.xml",
+        "category": "freelancing_services",
+        "allowed_domains": ["feed.example"],
+        "max_items": 10,
+    })
+    assert created.status_code == 201
+    feed_id = created.json()["id"]
+    approved = client.patch(
+        f"/api/discovery/feeds/{feed_id}/review", headers=headers,
+        json={"status": "approved"},
+    )
+    assert approved.status_code == 200
+
+    seen_validators = []
+
+    class FakeFeed:
+        def __init__(self, **kwargs):
+            self.etag = kwargs.get("etag")
+            self.last_modified = kwargs.get("last_modified")
+            self.not_modified = False
+            seen_validators.append((self.etag, self.last_modified))
+
+        def discover(self):
+            if self.etag:
+                self.not_modified = True
+                self.etag = '"cache-v2"'
+                return []
+            self.etag = '"cache-v1"'
+            self.last_modified = "Tue, 17 Nov 2026 19:00:00 GMT"
+            return [DiscoveredLead(
+                title="Cached task",
+                url="https://feed.example/tasks/cached",
+                category="freelancing_services",
+                source_name="Cacheable feed",
+                observed_at="2026-11-17T00:00:00+00:00",
+            )]
+
+    monkeypatch.setattr(main, "PublicRssAdapter", FakeFeed)
+    first = client.post("/api/discovery/run", headers=headers)
+    assert first.status_code == 200
+    assert first.json()["inserted_count"] == 1
+    with main.connect() as db:
+        row = db.execute(
+            "SELECT etag, last_modified FROM discovery_feeds WHERE id = ?",
+            (feed_id,),
+        ).fetchone()
+        db.execute(
+            "UPDATE discovery_feeds SET last_checked_at = ? WHERE id = ?",
+            ((datetime.now(timezone.utc) - timedelta(seconds=61)).isoformat(), feed_id),
+        )
+    assert row["etag"] == '"cache-v1"'
+    assert row["last_modified"] == "Tue, 17 Nov 2026 19:00:00 GMT"
+
+    second = client.post("/api/discovery/run", headers=headers)
+    assert second.status_code == 200
+    assert seen_validators == [
+        (None, None),
+        ('"cache-v1"', "Tue, 17 Nov 2026 19:00:00 GMT"),
+    ]
+    assert second.json()["feeds"][0]["status"] == "not_modified"
+    assert second.json()["inserted_count"] == 0
+    with main.connect() as db:
+        row = db.execute(
+            "SELECT etag FROM discovery_feeds WHERE id = ?",
+            (feed_id,),
+        ).fetchone()
+    assert row["etag"] == '"cache-v2"'
