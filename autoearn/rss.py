@@ -13,7 +13,7 @@ from urllib.parse import urlsplit
 import ssl
 import ipaddress
 import socket
-import xml.etree.ElementTree as ET
+from defusedxml import ElementTree as ET
 
 from .adapters import AdapterManifest, DiscoveredLead
 from .opportunities import normalize_url
