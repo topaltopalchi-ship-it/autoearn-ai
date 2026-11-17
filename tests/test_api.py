@@ -29,6 +29,50 @@ def test_health(client):
     assert client.get("/api/health").json()["status"] == "ok"
 
 
+def test_source_intake_is_persistent_and_requires_human_review(client):
+    response = client.post("/api/sources", json={
+        "name": "Example rewards", "url": "https://EXAMPLE.com/rewards/#tracking",
+        "category": "Game_Rewards", "terms_url": "https://example.com/terms",
+        "country_notes": "Germany only", "payment_notes": "PayPal terms to verify",
+    })
+    assert response.status_code == 201
+    source = response.json()
+    assert source["url"] == "https://example.com/rewards"
+    assert source["category"] == "game_rewards"
+    assert source["status"] == "pending"
+    assert source["review_notes"] == ""
+
+    listed = client.get("/api/sources?status=pending")
+    assert listed.status_code == 200
+    assert listed.json()[0]["id"] == source["id"]
+
+    duplicate = client.post("/api/sources", json={
+        "name": "Duplicate source", "url": "https://example.com/rewards/"
+    })
+    assert duplicate.status_code == 409
+
+    approved = client.patch(f"/api/sources/{source['id']}/review", json={
+        "status": "approved", "notes": "Public terms reviewed manually"
+    })
+    assert approved.status_code == 200
+    assert approved.json()["status"] == "approved"
+    assert approved.json()["review_notes"] == "Public terms reviewed manually"
+    assert client.get("/api/sources?status=pending").json() == []
+
+
+def test_source_intake_rejects_unsafe_terms_url(client):
+    response = client.post("/api/sources", json={
+        "name": "Unsafe terms", "url": "https://example.com/source",
+        "terms_url": "javascript:alert(1)",
+    })
+    assert response.status_code == 422
+
+
+def test_source_review_returns_404_for_missing_source(client):
+    response = client.patch("/api/sources/9999/review", json={"status": "approved"})
+    assert response.status_code == 404
+
+
 def test_opportunity_and_dashboard(client):
     opportunity(client)
     data = client.get("/api/dashboard").json()
