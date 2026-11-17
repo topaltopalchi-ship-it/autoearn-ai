@@ -1070,3 +1070,35 @@ def test_scheduled_discovery_runs_due_batch_once_and_persists_result(client, mon
     assert state.json()["last_result"]["inserted_count"] == 3
     assert state.json()["last_completed_at"]
     assert state.json()["lease_until"] is None
+
+
+def test_discovery_health_is_owner_only_and_reports_feed_state(client):
+    from app import main
+    assert client.get("/api/discovery/health").status_code == 401
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    created = client.post("/api/discovery/feeds", headers=headers, json={
+        "name": "Health feed", "feed_url": "https://feed.example.com/rss",
+        "category": "other", "allowed_domains": ["feed.example.com"],
+        "max_items": 10,
+    })
+    assert created.status_code == 201
+    feed_id = created.json()["id"]
+    pending = client.get("/api/discovery/health", headers=headers).json()
+    assert pending["counts"]["pending_review"] == 1
+    assert pending["feeds"][0]["health"] == "not_active"
+    approved = client.patch(f"/api/discovery/feeds/{feed_id}/review", headers=headers,
+                            json={"status": "approved"})
+    assert approved.status_code == 200
+    with main.connect() as db:
+        db.execute("UPDATE discovery_feeds SET last_checked_at = ?, last_success_at = ?, consecutive_failures = 0, last_error = '' WHERE id = ?",
+                   (main.now(), main.now(), feed_id))
+    healthy = client.get("/api/discovery/health", headers=headers).json()
+    assert healthy["counts"]["healthy"] == 1
+    assert healthy["feeds"][0]["last_success_at"] is not None
+    with main.connect() as db:
+        db.execute("UPDATE discovery_feeds SET last_checked_at = ?, consecutive_failures = 2, last_error = 'timeout' WHERE id = ?",
+                   (main.now(), feed_id))
+    failed = client.get("/api/discovery/health", headers=headers).json()
+    assert failed["counts"]["error"] == 1
+    assert failed["feeds"][0]["consecutive_failures"] == 2
+    assert failed["feeds"][0]["last_error"] == "timeout"
