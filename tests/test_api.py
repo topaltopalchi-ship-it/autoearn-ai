@@ -1915,6 +1915,36 @@ def test_earning_evidence_upload_is_private_validated_and_downloadable(client, t
     ).status_code == 401
 
 
+def test_earning_evidence_rejects_symlink_storage_directory(client, tmp_path, monkeypatch):
+    from app import main
+
+    if os.name != "posix":
+        pytest.skip("Symlink permission semantics are platform-specific.")
+
+    real_directory = tmp_path / "real-private-evidence"
+    real_directory.mkdir()
+    linked_directory = tmp_path / "private-evidence-link"
+    linked_directory.symlink_to(real_directory, target_is_directory=True)
+    monkeypatch.setattr(main, "EVIDENCE_DIR", linked_directory)
+
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    earning = client.post(
+        "/api/earnings", headers=headers,
+        json={"amount": 2, "currency": "EUR", "state": "earned"},
+    ).json()
+    response = client.post(
+        f"/api/earnings/{earning['id']}/evidence",
+        headers=headers,
+        files={"upload": ("receipt.pdf", b"%PDF-1.4\\nreceipt\\n", "application/pdf")},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "Evidence storage directory must not be a symbolic link."
+    )
+    assert list(real_directory.iterdir()) == []
+
+
 def test_earning_evidence_rejects_unsupported_and_mismatched_files(client):
     headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
     earning = client.post(
