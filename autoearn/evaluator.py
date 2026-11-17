@@ -209,7 +209,7 @@ def evaluate_candidate(
         candidate.reward_amount is not None,
         candidate.risk_score is not None,
     ))
-    confidence = round(confidence_inputs / 9 * 100)
+    confidence = round(confidence_inputs / 10 * 100)
 
     net_reward = None
     hourly_net = None
