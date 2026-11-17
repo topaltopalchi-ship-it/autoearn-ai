@@ -96,6 +96,35 @@ def test_owner_auth_rate_limit_is_per_client_and_valid_token_still_works(client,
     assert success.status_code == 200
 
 
+def test_owner_auth_rate_limit_expires_after_five_minute_window(client, monkeypatch):
+    from app import main
+    from datetime import datetime, timezone, timedelta
+
+    now = [datetime(2026, 1, 1, tzinfo=timezone.utc)]
+    monkeypatch.setattr(main, "_owner_auth_now", lambda: now[0])
+    invalid = {"X-AutoEarn-Owner-Token": "wrong-owner-token-value-that-must-never-be-reflected"}
+
+    for _ in range(11):
+        response = client.get("/api/opportunities", headers=invalid)
+    assert response.status_code == 429
+
+    now[0] += timedelta(minutes=6)
+    recovered = client.get("/api/opportunities", headers=invalid)
+    assert recovered.status_code == 401
+
+
+def test_owner_auth_rate_limit_fails_closed_when_storage_is_unavailable(client, monkeypatch):
+    from app import main
+
+    def unavailable_database():
+        raise sqlite3.OperationalError("database unavailable")
+
+    monkeypatch.setattr(main, "connect", unavailable_database)
+    response = client.get("/api/opportunities")
+    assert response.status_code == 503
+    assert "database unavailable" not in response.text
+
+
 def test_state_changing_api_rejects_cross_origin_requests(client):
     response = client.post(
         "/api/opportunities",
