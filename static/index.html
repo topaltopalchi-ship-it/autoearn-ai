@@ -109,6 +109,19 @@
     <label>منبع بررسی‌شده<select name="source_id" id="evaluation-source" required></select></label>
     <label>کشور محل اقامت شما<input name="country" required minlength="2" maxlength="80" placeholder="کشور خود را وارد کنید"></label>
     <label>روش مشارکت<select name="execution_mode"><option value="manual">دستی</option><option value="assist">با کمک دستیار</option><option value="official_api">رابط رسمی برنامه‌نویسی (فقط در صورت اجازهٔ پلتفرم)</option></select></label>
+    <fieldset class="form-section"><legend>بررسی مجازبودن استفاده از هوش مصنوعی</legend>
+      <label>قوانین پلتفرم دربارهٔ AI<select name="ai_permission"><option value="unknown">نامشخص (پیش‌فرض امن)</option><option value="allowed">استفاده از AI صریحاً مجاز است</option><option value="prohibited">استفاده از AI ممنوع است</option></select></label>
+      <label><input type="checkbox" name="requires_physical_presence"> نیازمند حضور فیزیکی انسان</label>
+      <label><input type="checkbox" name="requires_personal_experience"> نیازمند تجربه یا نظر شخصی واقعی</label>
+      <label><input type="checkbox" name="requires_identity_attestation"> نیازمند تأیید هویت یا اظهار شخصی</label>
+      <label><input type="checkbox" name="requires_captcha"> دارای کپچا یا آزمون انسان‌بودن</label>
+      <label><input type="checkbox" name="requires_live_human_interaction"> نیازمند تعامل زنده با انسان</label>
+      <label><input type="checkbox" name="contains_sensitive_personal_data"> شامل اطلاعات شخصی حساس</label>
+      <label><input type="checkbox" name="repetitive_information_processing"> پردازش تکراری اطلاعات</label>
+      <label><input type="checkbox" name="output_is_objectively_verifiable"> خروجی با معیار عینی قابل بررسی است</label>
+      <label><input type="checkbox" name="human_signoff_required" checked> بررسی و تأیید نهایی انسان الزامی است</label>
+      <small>اگر قوانین AI نامشخص باشند، ارزیابی اجرای رسمی مسدود می‌شود. انتخاب «مجاز» باید بر اساس قوانین رسمی بررسی‌شده باشد.</small>
+    </fieldset>
     <label>مبلغ پاداش اعلام‌شده<input name="reward_amount" type="number" min="0" step="0.01" placeholder="اگر خالی باشد، نامشخص است"></label>
     <label>ارز پاداش<select name="reward_currency" required><option value="EUR">یورو</option><option value="USD">دلار آمریکا</option><option value="GBP">پوند</option><option value="TRY">لیر</option><option value="IRR">ریال</option></select></label>
     <label>هزینه‌های تخمینی<input name="estimated_cost" type="number" min="0" step="0.01" value="0"></label>
