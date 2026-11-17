@@ -1014,3 +1014,59 @@ def test_discovery_lead_rejection_and_promotion_guards(client, monkeypatch):
         json={"status":"rejected", "notes":""},
     )
     assert missing.status_code == 404
+
+
+
+def test_discovery_scheduler_settings_are_owner_only_and_bounded(client):
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    assert client.get("/api/discovery/scheduler").status_code == 401
+    assert client.patch("/api/discovery/scheduler", json={
+        "enabled": True, "interval_minutes": 180,
+    }).status_code == 401
+
+    initial = client.get("/api/discovery/scheduler", headers=headers)
+    assert initial.status_code == 200
+    assert initial.json()["enabled"] is True
+    assert initial.json()["interval_minutes"] == 360
+
+    invalid = client.patch("/api/discovery/scheduler", headers=headers, json={
+        "enabled": True, "interval_minutes": 15,
+    })
+    assert invalid.status_code == 422
+
+    updated = client.patch("/api/discovery/scheduler", headers=headers, json={
+        "enabled": False, "interval_minutes": 180,
+    })
+    assert updated.status_code == 200
+    assert updated.json()["enabled"] is False
+    assert updated.json()["interval_minutes"] == 180
+
+
+def test_scheduled_discovery_runs_due_batch_once_and_persists_result(client, monkeypatch):
+    from app import main
+
+    calls = []
+    def fake_batch():
+        calls.append(True)
+        return {
+            "checked_at": "2026-11-17T12:00:00+00:00",
+            "approved_feed_count": 2,
+            "successful_feed_count": 2,
+            "inserted_count": 3,
+            "duplicate_count": 1,
+            "feeds": [],
+            "review_required": True,
+            "note": "All discovered items remain pending for owner review.",
+        }
+
+    monkeypatch.setattr(main, "_run_approved_discovery_batch", fake_batch)
+    assert main._run_discovery_if_due() is True
+    assert main._run_discovery_if_due() is False
+    assert len(calls) == 1
+
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    state = client.get("/api/discovery/scheduler", headers=headers)
+    assert state.status_code == 200
+    assert state.json()["last_result"]["inserted_count"] == 3
+    assert state.json()["last_completed_at"]
+    assert state.json()["lease_until"] is None
