@@ -244,14 +244,19 @@ async function loadPrioritizedDiscovery(){
   const host=$("prioritized-discovery-list");
   host.textContent="در حال مرتب‌سازی فرصت‌های تازه…";
   try{
-    const result=await api("/api/discovery/leads/prioritized");
+    const country="Azerbaijan";
+    const result=await api("/api/discovery/leads/prioritized?country="+encodeURIComponent(country));
     if(!result.total){host.innerHTML='<div class="empty">فرصت تازه‌ای در صف بررسی نیست.</div>';return}
     const labels={research_first:"بررسی در اولویت",review:"بررسی معمولی",low_signal:"اطلاعات ناکافی"};
+    const statusLabels={unknown:"نامشخص",verified:"تأییدشده",blocked:"غیرمجاز",unavailable:"در دسترس نیست",allowed:"مجاز",prohibited:"ممنوع"};
     host.innerHTML=result.items.map(item=>'<article class="item"><div><h3>'+esc(item.title)+' <span class="pill">'+esc(labels[item.research_priority]||item.research_priority)+'</span></h3>'+
       '<p>امتیاز اولویت تحقیق: '+item.research_priority_score+'/100 · منبع: '+esc(item.source_name)+'<br>'+
       'سابقهٔ خبرخوان: '+(item.feed_reliability_percent==null?"نمونهٔ ناکافی":item.feed_reliability_percent+"٪")+
       ' · قوانین: '+(item.terms_url?'<a href="'+esc(item.terms_url)+'" target="_blank" rel="noopener noreferrer">مشاهده ↗</a>':"ثبت نشده")+'<br>'+
-      'صلاحیت کشور: هنوز بررسی نشده · پرداخت: هنوز بررسی نشده · مجوز AI: نامشخص<br>'+
+      'کشور '+esc(item.research_country)+': '+esc(statusLabels[item.research_status?.country]||"نامشخص")+
+      ' · برداشت: '+esc(statusLabels[item.research_status?.payout]||"نامشخص")+
+      ' · مجوز AI: '+esc(statusLabels[item.research_status?.ai_permission]||"نامشخص")+
+      ' · API: '+esc(statusLabels[item.research_status?.api]||"نامشخص")+'<br>'+
       '<b>گام‌های بررسی بعدی:</b> '+(item.next_research_actions||[]).map(esc).join(' · ')+'<br>'+
       esc(item.research_reasons.join("؛ "))+'<br><a href="'+esc(item.url)+'" target="_blank" rel="noopener noreferrer">بازکردن فرصت ↗</a> '+
       '<button class="secondary" data-research-lead="'+item.id+'">ثبت نتیجهٔ بررسی رسمی</button></p></div></article>'
