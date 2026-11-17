@@ -1250,6 +1250,11 @@ def test_prioritized_discovery_endpoint_is_owner_only_and_marks_unknowns(client)
         "country": "verified", "payout": "unavailable",
         "ai_permission": "prohibited", "api": "available",
     }
+    assert reviewed["country_eligibility"] == "eligible"
+    assert reviewed["payout_availability"] == "unavailable"
+    assert reviewed["participation_readiness"] == "blocked_payout"
+    assert reviewed["participation_readiness_score"] == 0
+    assert reviewed["automation_policy"] == "manual_only"
     assert reviewed["execution_authorized"] is False
 
     other_country = owner_get(
