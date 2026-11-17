@@ -1834,6 +1834,8 @@ def test_concurrent_earning_state_transitions_are_serialized(client, monkeypatch
 def test_security_headers_cover_html_api_and_static_assets(client, path):
     response = client.get(path)
     assert response.status_code == 200
+    if path == "/" or path.startswith("/api/"):
+        assert response.headers["cache-control"] == "no-store"
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["x-frame-options"] == "DENY"
     assert response.headers["referrer-policy"] == "no-referrer"
