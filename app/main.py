@@ -986,12 +986,16 @@ def upload_earning_evidence(
     # Check both sides of mkdir: the first rejects configured symlinks, while
     # the second also catches a path replaced during directory creation.
     def reject_symlinked_evidence_path():
-        # Check every existing component, not just the final directory: a
-        # symlinked parent would redirect the supposedly private storage too.
-        for component in (EVIDENCE_DIR, *EVIDENCE_DIR.parents):
+        # Check the configured directory separately so the API can distinguish
+        # it from a symlinked parent that redirects the private storage path.
+        if EVIDENCE_DIR.is_symlink():
+            raise HTTPException(
+                409, "Evidence storage directory must not be a symbolic link."
+            )
+        for component in EVIDENCE_DIR.parents:
             if component.is_symlink():
                 raise HTTPException(
-                    409, "Evidence storage directory must not be a symbolic link."
+                    409, "Evidence storage path must not contain symbolic links."
                 )
 
     reject_symlinked_evidence_path()
