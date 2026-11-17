@@ -99,6 +99,32 @@ def test_opportunity_score_is_out_of_100(client):
     assert response.json()["score"] == 100
 
 
+def test_api_completeness_score_uses_documented_weights(client):
+    base = {
+        "title": "Scoring check", "platform": "Example",
+        "url": "https://example.com/scoring",
+    }
+    terms_only = client.post("/api/opportunities", json={
+        **base, "terms_url": "https://example.com/terms"
+    })
+    assert terms_only.status_code == 201
+    assert terms_only.json()["score"] == 40
+
+    eligibility_only = client.post("/api/opportunities", json={
+        **base, "url": "https://example.com/eligibility",
+        "eligibility": "Eligible regions"
+    })
+    assert eligibility_only.status_code == 201
+    assert eligibility_only.json()["score"] == 30
+
+    reward_only = client.post("/api/opportunities", json={
+        **base, "url": "https://example.com/reward",
+        "reward_description": "Points"
+    })
+    assert reward_only.status_code == 201
+    assert reward_only.json()["score"] == 30
+
+
 def test_opportunity_records_region_and_payout_requirements(client):
     response = client.post("/api/opportunities", json={
         "title": "Regional rewards", "platform": "Example",
