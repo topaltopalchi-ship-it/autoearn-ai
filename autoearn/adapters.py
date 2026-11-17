@@ -9,6 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from threading import RLock
 from typing import Literal, Protocol
+from urllib.parse import urlsplit
+import re
 
 from .discovery import SourceCandidate
 from .opportunities import normalize_url
@@ -51,16 +53,20 @@ class AdapterManifest:
         if self.allowed_actions and not self.requires_user_approval:
             raise ValueError("platform actions must retain user approval")
         for domain in self.allowed_domains:
+            labels = domain.split(".") if isinstance(domain, str) else []
+            valid_labels = all(
+                re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label)
+                for label in labels
+            )
             if (
                 not domain
                 or domain != domain.strip()
-                or domain.startswith("*.")
-                or "/" in domain
-                or ":" in domain
-                or "@" in domain
                 or domain.casefold() != domain
+                or len(domain) > 253
+                or len(labels) < 2
+                or not valid_labels
             ):
-                raise ValueError("allowed_domains must contain lowercase exact bare hostnames")
+                raise ValueError("allowed_domains must contain lowercase exact public hostnames")
 
 
 @dataclass(frozen=True)
@@ -134,8 +140,11 @@ class AdapterRegistry:
                 raise TypeError("adapter returned an invalid lead")
             if lead.category not in manifest.categories:
                 raise ValueError("adapter returned a lead outside its declared categories")
-            host = normalize_url(lead.url).split("/", 3)[2].split("@")[-1].split(":")[0].casefold()
-            if allowed_hosts and host not in allowed_hosts:
+            parsed = urlsplit(normalize_url(lead.url))
+            host = (parsed.hostname or "").casefold()
+            if parsed.username is not None or parsed.password is not None:
+                raise ValueError("lead URL must not contain embedded credentials")
+            if host not in allowed_hosts:
                 raise ValueError("lead URL host is outside the adapter domain allowlist")
             validated.append(lead)
         return validated
