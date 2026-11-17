@@ -268,6 +268,7 @@ async function loadPrioritizedDiscovery(){
     const statusLabels={unknown:"نامشخص",verified:"تأییدشده",blocked:"غیرمجاز",unavailable:"در دسترس نیست",allowed:"مجاز",prohibited:"ممنوع"};
     host.innerHTML=result.items.map(item=>'<article class="item"><div><h3>'+esc(item.title)+' <span class="pill">'+esc(labels[item.research_priority]||item.research_priority)+'</span></h3>'+
       '<p>امتیاز اولویت تحقیق: '+item.research_priority_score+'/100 · منبع: '+esc(item.source_name)+'<br>'+
+      'مسیر تخصصی: '+esc(item.track_key||'نیازمند دسته‌بندی')+' · وضعیت: '+esc(item.track_review_status==='matched'?'تطبیق‌شده':'بررسی‌نشده')+'<br>'+
       'سابقهٔ خبرخوان: '+(item.feed_reliability_percent==null?"نمونهٔ ناکافی":item.feed_reliability_percent+"٪")+
       ' · قوانین: '+(item.terms_url?'<a href="'+esc(item.terms_url)+'" target="_blank" rel="noopener noreferrer">مشاهده ↗</a>':"ثبت نشده")+'<br>'+
       'کشور '+esc(item.research_country)+': '+esc(statusLabels[item.research_status?.country]||"نامشخص")+
@@ -276,8 +277,10 @@ async function loadPrioritizedDiscovery(){
       ' · API: '+esc(statusLabels[item.research_status?.api]||"نامشخص")+'<br>'+
       '<b>گام‌های بررسی بعدی:</b> '+(item.next_research_actions||[]).map(esc).join(' · ')+'<br>'+
       esc(item.research_reasons.join("؛ "))+'<br><a href="'+esc(item.url)+'" target="_blank" rel="noopener noreferrer">بازکردن فرصت ↗</a> '+
+      '<button class="secondary" data-track-lead="'+item.id+'" data-track-category="'+esc(item.category)+'">تعیین مسیر تخصصی</button> '+
       '<button class="secondary" data-research-lead="'+item.id+'">ثبت نتیجهٔ بررسی رسمی</button></p></div></article>'
     ).join("")+'<p class="muted">'+esc(result.note)+'</p>';
+    host.querySelectorAll("[data-track-lead]").forEach(button=>button.onclick=()=>assignDiscoveryTrack(Number(button.dataset.trackLead),button.dataset.trackCategory));
   }catch(error){host.textContent="مرتب‌سازی صف ناموفق بود: "+error.message}
 }
 function renderTasks(tasks){$("task-list").innerHTML=tasks.length?tasks.map(t=>`<div class="item"><div><h3>${esc(t.description)}</h3><p>${esc(t.opportunity_title)} · ${esc(t.platform)} · ${esc(statusFa(t.status))}</p></div><div class="item-actions">${t.status==="pending_approval"?'<button class="primary" data-approve="'+t.id+'">تأیید کار</button>':''}${t.status==="approved"?'<button class="secondary" data-complete="'+t.id+'">علامت‌گذاری به‌عنوان تکمیل‌شده</button>':''}</div></div>`).join(""):'<div class="empty">هنوز کاری ثبت نشده است. از یک فرصت، کار جدید بسازید.</div>';
