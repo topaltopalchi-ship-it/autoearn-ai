@@ -1,10 +1,25 @@
 const $ = (id) => document.getElementById(id);
 const ownerToken = () => sessionStorage.getItem("autoearn_owner_token") || "";
+let ownerSessionRejected = false;
+function clearOwnerSession(message) {
+  sessionStorage.removeItem("autoearn_owner_token");
+  const field = $("owner-token");
+  if (field) field.value = "";
+  if (message) toast(message);
+}
 const api = async (path, options={}) => {
+  const token = ownerToken();
   const headers = {"Content-Type":"application/json", ...(options.headers || {})};
-  if (ownerToken()) headers["X-AutoEarn-Owner-Token"] = ownerToken();
+  if (token) headers["X-AutoEarn-Owner-Token"] = token;
   const response = await fetch(path, {...options, headers});
   const body = await response.json().catch(()=>({}));
+  if (response.status === 401) {
+    if (token && !ownerSessionRejected) {
+      ownerSessionRejected = true;
+      clearOwnerSession("رمز مالک پذیرفته نشد؛ برای ادامه دوباره متصل شوید.");
+    }
+    throw new Error(token ? "دسترسی رد شد؛ رمز مالک را دوباره وارد کنید." : "برای مشاهدهٔ اطلاعات، ابتدا رمز مالک را وارد کنید.");
+  }
   if (!response.ok) throw new Error("انجام درخواست با خطا روبه‌رو شد. اطلاعات و دسترسی را بررسی کنید.");
   return body;
 };
@@ -388,7 +403,8 @@ $("competition-form").onsubmit=async e=>{
 };
 $("add-opportunity").onclick=()=>$("opportunity-dialog").showModal();
 $("add-source").onclick=()=>$("source-dialog").showModal();
-$("save-owner-token").onclick=()=>{const value=$("owner-token").value.trim();if(!value){sessionStorage.removeItem("autoearn_owner_token");toast("رمز مالک برای این نشست پاک شد");return}sessionStorage.setItem("autoearn_owner_token",value);toast("رمز مالک برای این نشست ذخیره شد");refresh().catch(e=>toast(e.message))};
+$("save-owner-token").onclick=()=>{const value=$("owner-token").value.trim();if(!value){clearOwnerSession("رمز مالک برای این نشست پاک شد");return}sessionStorage.setItem("autoearn_owner_token",value);ownerSessionRejected=false;toast("رمز مالک فقط برای این نشست ذخیره شد");refresh().catch(e=>toast(e.message))};
+$("logout-owner").onclick=()=>clearOwnerSession("از نشست مالک خارج شدید؛ برای ادامه دوباره متصل شوید.");
 $("add-discovery-feed").onclick=async()=>{
   const name=prompt("نام این خبرخوان را وارد کنید:");
   if(!name)return;
