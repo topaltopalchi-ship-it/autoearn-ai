@@ -46,7 +46,7 @@ async function showEvaluationHistory(id){
 }
 async function createTask(id){const description=prompt("فعالیتی را که قصد انجامش را دارید شرح دهید. دستیار بدون تأیید شما بازی یا چیزی را ارسال نمی‌کند:");if(!description)return;try{await api("/api/tasks",{method:"POST",body:JSON.stringify({opportunity_id:id,description})});toast("کار به صف تأیید اضافه شد");refresh()}catch(e){toast(e.message)}}
 async function setStatus(id,status){try{await api(`/api/opportunities/${id}/status?status=${status}`,{method:"PATCH"});refresh()}catch(e){toast(e.message)}}
-async function verifyOpportunity(id){const current=opportunities.find(o=>o.id===id);const status=prompt("وضعیت بررسی انسانی را تعیین کنید: در انتظار، تأییدشده یا ردشده",current?.verification_status||"pending");if(!status)return;if(!["pending","verified","rejected"].includes(status)){toast("یکی از وضعیت‌های در انتظار، تأییدشده یا ردشده را انتخاب کنید");return}const notes=prompt("یادداشت بررسی‌کننده (چه چیزی بررسی شد):",current?.verification_notes||"");if(notes===null)return;try{await api(`/api/opportunities/${id}/verification`,{method:"PATCH",body:JSON.stringify({status,notes})});toast("وضعیت تأیید به‌روزرسانی شد");refresh()}catch(e){toast(e.message)}}
+async function verifyOpportunity(id){const current=opportunities.find(o=>o.id===id);const entered=prompt("وضعیت بررسی انسانی را وارد کنید: در انتظار، تأییدشده یا ردشده",({pending:"در انتظار",verified:"تأییدشده",rejected:"ردشده"})[current?.verification_status]||"در انتظار");if(!entered)return;const status=({"در انتظار":"pending","تأییدشده":"verified","ردشده":"rejected"})[entered.trim()];if(!status){toast("یکی از عبارت‌های در انتظار، تأییدشده یا ردشده را وارد کنید");return}const notes=prompt("یادداشت بررسی‌کننده (چه چیزی بررسی شد):",current?.verification_notes||"");if(notes===null)return;try{await api(`/api/opportunities/${id}/verification`,{method:"PATCH",body:JSON.stringify({status,notes})});toast("وضعیت تأیید به‌روزرسانی شد");refresh()}catch(e){toast(e.message)}}
 function openEvaluation(id){
   const opportunity=opportunities.find(item=>item.id===id);
   if(!opportunity)return;
@@ -55,7 +55,7 @@ function openEvaluation(id){
     try{return source.status==="approved" && new URL(source.url).hostname.toLowerCase()===host}
     catch{return false}
   });
-  if(!matching.length){toast("تأیید a source on the same website host before evaluation");return}
+  if(!matching.length){toast("پیش از ارزیابی، منبعی از همان دامنهٔ وب‌سایت را تأیید کنید");return}
   $("evaluation-source").innerHTML=matching.map(source=>'<option value="'+source.id+'">'+esc(source.name)+'</option>').join("");
   $("evaluation-form").elements.opportunity_id.value=id;
   $("evaluation-form").elements.country.value="";
@@ -73,12 +73,12 @@ async function reviewSource(id,status){
   if(notes===null)return;
   try{await api(`/api/sources/${id}/review`,{method:"PATCH",body:JSON.stringify({status,notes})});toast("نتیجهٔ بررسی منبع ذخیره شد");refresh()}catch(e){toast(e.message)}
 }
-function renderTasks(tasks){$("task-list").innerHTML=tasks.length?tasks.map(t=>`<div class="item"><div><h3>${esc(t.description)}</h3><p>${esc(t.opportunity_title)} · ${esc(t.platform)} · ${esc(statusFa(t.status))}</p></div><div class="item-actions">${t.status==="pending_approval"?'<button class="primary" data-approve="'+t.id+'">تأیید task</button>':''}${t.status==="approved"?'<button class="secondary" data-complete="'+t.id+'">علامت‌گذاری به‌عنوان تکمیل‌شده</button>':''}</div></div>`).join(""):'<div class="empty">هنوز کاری ثبت نشده است. از یک فرصت، کار جدید بسازید.</div>';
-  $("task-list").querySelectorAll("[data-approve]").forEach(b=>b.onclick=async()=>{if(!confirm("تأیید this task? You remain responsible for following the platform rules."))return;try{await api(`/api/tasks/${b.dataset.approve}/approve`,{method:"POST"});toast("کار تأیید شد")}catch(e){toast(e.message)}refresh()});
+function renderTasks(tasks){$("task-list").innerHTML=tasks.length?tasks.map(t=>`<div class="item"><div><h3>${esc(t.description)}</h3><p>${esc(t.opportunity_title)} · ${esc(t.platform)} · ${esc(statusFa(t.status))}</p></div><div class="item-actions">${t.status==="pending_approval"?'<button class="primary" data-approve="'+t.id+'">تأیید کار</button>':''}${t.status==="approved"?'<button class="secondary" data-complete="'+t.id+'">علامت‌گذاری به‌عنوان تکمیل‌شده</button>':''}</div></div>`).join(""):'<div class="empty">هنوز کاری ثبت نشده است. از یک فرصت، کار جدید بسازید.</div>';
+  $("task-list").querySelectorAll("[data-approve]").forEach(b=>b.onclick=async()=>{if(!confirm("این کار را تأیید می‌کنید؟ مسئولیت رعایت قوانین پلتفرم همچنان با شماست."))return;try{await api(`/api/tasks/${b.dataset.approve}/approve`,{method:"POST"});toast("کار تأیید شد")}catch(e){toast(e.message)}refresh()});
   $("task-list").querySelectorAll("[data-complete]").forEach(b=>b.onclick=async()=>{try{await api(`/api/tasks/${b.dataset.complete}/complete`,{method:"POST"});toast("کار به‌عنوان تکمیل‌شده ثبت شد")}catch(e){toast(e.message)}refresh()});
 }
 function renderRewards(rows){$("reward-list").innerHTML=rows.length?rows.map(r=>`<div class="item"><div><h3>${money(r.amount,r.currency)} <span class="pill">${esc(statusFa(r.status))}</span></h3><p>${esc(r.opportunity_title||"درآمد بدون پیوند")} · ${esc(r.reference)}</p></div></div>`).join(""):'<div class="empty">هنوز درآمدی ثبت نشده است.</div>'}
-function fillRewardOptions(){$("reward-opportunity").innerHTML='<option value="">Not linked</option>'+opportunities.map(o=>'<option value="'+o.id+'">'+esc(o.title)+'</option>').join("")}
+function fillRewardOptions(){$("reward-opportunity").innerHTML='<option value="">بدون پیوند به فرصت</option>'+opportunities.map(o=>'<option value="'+o.id+'">'+esc(o.title)+'</option>').join("")}
 $("add-opportunity").onclick=()=>$("opportunity-dialog").showModal();
 $("add-source").onclick=()=>$("source-dialog").showModal();
 $("save-owner-token").onclick=()=>{const value=$("owner-token").value.trim();if(!value){sessionStorage.removeItem("autoearn_owner_token");toast("رمز مالک برای این نشست پاک شد");return}sessionStorage.setItem("autoearn_owner_token",value);toast("رمز مالک برای این نشست ذخیره شد");refresh().catch(e=>toast(e.message))};
@@ -87,8 +87,10 @@ $("discover-rss").onclick=async()=>{
   if(!feed_url)return;
   const domains=prompt("نام دقیق دامنه‌های مجاز، جداشده با ویرگول (دامنهٔ فهرست و آگهی‌ها را وارد کنید):");
   if(!domains)return;
-  const category=prompt("دسته‌بندی را انتخاب کنید: بازی و مسابقه، نظرسنجی و کار کوچک، فریلنسری و خدمات، محتوای هوش مصنوعی و محصول دیجیتال، سایر","surveys_microtasks");
-  if(!category)return;
+  const categoryChoice=prompt("شمارهٔ دسته‌بندی را وارد کنید:\n۱. بازی و مسابقه\n۲. نظرسنجی و کارهای کوچک\n۳. فریلنسری و خدمات\n۴. محتوای هوش مصنوعی و محصولات دیجیتال\n۵. سایر","۲");
+  if(!categoryChoice)return;
+  const category=({"۱":"games_competitions","1":"games_competitions","۲":"surveys_microtasks","2":"surveys_microtasks","۳":"freelancing_services","3":"freelancing_services","۴":"ai_content_products","4":"ai_content_products","۵":"other","5":"other"})[categoryChoice.trim()];
+  if(!category){toast("شماره‌ای بین ۱ تا ۵ وارد کنید");return;}
   try{
     const result=await api("/api/discovery/rss",{method:"POST",body:JSON.stringify({
       adapter_id:"manual-rss-"+Date.now(),display_name:"RSS feed: "+feed_url,
