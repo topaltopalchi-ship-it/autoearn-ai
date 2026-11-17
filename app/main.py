@@ -683,6 +683,7 @@ def evaluate_opportunity(opportunity_id: int, data: OpportunityEvaluationIn,
         )
         evaluation["withdrawal_threshold_currency_mismatch"] = threshold_currency_mismatch
         if threshold_currency_mismatch:
+            evaluation["execution_allowed"] = False
             evaluation["risk_flags"].append(
                 "minimum withdrawal threshold uses a different currency; conversion is unknown"
             )
