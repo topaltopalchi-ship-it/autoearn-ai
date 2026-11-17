@@ -107,6 +107,9 @@ class SQLiteSupervisionStore:
         if not actor.strip() or actor.strip() == "system":
             raise SupervisionError("decision must be attributed to a human actor")
         with self._connect() as db:
+            # Serialize transitions before reading status so competing decisions
+            # cannot both observe the same pre-transition state.
+            db.execute("BEGIN IMMEDIATE")
             row = db.execute(
                 "SELECT * FROM supervised_actions WHERE request_id=?", (request_id,)
             ).fetchone()
