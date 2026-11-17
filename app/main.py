@@ -1009,9 +1009,20 @@ def ranked_opportunities(
             """SELECT eh.id AS evaluation_id, eh.opportunity_id, eh.source_id,
                       eh.country, eh.execution_mode, eh.result_json, eh.created_at,
                       o.title, o.platform, o.url, o.category, o.status,
-                      o.verification_status
+                      o.verification_status,
+                      dr.country_status AS research_country_status,
+                      dr.payout_status AS research_payout_status,
+                      dr.ai_permission AS research_ai_permission,
+                      dr.api_status AS research_api_status,
+                      dr.country_evidence_url AS research_country_evidence_url,
+                      dr.payout_evidence_url AS research_payout_evidence_url,
+                      dr.ai_evidence_url AS research_ai_evidence_url,
+                      dr.api_evidence_url AS research_api_evidence_url
                FROM evaluation_history eh
                JOIN opportunities o ON o.id = eh.opportunity_id
+               LEFT JOIN discovery_leads dl ON dl.opportunity_id = o.id
+               LEFT JOIN discovery_research dr
+                 ON dr.lead_id = dl.id AND lower(trim(dr.country)) = lower(trim(eh.country))
                WHERE lower(trim(eh.country)) = lower(trim(?))
                  AND eh.id = (
                     SELECT MAX(latest.id)
@@ -1041,6 +1052,16 @@ def ranked_opportunities(
             "opportunity_status": row["status"],
             "verification_status": row["verification_status"],
             "created_at": row["created_at"],
+            "research": {
+                "country_status": row["research_country_status"] or "unknown",
+                "payout_status": row["research_payout_status"] or "unknown",
+                "ai_permission": row["research_ai_permission"] or "unknown",
+                "api_status": row["research_api_status"] or "unknown",
+                "country_evidence_url": row["research_country_evidence_url"] or "",
+                "payout_evidence_url": row["research_payout_evidence_url"] or "",
+                "ai_evidence_url": row["research_ai_evidence_url"] or "",
+                "api_evidence_url": row["research_api_evidence_url"] or "",
+            },
             "evaluation": evaluation,
         })
     ranked = rank_evaluations(records)
