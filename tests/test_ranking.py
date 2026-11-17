@@ -177,3 +177,34 @@ def test_financial_ranking_ignores_invalid_or_missing_hourly_values():
     item = rank_evaluations([candidate])["groups"][0]["items"][0]
     assert item["expected_net_hourly_estimate"] is None
     assert item["financial_readiness"] == "needs_financial_verification"
+
+
+def test_verified_financial_readiness_outranks_unverified_priority_tier():
+    ready_review = record(1, "Financially ready review", "EUR", 55)
+    ready_review["evaluation"].update({
+        "eligibility": "eligible",
+        "expected_net_hourly_estimate": 8.0,
+        "payout_supported": True,
+        "withdrawal_status": "immediately_reachable",
+    })
+    unverified_priority = record(2, "Unverified priority", "EUR", 99)
+    unverified_priority["evaluation"].update({
+        "expected_net_hourly_estimate": 90.0,
+        "payout_supported": None,
+        "withdrawal_status": "immediately_reachable",
+    })
+
+    items = rank_evaluations([unverified_priority, ready_review])["groups"][0]["items"]
+    assert items[0]["title"] == "Financially ready review"
+    assert items[0]["financial_readiness"] == "ready"
+    assert items[1]["financial_readiness"] == "needs_financial_verification"
+
+
+def test_blocked_country_or_research_never_outranks_verified_candidate():
+    verified = record(1, "Verified candidate", "EUR", 50)
+    blocked = record(2, "Blocked candidate", "EUR", 100)
+    blocked["research"]["country_status"] = "blocked"
+
+    items = rank_evaluations([blocked, verified])["groups"][0]["items"]
+    assert items[0]["title"] == "Verified candidate"
+    assert items[1]["title"] == "Blocked candidate"

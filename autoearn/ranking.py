@@ -122,9 +122,20 @@ def rank_evaluations(records: list[dict[str, Any]]) -> dict[str, Any]:
         items = sorted(
             grouped[currency],
             key=lambda item: (
-                tier_order[item["priority_tier"]],
+                # Never let an ineligible or research/API-blocked item outrank
+                # a candidate that is actually eligible for consideration.
+                item["priority_tier"] in {
+                    "blocked_pending_research", "blocked_api_unverified"
+                } or item["research_status"]["country"] == "blocked"
+                or (item.get("evaluation") or {}).get("eligibility") == "ineligible",
+                # Among non-blocked candidates, verified withdrawal economics
+                # matter before score/tier labels.
                 item["financial_readiness"] != "ready",
-                -(item["expected_net_hourly_estimate"] or 0),
+                tier_order[item["priority_tier"]],
+                -(
+                    item["expected_net_hourly_estimate"]
+                    if item["expected_net_hourly_estimate"] is not None else -1
+                ),
                 -item["ranking_score"],
                 item["ai_fit"] != "bounded_ai_draft_candidate",
                 not item["execution_allowed"],
