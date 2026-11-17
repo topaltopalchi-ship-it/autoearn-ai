@@ -21,6 +21,7 @@ The first release is a local-first MVP. It helps users record opportunity metada
 - Explainable 0–100 scoring using reward clarity, terms clarity, source trust, region fit, and effort fit.
 - Automated pytest coverage for API routes, evaluator, adapters, RSS parsing, and supervised action persistence.
 - Persistent global emergency pause, enabled by default, with an owner-only dashboard control that blocks official competition submissions until the owner explicitly lifts the pause.
+- Same-origin Content Security Policy and browser hardening headers (no-sniff, frame denial, strict referrer policy, and disabled unused browser permissions), verified across HTML, API, and static assets.
 - GitHub Actions workflow to run unit tests on pushes and pull requests.
 
 ## Source review API
