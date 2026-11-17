@@ -33,18 +33,25 @@ def _ready_official_api_opportunity(client):
     })
     assert source.status_code == 201
     src = source.json()
-    assert client.patch(
+    reviewed_source = client.patch(
         f"/api/sources/{src['id']}/review", headers=headers,
         json={"status": "approved", "notes": "Terms checked"},
-    ).status_code == 200
-    assert client.patch(
+    )
+    assert reviewed_source.status_code == 200
+    assert reviewed_source.json()["status"] == "approved"
+    eligible_opportunity = client.patch(
         f"/api/opportunities/{opp['id']}/status", headers=headers,
         params={"status": "eligible"},
-    ).status_code == 200
-    assert client.patch(
+    )
+    assert eligible_opportunity.status_code == 200
+    assert eligible_opportunity.json()["status"] == "eligible"
+    verified_opportunity = client.patch(
         f"/api/opportunities/{opp['id']}/verification", headers=headers,
         json={"status": "verified", "notes": "Official terms verified"},
-    ).status_code == 200
+    )
+    assert verified_opportunity.status_code == 200
+    assert verified_opportunity.json()["verification_status"] == "verified"
+    assert verified_opportunity.json()["verified_at"]
     return headers, opp, src
 
 
@@ -127,7 +134,11 @@ def test_explicitly_permitted_verifiable_ai_draft_candidate_can_pass_readiness_o
     assert response.status_code == 200
     result = response.json()
     assert result["evaluation"]["ai_task_assessment"]["suitability"] == "ai_draft_candidate"
-    assert result["evaluation"]["execution_allowed"] is True
+    assert result["evaluation"]["execution_allowed"] is True, (
+        f"readiness risk flags: {result['evaluation']['risk_flags']}; "
+        f"opportunity status: {result['opportunity_status']}; "
+        f"source status: {result['source_status']}"
+    )
     assert result["evaluation"]["execution_authorized"] is False
     assert result["execution_authorized"] is False
     assert "Human review and owner confirmation" in result["execution_note"]
