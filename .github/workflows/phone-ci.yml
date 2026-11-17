@@ -42,7 +42,7 @@ jobs:
           git checkout --force --detach FETCH_HEAD
           git clean -fdx
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Show runner versions
@@ -57,6 +57,11 @@ jobs:
           .venv/bin/python -m pip install -r requirements.txt
       - name: Check dependency consistency
         run: .venv/bin/python -m pip check
+      - name: Audit pinned dependencies for known vulnerabilities
+        if: matrix.python-version == '3.12'
+        run: |
+          .venv/bin/python -m pip install pip-audit
+          .venv/bin/pip-audit -r requirements.txt
       - name: Check Python syntax
         run: .venv/bin/python -m compileall -q app autoearn tests scripts
       - name: Check dashboard JavaScript syntax
