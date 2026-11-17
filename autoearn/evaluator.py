@@ -40,6 +40,8 @@ class OpportunityCandidate:
     minimum_withdrawal_amount: float | None = None
     estimated_minutes: int | None = None
     payment_probability: int | None = None
+    acceptance_probability: int | None = None
+    payout_reliability: int | None = None
     payout_supported: bool | None = None
     risk_score: int | None = None
     evidence: tuple[str, ...] = field(default_factory=tuple)
@@ -76,8 +78,10 @@ class OpportunityCandidate:
             raise ValueError("minimum_withdrawal_amount cannot be negative")
         if self.estimated_minutes is not None and self.estimated_minutes < 1:
             raise ValueError("estimated_minutes must be positive")
-        if self.payment_probability is not None and not 0 <= self.payment_probability <= 100:
-            raise ValueError("payment_probability must be from 0 to 100")
+        for field_name in ("payment_probability", "acceptance_probability", "payout_reliability"):
+            value = getattr(self, field_name)
+            if value is not None and not 0 <= value <= 100:
+                raise ValueError(f"{field_name} must be from 0 to 100")
         if self.risk_score is not None and not 0 <= self.risk_score <= 100:
             raise ValueError("risk_score must be from 0 to 100")
         if not self.reward_currency.strip():
@@ -154,6 +158,14 @@ def evaluate_candidate(
         flags.append("payment probability is unknown")
     elif candidate.payment_probability == 0:
         flags.append("estimated payment probability is zero")
+    if candidate.acceptance_probability is None:
+        flags.append("task acceptance probability is unknown")
+    elif candidate.acceptance_probability == 0:
+        flags.append("estimated task acceptance probability is zero")
+    if candidate.payout_reliability is None:
+        flags.append("payout-channel reliability is unknown")
+    elif candidate.payout_reliability == 0:
+        flags.append("estimated payout-channel reliability is zero")
     if candidate.estimated_minutes is None or candidate.estimated_minutes <= 0:
         flags.append("time estimate is missing or invalid")
     if candidate.reward_amount is None:
@@ -186,6 +198,10 @@ def evaluate_candidate(
         and candidate.payout_supported is True
         and candidate.payment_probability is not None
         and candidate.payment_probability > 0
+        and candidate.acceptance_probability is not None
+        and candidate.acceptance_probability > 0
+        and candidate.payout_reliability is not None
+        and candidate.payout_reliability > 0
         and candidate.estimated_minutes is not None
         and candidate.risk_score is not None
         and withdrawal_reachable is True
@@ -204,12 +220,14 @@ def evaluate_candidate(
         candidate.verification_status == "verified",
         bool(candidate.evidence),
         candidate.payment_probability is not None,
+        candidate.acceptance_probability is not None,
+        candidate.payout_reliability is not None,
         candidate.payout_supported is True,
         candidate.estimated_minutes is not None and candidate.estimated_minutes > 0,
         candidate.reward_amount is not None,
         candidate.risk_score is not None,
     ))
-    confidence = round(confidence_inputs / 10 * 100)
+    confidence = round(confidence_inputs / 12 * 100)
 
     net_reward = None
     hourly_net = None
@@ -223,8 +241,15 @@ def evaluate_candidate(
         net_reward = round(max(0.0, gross_after_cost - payout_fee - conversion_fee), 2)
         if candidate.minimum_withdrawal_amount is not None:
             withdrawal_reachable = net_reward >= candidate.minimum_withdrawal_amount
-        if candidate.payment_probability is not None:
-            expected_net_reward = round(net_reward * candidate.payment_probability / 100, 2)
+        if (candidate.payment_probability is not None
+                and candidate.acceptance_probability is not None
+                and candidate.payout_reliability is not None):
+            combined_probability = (
+                candidate.payment_probability
+                * candidate.acceptance_probability
+                * candidate.payout_reliability / 10000
+            )
+            expected_net_reward = round(net_reward * combined_probability / 100, 2)
         if candidate.estimated_minutes and candidate.estimated_minutes > 0:
             hourly_net = round(net_reward / (candidate.estimated_minutes / 60), 2)
             if expected_net_reward is not None:
@@ -257,6 +282,15 @@ def evaluate_candidate(
         "expected_net_reward_estimate": expected_net_reward,
         "expected_net_hourly_estimate": expected_hourly_net,
         "payment_probability_percent": candidate.payment_probability,
+        "acceptance_probability_percent": candidate.acceptance_probability,
+        "payout_reliability_percent": candidate.payout_reliability,
+        "combined_success_probability_percent": (
+            round(candidate.payment_probability * candidate.acceptance_probability
+                  * candidate.payout_reliability / 10000, 2)
+            if candidate.payment_probability is not None
+            and candidate.acceptance_probability is not None
+            and candidate.payout_reliability is not None else None
+        ),
         "payout_supported": candidate.payout_supported,
         "withdrawal_reachable_estimate": withdrawal_reachable,
         "payout_fee_estimate": round((candidate.payout_fee_fixed + (max(0.0, (candidate.reward_amount or 0) - candidate.estimated_cost) * candidate.payout_fee_percent / 100)), 2),
