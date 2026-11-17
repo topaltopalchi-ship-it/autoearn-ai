@@ -1951,3 +1951,50 @@ def test_approved_feed_has_persistent_sixty_second_cooldown(client, monkeypatch)
     assert feed_result["status"] == "rate_limited"
     assert 1 <= feed_result["retry_after_seconds"] <= 60
     assert result.json()["inserted_count"] == 0
+
+
+def test_failed_discovery_feed_uses_persisted_exponential_backoff(client, monkeypatch):
+    from app import main
+
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    created = client.post("/api/discovery/feeds", headers=headers, json={
+        "name": "Backoff feed", "feed_url": "https://backoff.example/rss",
+        "category": "other", "allowed_domains": ["backoff.example"],
+        "max_items": 10,
+    })
+    assert created.status_code == 201
+    feed_id = created.json()["id"]
+    approved = client.patch(
+        f"/api/discovery/feeds/{feed_id}/review", headers=headers,
+        json={"status": "approved"},
+    )
+    assert approved.status_code == 200
+
+    calls = []
+    class BrokenFeed:
+        def __init__(self, **kwargs):
+            calls.append(kwargs["feed_url"])
+        def discover(self):
+            raise RuntimeError("temporary upstream failure")
+
+    monkeypatch.setattr(main, "PublicRssAdapter", BrokenFeed)
+    first = client.post("/api/discovery/run", headers=headers)
+    assert first.status_code == 200
+    first_result = next(item for item in first.json()["feeds"] if item["feed_id"] == feed_id)
+    assert first_result["status"] == "error"
+    assert calls == ["https://backoff.example/rss"]
+
+    with main.connect() as db:
+        row = db.execute(
+            "SELECT consecutive_failures, next_retry_at FROM discovery_feeds WHERE id = ?",
+            (feed_id,),
+        ).fetchone()
+    assert row["consecutive_failures"] == 1
+    assert row["next_retry_at"]
+
+    second = client.post("/api/discovery/run", headers=headers)
+    assert second.status_code == 200
+    second_result = next(item for item in second.json()["feeds"] if item["feed_id"] == feed_id)
+    assert second_result["status"] == "backoff"
+    assert 1 <= second_result["retry_after_seconds"] <= 60
+    assert calls == ["https://backoff.example/rss"]
