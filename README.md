@@ -20,7 +20,7 @@ The first release is a local-first MVP. It helps users record opportunity metada
 - Backward-compatible SQLite schema migration for the new eligibility and payout fields.
 - Explainable 0–100 scoring using reward clarity, terms clarity, source trust, region fit, and effort fit.
 - Automated pytest coverage for API routes, evaluator, adapters, RSS parsing, and supervised action persistence.
-- GitHub Actions workflow to run unit tests on pushes and pull requests.
+- CI checks through GitHub Actions and CircleCI; CircleCI provides an alternative test runner when the GitHub Actions included-minute quota is exhausted. See [CircleCI setup](docs/CIRCLECI_SETUP.md).
 
 ## Source review API
 
