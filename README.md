@@ -31,6 +31,16 @@ The first release is a local-first MVP. It helps users record opportunity metada
 - `PATCH /api/sources/{id}/review` records a human decision (`pending`, `approved`, or `rejected`) and reviewer notes.
 - Canonical source URLs are unique. Duplicate submissions return HTTP 409. The intake stores supplied metadata only; it does not crawl websites or verify claims automatically.
 
+## Local data backup
+
+Before moving devices, updating the application, or performing maintenance, create a local backup of the SQLite database and private receipt files:
+
+```bash
+python scripts/backup.py
+```
+
+An optional destination directory can be supplied. The command refuses to overwrite an existing backup, uses SQLite's online backup API (including committed WAL data), checks the copied database with `PRAGMA integrity_check`, copies private evidence without following symlinks, and writes a SHA-256 manifest. On POSIX systems, backup directories and sensitive files receive owner-only permissions. Keep backups on encrypted storage, outside the repository and preferably on a separate device. This is a manual local backup utility, not an automated off-site backup or a tested restore service; periodically verify recovery from a copy.
+ 
 ## Earnings ledger
 
 - `GET /api/earnings` lists owner-authenticated earnings records with their linked opportunity, evidence, and current state.
