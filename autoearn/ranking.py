@@ -91,6 +91,7 @@ def rank_evaluations(records: list[dict[str, Any]]) -> dict[str, Any]:
         financial_readiness = (
             "ready" if expected_hourly is not None
             and evaluation.get("payout_supported") is True
+            and evaluation.get("payout_route_configured") is True
             and withdrawal_ready
             else "needs_financial_verification"
         )

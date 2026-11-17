@@ -45,6 +45,7 @@ class OpportunityCandidate:
     acceptance_probability: int | None = None
     payout_reliability: int | None = None
     payout_supported: bool | None = None
+    payout_route_configured: bool | None = None
     risk_score: int | None = None
     evidence: tuple[str, ...] = field(default_factory=tuple)
 
@@ -158,6 +159,8 @@ def evaluate_candidate(
         flags.append("no supporting evidence recorded")
     if candidate.payout_supported is not True:
         flags.append("payout support for this country is not verified")
+    if candidate.payout_route_configured is not True:
+        flags.append("the owner has not configured a usable payout method")
     if candidate.payment_probability is None:
         flags.append("payment probability is unknown")
     elif candidate.payment_probability == 0:
@@ -206,6 +209,7 @@ def evaluate_candidate(
         and candidate.execution_mode == "official_api"
         and candidate.reward_amount is not None
         and candidate.payout_supported is True
+        and candidate.payout_route_configured is True
         and candidate.payment_probability is not None
         and candidate.payment_probability > 0
         and candidate.acceptance_probability is not None
@@ -240,11 +244,12 @@ def evaluate_candidate(
         candidate.acceptance_probability is not None,
         candidate.payout_reliability is not None,
         candidate.payout_supported is True,
+        candidate.payout_route_configured is True,
         candidate.estimated_minutes is not None and candidate.estimated_minutes > 0,
         candidate.reward_amount is not None,
         candidate.risk_score is not None,
     ))
-    confidence = round(confidence_inputs / 12 * 100)
+    confidence = round(confidence_inputs / 13 * 100)
 
     net_reward = None
     hourly_net = None
@@ -309,6 +314,7 @@ def evaluate_candidate(
             and candidate.payout_reliability is not None else None
         ),
         "payout_supported": candidate.payout_supported,
+        "payout_route_configured": candidate.payout_route_configured,
         "withdrawal_reachable_estimate": withdrawal_reachable,
         "withdrawal_status": (
             "currency_mismatch" if not withdrawal_currency_matches

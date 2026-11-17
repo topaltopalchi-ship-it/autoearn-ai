@@ -449,6 +449,7 @@ class OpportunityEvaluationIn(BaseModel):
     supports_balance_accumulation: bool | None = None
     # Must be explicitly confirmed for the selected residence country; unknown is not supported.
     payout_supported: bool | None = None
+    payout_route_configured: bool | None = None
     risk_score: int | None = Field(default=None, ge=0, le=100)
     evidence: list[str] = Field(default_factory=list, max_length=20)
     # Required for official-API readiness: explicit AI policy and task characteristics.
@@ -961,6 +962,7 @@ def evaluate_opportunity(opportunity_id: int, data: OpportunityEvaluationIn,
             payout_reliability=data.payout_reliability,
             supports_balance_accumulation=data.supports_balance_accumulation,
             payout_supported=data.payout_supported,
+            payout_route_configured=data.payout_route_configured,
             risk_score=data.risk_score,
             evidence=tuple(clean_list(data.evidence, "evidence")),
         )
