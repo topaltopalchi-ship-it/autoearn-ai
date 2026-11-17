@@ -286,3 +286,46 @@ def test_expected_earnings_remain_unknown_if_any_probability_input_is_missing():
     assert result["expected_net_hourly_estimate"] is None
     assert result["execution_allowed"] is False
     assert "payout-channel reliability is unknown" in result["risk_flags"]
+
+
+
+def test_below_threshold_can_be_accumulated_when_platform_confirms_it():
+    result = evaluate_candidate(
+        complete_candidate(
+            minimum_withdrawal_amount=25,
+            supports_balance_accumulation=True,
+        ),
+        "Germany", now=NOW,
+    )
+    assert result["withdrawal_reachable_estimate"] is False
+    assert result["withdrawal_status"] == "requires_accumulation"
+    assert result["execution_allowed"] is True
+    assert "single-task reward is below the withdrawal threshold; balance accumulation is required" in result["risk_flags"]
+
+
+def test_currency_mismatch_never_compares_reward_withdrawal_threshold():
+    result = evaluate_candidate(
+        complete_candidate(
+            reward_currency="USD",
+            minimum_withdrawal_amount=5,
+            minimum_withdrawal_currency="USDT",
+            supports_balance_accumulation=True,
+        ),
+        "Germany", now=NOW,
+    )
+    assert result["withdrawal_reachable_estimate"] is None
+    assert result["withdrawal_status"] == "currency_mismatch"
+    assert result["execution_allowed"] is False
+    assert any("currency differs" in flag for flag in result["risk_flags"])
+
+
+def test_below_threshold_without_accumulation_support_remains_blocked():
+    result = evaluate_candidate(
+        complete_candidate(
+            minimum_withdrawal_amount=25,
+            supports_balance_accumulation=None,
+        ),
+        "Germany", now=NOW,
+    )
+    assert result["withdrawal_status"] == "below_minimum_withdrawal"
+    assert result["execution_allowed"] is False
