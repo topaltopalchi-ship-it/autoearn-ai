@@ -6,6 +6,10 @@ on:
       - feat-opportunity-eligibility-payout-details
   workflow_dispatch:
 
+concurrency:
+  group: phone-ci-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
