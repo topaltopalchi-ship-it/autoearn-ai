@@ -56,10 +56,9 @@ def test_feed_url_requires_https_and_allowlisted_domain():
         )
 
 
-def test_discovered_item_must_stay_on_allowlisted_domain():
+def test_discovered_item_outside_allowlist_is_ignored():
     payload = b'<rss><channel><item><title>Bad</title><link>https://evil.example/x</link></item></channel></rss>'
-    with pytest.raises(ValueError, match="allowlisted"):
-        adapter(fetcher=lambda url: payload).discover()
+    assert adapter(fetcher=lambda url: payload).discover() == []
 
 
 def test_feed_size_and_xml_are_validated():
