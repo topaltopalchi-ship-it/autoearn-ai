@@ -397,7 +397,7 @@ def update_opportunity_verification(opportunity_id: int, data: VerificationIn, a
 
 
 @app.post("/api/tasks", status_code=201)
-def create_task(data: TaskIn):
+def create_task(data: TaskIn, actor: str = Depends(require_owner)):
     with connect() as db:
         if not db.execute("SELECT id FROM opportunities WHERE id = ?", (data.opportunity_id,)).fetchone():
             raise HTTPException(404, "Opportunity not found")
@@ -407,7 +407,7 @@ def create_task(data: TaskIn):
 
 
 @app.get("/api/tasks")
-def list_tasks():
+def list_tasks(actor: str = Depends(require_owner)):
     with connect() as db:
         return [row_dict(r) for r in db.execute("""
             SELECT tasks.*, opportunities.title AS opportunity_title, opportunities.platform
@@ -417,7 +417,7 @@ def list_tasks():
 
 
 @app.post("/api/tasks/{task_id}/approve")
-def approve_task(task_id: int):
+def approve_task(task_id: int, actor: str = Depends(require_owner)):
     with connect() as db:
         row = db.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
         if not row:
@@ -429,7 +429,7 @@ def approve_task(task_id: int):
 
 
 @app.post("/api/tasks/{task_id}/complete")
-def complete_task(task_id: int):
+def complete_task(task_id: int, actor: str = Depends(require_owner)):
     with connect() as db:
         row = db.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
         if not row:
@@ -441,7 +441,7 @@ def complete_task(task_id: int):
 
 
 @app.get("/api/rewards")
-def list_rewards():
+def list_rewards(actor: str = Depends(require_owner)):
     with connect() as db:
         return [row_dict(r) for r in db.execute("""
             SELECT rewards.*, opportunities.title AS opportunity_title
@@ -451,7 +451,7 @@ def list_rewards():
 
 
 @app.post("/api/rewards", status_code=201)
-def create_reward(data: RewardIn):
+def create_reward(data: RewardIn, actor: str = Depends(require_owner)):
     with connect() as db:
         if data.opportunity_id is not None and not db.execute(
             "SELECT id FROM opportunities WHERE id = ?", (data.opportunity_id,)
@@ -576,7 +576,7 @@ def supervised_action_audit(request_id: str, actor: str = Depends(require_owner)
 
 
 @app.get("/api/dashboard")
-def dashboard():
+def dashboard(actor: str = Depends(require_owner)):
     with connect() as db:
         opportunities = db.execute("SELECT COUNT(*) FROM opportunities").fetchone()[0]
         tasks = db.execute("SELECT COUNT(*) FROM tasks").fetchone()[0]
