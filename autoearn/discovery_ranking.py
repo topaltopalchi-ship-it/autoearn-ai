@@ -88,6 +88,13 @@ def prioritize_discovery_leads(records: list[dict[str, Any]]) -> dict[str, Any]:
             "payout_availability": "unknown",
             "ai_permission": "unknown",
             "financial_evaluation_status": "not_evaluated",
+            "next_research_actions": [
+                "بررسی پشتیبانی رسمی از کشور محل فعالیت",
+                "تأیید روش برداشت پول برای همان کشور",
+                "ثبت حداقل برداشت، کارمزدها و ارز تسویه",
+                "بررسی مجوز صریح استفاده از هوش مصنوعی و خودکارسازی",
+                "بررسی وجود API رسمی و شرایط دسترسی",
+            ],
             "execution_authorized": False,
         })
 
