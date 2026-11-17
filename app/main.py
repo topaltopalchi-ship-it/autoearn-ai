@@ -742,13 +742,24 @@ def discover_rss_sources(data: RssDiscoveryIn, actor: str = Depends(require_owne
     duplicates = 0
     with connect() as db:
         for lead in leads:
+            canonical_url = normalize_url(lead.url)
+            # RSS candidates and manually registered opportunities share the
+            # same conceptual URL namespace even though they live in separate
+            # tables. Avoid re-importing an opportunity already in the main
+            # opportunity catalog.
+            existing_opportunity = db.execute(
+                "SELECT id FROM opportunities WHERE url = ?", (canonical_url,)
+            ).fetchone()
+            if existing_opportunity:
+                duplicates += 1
+                continue
             try:
                 cursor = db.execute(
                     """INSERT INTO sources
                        (name, url, category, terms_url, country_notes, payment_notes,
                         status, discovered_at, review_notes)
                        VALUES (?, ?, ?, ?, '', ?, 'pending', ?, '')""",
-                    (lead.title[:160], normalize_url(lead.url), lead.category,
+                    (lead.title[:160], canonical_url, lead.category,
                      lead.terms_url, lead.summary[:1000], lead.observed_at),
                 )
                 inserted.append({"id": cursor.lastrowid, "title": lead.title, "url": lead.url,
