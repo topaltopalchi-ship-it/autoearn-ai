@@ -108,12 +108,23 @@ _TRACK_KEYWORDS = {
 }
 
 
+def _normalize_track_text(value: str) -> str:
+    """Normalize common Persian/Arabic letter and half-space variants."""
+    return (
+        value.casefold()
+        .replace("\u200c", " ")
+        .replace("\u064a", "\u06cc")
+        .replace("\u0643", "\u06a9")
+        .replace("\u0640", "")
+    )
+
+
 def infer_track_from_text(title: str, summary: str, category: str) -> str:
     """Infer only a unique track; ambiguous candidates remain for manual review."""
-    text = f"{title} {summary}".casefold()
+    text = _normalize_track_text(f"{title} {summary}")
     matches = [
         track.key for track in tracks_for_category(category)
-        if any(term in text for term in _TRACK_KEYWORDS.get(track.key, ()))
+        if any(_normalize_track_text(term) in text for term in _TRACK_KEYWORDS.get(track.key, ()))
     ]
     return matches[0] if len(matches) == 1 else ""
 

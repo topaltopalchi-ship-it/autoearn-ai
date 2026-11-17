@@ -53,6 +53,16 @@ def test_track_inference_supports_persian_titles(title, category, expected):
     assert infer_track_from_text(title, "", category) == expected
 
 
+def test_track_inference_normalizes_persian_half_space_and_arabic_letters():
+    from autoearn.tracks import infer_track_from_text
+    assert infer_track_from_text(
+        "تست نرم‌افزار موبایل", "", "freelancing_services"
+    ) == "software_qa"
+    assert infer_track_from_text(
+        "برچسب گذاری داده", "", "surveys_microtasks"
+    ) == "ai_data_tasks"
+
+
 def test_track_inference_keeps_ambiguous_titles_unassigned():
     from autoearn.tracks import infer_track_from_text
     assert infer_track_from_text(
