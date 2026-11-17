@@ -25,6 +25,7 @@ from autoearn.evaluator import OpportunityCandidate, evaluate_candidate
 from autoearn.competitions import (
     AIProviderError, Competition, CompetitionAdapterRegistry, assess_competition, build_strategy,
 )
+from autoearn.task_suitability import TaskProfile, assess_task_suitability
 
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.getenv("AUTOEARN_DB", ROOT / "autoearn.db"))
@@ -395,6 +396,20 @@ class OpportunityEvaluationIn(BaseModel):
     payment_probability: int | None = Field(default=None, ge=0, le=100)
     risk_score: int | None = Field(default=None, ge=0, le=100)
     evidence: list[str] = Field(default_factory=list, max_length=20)
+
+
+class TaskSuitabilityIn(BaseModel):
+    title: str = Field(min_length=1, max_length=300)
+    ai_permission: Literal["allowed", "prohibited", "unknown"] = "unknown"
+    requires_physical_presence: bool = False
+    requires_personal_experience: bool = False
+    requires_identity_attestation: bool = False
+    requires_captcha: bool = False
+    requires_live_human_interaction: bool = False
+    contains_sensitive_personal_data: bool = False
+    repetitive_information_processing: bool = False
+    output_is_objectively_verifiable: bool = False
+    human_signoff_required: bool = True
 
 
 class CompetitionIn(BaseModel):
@@ -783,6 +798,22 @@ def earning_history(ledger_id: int, actor: str = Depends(require_owner)):
             FROM earnings_ledger_events WHERE ledger_id = ?
             ORDER BY created_at, id
         """, (ledger_id,)).fetchall()]
+
+
+@app.post("/api/task-suitability/assess")
+def assess_task_suitability_api(data: TaskSuitabilityIn, actor: str = Depends(require_owner)):
+    """Assess AI suitability for a task; this never authorizes execution."""
+    profile = TaskProfile(**data.model_dump())
+    assessment = assess_task_suitability(profile)
+    return {
+        "title": profile.title,
+        "suitability": assessment.suitability,
+        "score": assessment.score,
+        "reasons": list(assessment.reasons),
+        "permitted_ai_role": assessment.permitted_ai_role,
+        "execution_authorized": False,
+        "disclaimer": "Suitability is a screening aid, not proof of platform permission or a guarantee of earnings.",
+    }
 
 
 @app.post("/api/opportunities/{opportunity_id}/evaluate")
