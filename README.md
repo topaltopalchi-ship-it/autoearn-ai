@@ -8,7 +8,7 @@ The first release is a local-first MVP. It helps users record opportunity metada
 
 - HTTP(S)-only URL validation and canonicalization for duplicate detection.
 - Removal of common tracking query parameters and URL fragments.
-- Opportunity metadata validation.
+- Opportunity metadata validation, including eligible/excluded countries, minimum withdrawal thresholds, withdrawal currency, and payout methods.\n- Backward-compatible SQLite schema migration for the new eligibility and payout fields.
 - Explainable 0–100 scoring using reward clarity, terms clarity, source trust, region fit, and effort fit.
 - Unit tests using Python's standard library.
 - GitHub Actions workflow to run unit tests on pushes and pull requests.
