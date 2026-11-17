@@ -82,6 +82,17 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
         item = source_evidence / name
         if item.stat().st_size != entry.get("size_bytes") or _sha256(item) != entry.get("sha256"):
             raise ValueError(f"Evidence checksum or size mismatch: {name}")
+    with sqlite3.connect(source_database.as_uri() + "?mode=ro", uri=True) as db:
+        try:
+            database_evidence = db.execute(
+                "SELECT stored_name, size_bytes, sha256 FROM earnings_evidence"
+            ).fetchall()
+        except sqlite3.OperationalError:
+            database_evidence = []
+    for name, size_bytes, sha256 in database_evidence:
+        entry = expected.get(name)
+        if entry is None or entry.get("size_bytes") != size_bytes or entry.get("sha256") != sha256:
+            raise ValueError("Backup evidence does not match the SQLite snapshot")
 
     destination.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=".autoearn-restore-", dir=destination.parent))
