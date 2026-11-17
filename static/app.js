@@ -187,7 +187,8 @@ function renderDiscoveryFeeds(){
 function renderDiscoveryLeads(){
   const host=$("discovery-lead-list");
   const pending=discoveryLeads.filter(lead=>lead.status==="pending");
-  host.innerHTML=pending.length?pending.map(lead=>`<div class="item"><div><h3>${esc(lead.title)} <span class="pill">در انتظار بررسی</span></h3><p>منبع: ${esc(lead.source_name)} · دسته: ${esc(statusFa(lead.category))}<br><a href="${esc(lead.url)}" target="_blank" rel="noopener noreferrer">مشاهده فرصت ↗</a> ${lead.terms_url?'· <a href="'+esc(lead.terms_url)+'" target="_blank" rel="noopener noreferrer">قوانین ↗</a>':''}<br>${esc(lead.summary||"توضیحی ثبت نشده است")}<br>آخرین مشاهده: ${esc(lead.last_seen_at||lead.observed_at)}</p></div><div class="item-actions"><button class="primary" data-promote-lead="${lead.id}">انتقال به فرصت‌ها</button><button class="secondary" data-reject-lead="${lead.id}">رد فرصت</button></div></div>`).join(""):'<div class="empty">فرصت تازه‌ای در انتظار بررسی نیست.</div>';
+  host.innerHTML=pending.length?pending.map(lead=>`<div class="item"><div><h3>${esc(lead.title)} <span class="pill">در انتظار بررسی</span></h3><p>منبع: ${esc(lead.source_name)} · دسته: ${esc(statusFa(lead.category))}<br>مسیر: ${esc(lead.track_key||"نیازمند دسته‌بندی")} · وضعیت: ${esc(lead.track_review_status==="matched"?"تطبیق‌شده":"بررسی‌نشده")}<br><a href="${esc(lead.url)}" target="_blank" rel="noopener noreferrer">مشاهده فرصت ↗</a> ${lead.terms_url?'· <a href="'+esc(lead.terms_url)+'" target="_blank" rel="noopener noreferrer">قوانین ↗</a>':''}<br>${esc(lead.summary||"توضیحی ثبت نشده است")}<br>آخرین مشاهده: ${esc(lead.last_seen_at||lead.observed_at)}</p></div><div class="item-actions"><button class="secondary" data-track-lead="${lead.id}" data-track-category="${esc(lead.category)}">تعیین مسیر</button><button class="primary" data-promote-lead="${lead.id}">انتقال به فرصت‌ها</button><button class="secondary" data-reject-lead="${lead.id}">رد فرصت</button></div></div>`).join(""):'<div class="empty">فرصت تازه‌ای در انتظار بررسی نیست.</div>';
+  host.querySelectorAll("[data-track-lead]").forEach(button=>button.onclick=()=>assignDiscoveryTrack(Number(button.dataset.trackLead),button.dataset.trackCategory));
   host.querySelectorAll("[data-promote-lead]").forEach(button=>button.onclick=async()=>{
     if(!confirm("این مورد به فهرست فرصت‌ها منتقل شود؟ وضعیت آن همچنان کشف‌شده و تأییدنشده می‌ماند."))return;
     try{const result=await api("/api/discovery/leads/"+button.dataset.promoteLead+"/promote",{method:"POST"});toast("فرصت به فهرست اصلی منتقل شد؛ بررسی و تأیید آن هنوز لازم است");refresh()}catch(error){toast(error.message)}
@@ -197,6 +198,22 @@ function renderDiscoveryLeads(){
     const notes=prompt("دلیل رد این فرصت را وارد کنید (اختیاری):")||"";
     try{await api("/api/discovery/leads/"+button.dataset.rejectLead+"/review",{method:"PATCH",body:JSON.stringify({status:"rejected",notes})});toast("فرصت رد شد");refresh()}catch(error){toast(error.message)}
   });
+}
+async function assignDiscoveryTrack(leadId,category){
+  try{
+    const options=await api("/api/discovery/tracks?category="+encodeURIComponent(category));
+    if(!options.length){toast("برای این دسته مسیر تخصصی تعریف نشده است");return}
+    const promptText=options.map((item,index)=>(index+1)+". "+item.label+" ("+item.key+")").join("\n");
+    const choice=prompt("مسیر تخصصی را انتخاب کنید؛ شماره یا کلید را وارد کنید:\n"+promptText+"\nبرای پاک‌کردن انتخاب، خالی بگذارید.");
+    if(choice===null)return;
+    const trimmed=choice.trim();
+    const match=options.find((item,index)=>String(index+1)===trimmed)||options.find(item=>item.key===trimmed);
+    const selected=trimmed===""?"":match?.key;
+    if(selected===undefined){toast("انتخاب مسیر معتبر نیست");return}
+    await api("/api/discovery/leads/"+leadId+"/track",{method:"PUT",body:JSON.stringify({track_key:selected})});
+    toast(selected?"مسیر تخصصی ذخیره شد؛ این کار به معنی تأیید یا اجازهٔ اجرا نیست":"دسته‌بندی مسیر پاک شد");
+    refresh();
+  }catch(error){toast(error.message)}
 }
 async function editDiscoveryResearch(leadId){
   const country="Iran";
