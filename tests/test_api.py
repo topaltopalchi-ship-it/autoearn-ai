@@ -51,6 +51,41 @@ def test_private_opportunity_and_source_lists_require_owner_token(client):
     assert client.get("/api/sources").status_code == 401
 
 
+def test_owner_routes_reject_invalid_token_without_reflecting_it(client):
+    invalid = "wrong-owner-token-value-that-must-never-be-reflected"
+    response = client.get(
+        "/api/opportunities",
+        headers={"X-AutoEarn-Owner-Token": invalid},
+    )
+    assert response.status_code == 401
+    assert invalid not in response.text
+    assert response.json()["detail"] == "Owner authentication required."
+
+
+def test_owner_routes_fail_closed_when_server_token_is_too_short(client, monkeypatch):
+    from app import main
+
+    monkeypatch.setattr(main, "OWNER_TOKEN", "too-short")
+    response = client.get(
+        "/api/opportunities",
+        headers={"X-AutoEarn-Owner-Token": "too-short"},
+    )
+    assert response.status_code == 503
+    assert "at least 32 characters" in response.json()["detail"]
+
+
+def test_owner_logout_control_is_wired_to_clear_session_storage():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    html = (root / "static" / "index.html").read_text(encoding="utf-8")
+    script = (root / "static" / "app.js").read_text(encoding="utf-8")
+    assert 'id="logout-owner"' in html
+    assert '$("logout-owner").onclick' in script
+    assert 'sessionStorage.removeItem("autoearn_owner_token")' in script
+    assert 'response.status === 401' in script
+
+
 def test_source_intake_is_persistent_and_requires_human_review(client):
     response = client.post("/api/sources", headers={"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}, json={
         "name": "Example rewards", "url": "https://EXAMPLE.com/rewards/#tracking",
