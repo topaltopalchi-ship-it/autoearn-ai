@@ -2019,21 +2019,31 @@ def test_earning_evidence_download_rejects_symlinked_storage_directory(
         pytest.skip("Symlink permission semantics are platform-specific.")
 
     real_directory = tmp_path / "real-private-evidence"
-    real_directory.mkdir()
-    linked_directory = tmp_path / "private-evidence-link"
-    linked_directory.symlink_to(real_directory, target_is_directory=True)
-    monkeypatch.setattr(main, "EVIDENCE_DIR", linked_directory)
-
+    monkeypatch.setattr(main, "EVIDENCE_DIR", real_directory)
     headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
     earning = client.post(
         "/api/earnings", headers=headers,
         json={"amount": 5, "currency": "EUR", "state": "earned"},
     ).json()
+    uploaded = client.post(
+        f"/api/earnings/{earning['id']}/evidence",
+        headers=headers,
+        files={"upload": ("receipt.pdf", b"%PDF-1.4\\nreceipt\\n", "application/pdf")},
+    )
+    assert uploaded.status_code == 201
+    metadata = uploaded.json()
+
+    linked_directory = tmp_path / "private-evidence-link"
+    linked_directory.symlink_to(real_directory, target_is_directory=True)
+    monkeypatch.setattr(main, "EVIDENCE_DIR", linked_directory)
+
     downloaded = client.get(
-        f"/api/earnings/{earning['id']}/evidence/1", headers=headers
+        f"/api/earnings/{earning['id']}/evidence/{metadata['id']}",
+        headers=headers,
     )
     assert downloaded.status_code == 404
-    assert downloaded.json()["detail"] == "Evidence file not found."
+    assert downloaded.json()["detail"] == "Evidence file is unavailable."
+
 
 
 def test_earning_evidence_rejects_unsupported_and_mismatched_files(client):
