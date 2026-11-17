@@ -62,3 +62,7 @@ The target product covers prize competitions, surveys/microtasks, freelancing/di
 ### Read-only RSS/Atom discovery
 
 `PublicRssAdapter` supports explicitly configured public RSS 2.0 and Atom feeds over HTTPS. Feed hosts and discovered item hosts must match an exact allowlist; redirects are disabled, DNS answers resolving to non-public addresses are rejected, and payloads are capped at 1 MB. It extracts public listing metadata only. It does not infer payment legitimacy, verify eligibility, scrape full websites, or submit applications. All resulting leads remain candidates for review.
+
+### Human-supervised action lifecycle
+
+The core `SupervisionQueue` models action requests, explicit human approval/rejection, cancellation, completion evidence, and an audit-event trail. Requests are rejected unless the opportunity is eligible, the source has been approved, and supporting evidence is fresh. Even sensitive actions (applications, accepting terms, publishing, sharing personal data, spending, and withdrawals) remain pending until a human approves them. This module is a state machine only: it does not execute platform actions and is not yet wired to public API routes or durable storage. Do not expose approval controls publicly until authentication, authorization, persistence, and CSRF protections are implemented.
