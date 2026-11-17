@@ -96,6 +96,8 @@ def init_db() -> None:
             last_checked_at TEXT,
             last_success_at TEXT,
             consecutive_failures INTEGER NOT NULL DEFAULT 0,
+            total_checks INTEGER NOT NULL DEFAULT 0,
+            total_successes INTEGER NOT NULL DEFAULT 0,
             last_error TEXT NOT NULL DEFAULT ''
         );
         CREATE TABLE IF NOT EXISTS discovery_leads (
@@ -232,6 +234,8 @@ def init_db() -> None:
         feed_migrations = {
             "last_success_at": "TEXT",
             "consecutive_failures": "INTEGER NOT NULL DEFAULT 0",
+            "total_checks": "INTEGER NOT NULL DEFAULT 0",
+            "total_successes": "INTEGER NOT NULL DEFAULT 0",
         }
         for name, definition in feed_migrations.items():
             if name not in feed_columns:
@@ -1160,7 +1164,7 @@ def _run_approved_discovery_batch():
                     except sqlite3.IntegrityError:
                         feed_duplicates += 1
                 db.execute(
-                    "UPDATE discovery_feeds SET last_checked_at = ?, last_success_at = ?, consecutive_failures = 0, last_error = '' WHERE id = ?",
+                    "UPDATE discovery_feeds SET last_checked_at = ?, last_success_at = ?, consecutive_failures = 0, total_checks = total_checks + 1, total_successes = total_successes + 1, last_error = '' WHERE id = ?",
                     (now(), now(), feed_id),
                 )
             successful_feeds += 1
@@ -1175,7 +1179,7 @@ def _run_approved_discovery_batch():
             message = str(exc)[:500]
             with connect() as db:
                 db.execute(
-                    "UPDATE discovery_feeds SET last_checked_at = ?, consecutive_failures = consecutive_failures + 1, last_error = ? WHERE id = ?",
+                    "UPDATE discovery_feeds SET last_checked_at = ?, consecutive_failures = consecutive_failures + 1, total_checks = total_checks + 1, last_error = ? WHERE id = ?",
                     (now(), message, feed_id),
                 )
             feed_results.append({
@@ -1267,7 +1271,7 @@ def get_discovery_health(actor: str = Depends(require_owner)):
     with connect() as db:
         feeds = db.execute(
             """SELECT id, name, feed_url, status, last_checked_at, last_success_at,
-                      consecutive_failures, last_error
+                      consecutive_failures, total_checks, total_successes, last_error
                FROM discovery_feeds ORDER BY status DESC, name COLLATE NOCASE"""
         ).fetchall()
         interval = db.execute(
@@ -1306,6 +1310,10 @@ def get_discovery_health(actor: str = Depends(require_owner)):
             "last_checked_at": feed["last_checked_at"],
             "last_success_at": feed["last_success_at"],
             "consecutive_failures": feed["consecutive_failures"],
+            "total_checks": feed["total_checks"],
+            "total_successes": feed["total_successes"],
+            "reliability_percent": round(100 * feed["total_successes"] / feed["total_checks"], 1) if feed["total_checks"] else None,
+            "reliability_sample": "limited" if feed["total_checks"] < 5 else "established",
             "last_error": feed["last_error"],
         })
     return {"checked_at": current.isoformat(), "stale_after_minutes": stale_after,
