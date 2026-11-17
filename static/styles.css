@@ -2,3 +2,13 @@
 
 .owner-access{display:flex;align-items:center;gap:7px;min-width:240px}.owner-access label{font-size:10px;color:#aab6ca;white-space:nowrap}.owner-access input{width:190px;padding:9px;font-size:11px}.owner-access button{white-space:nowrap}.section-actions{display:flex;gap:8px;flex-wrap:wrap}
 @media(max-width:850px){header{flex-wrap:wrap}.owner-access{width:100%;min-width:0}.owner-access input{flex:1;width:auto}.section-actions{width:100%}}
+
+/* Persian RTL layout */
+html,body{direction:rtl;text-align:right;font-family:Tahoma,Arial,sans-serif}
+.sidebar{inset:0 0 0 auto;border-right:0;border-left:1px solid #202a40}
+main{margin-left:0;margin-right:238px}
+.status i{margin-right:0;margin-left:6px}
+#toast{right:auto;left:22px}
+.item-actions{justify-content:flex-start}
+dialog form{text-align:right}
+@media(max-width:850px){.sidebar{position:static;width:auto;height:auto;border-left:0}main{margin:0}}
