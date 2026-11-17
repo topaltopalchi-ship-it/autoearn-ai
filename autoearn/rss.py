@@ -22,11 +22,6 @@ from .opportunities import normalize_url
 MAX_FEED_BYTES = 1_000_000
 
 
-class _NoRedirect(HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        return None
-
-
 class _TextOnly(HTMLParser):
     def __init__(self) -> None:
         super().__init__()
