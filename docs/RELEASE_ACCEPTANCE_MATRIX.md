@@ -28,6 +28,6 @@ Calculation: sum of (workstream weight × verified completion). Values are conse
 ## Latest verification
 
 - Latest verified implementation commit: `dc8d2fc10f4a4611896bc7c5ade4ea56772fa1b5`.
-- GitHub Actions run [44157427730](https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44157427730): **266 tests collected and all three Python jobs (3.10, 3.12, 3.14) passed**; includes explicit security-header/CSP coverage on HTML, API and static assets, plus dashboard JavaScript syntax validation; dependency consistency, Python syntax and dashboard JavaScript syntax passed in all three jobs. The receipt-storage permission test verifies owner-only POSIX modes.
+- GitHub Actions run [44161228680](https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44161228680): **273 tests passed on each of Python 3.10, 3.12 and 3.14**; includes backup/restore integrity and receipt consistency tests, security-header/CSP and no-store cache coverage, Python/JavaScript syntax checks, dependency consistency, and `pip-audit` reporting no known vulnerabilities. Weekly Dependabot updates are configured for Python packages and GitHub Actions.
 - Later documentation-only updates must receive their own CI verification before release.
 - `main` remains unchanged; PR #47 remains draft and unmerged; repository visibility remains public.
