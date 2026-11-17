@@ -48,6 +48,8 @@ async function refresh(){
   $("stat-approval").textContent=dash.awaiting_approval;$("stat-paid").textContent=ledgerTotals(dash.earnings_totals,["paid"]);
   $("stat-pending").textContent="در جریان: "+ledgerTotals(dash.earnings_totals,["estimated","earned","pending","withdrawable"]);
   renderOpportunities();renderSources();renderDiscoveryFeeds();renderDiscoveryScheduler();renderDiscoveryHealth();renderDiscoveryLeads();renderCompetitions();renderTasks(tasks);renderEarnings(earnings);fillRewardOptions();
+  // Keep the research-priority queue current whenever the owner dashboard refreshes.
+  loadPrioritizedDiscovery().catch(()=>{});
 }
 function renderOpportunities(){
   const q=$("search").value.toLowerCase(),status=$("filter").value,verification=$("verification-filter").value;
