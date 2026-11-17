@@ -457,3 +457,78 @@ def test_opportunity_and_source_intake_are_owner_only(client):
     assert client.post("/api/sources", json={
         "name": "Blocked source", "url": "https://example.com/blocked-source"
     }).status_code == 401
+
+
+def test_opportunity_evaluation_uses_reviewed_source_country_and_evidence(client):
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    opp = client.post("/api/opportunities", headers=headers, json={
+        "title": "Research task", "platform": "Example",
+        "url": "https://example.com/task/7",
+        "eligible_countries": ["Germany"],
+        "excluded_countries": ["United States"],
+    }).json()
+    source = client.post("/api/sources", headers=headers, json={
+        "name": "Example official source", "url": "https://example.com/source"
+    }).json()
+    client.patch(f"/api/sources/{source['id']}/review", headers=headers,
+        json={"status": "approved", "notes": "Official source checked"})
+    client.patch(f"/api/opportunities/{opp['id']}/status", headers=headers,
+        params={"status": "eligible"})
+    client.patch(f"/api/opportunities/{opp['id']}/verification", headers=headers,
+        json={"status": "verified", "notes": "Country and payout terms checked"})
+
+    payload = {
+        "source_id": source["id"], "country": "Germany",
+        "execution_mode": "official_api", "reward_amount": 12,
+        "reward_currency": "EUR", "estimated_cost": 2,
+        "estimated_minutes": 30, "payment_probability": 90,
+        "risk_score": 10, "evidence": ["Official terms reviewed"],
+    }
+    result = client.post(f"/api/opportunities/{opp['id']}/evaluate",
+        headers=headers, json=payload)
+    assert result.status_code == 200
+    evaluation = result.json()["evaluation"]
+    assert evaluation["eligibility"] == "eligible"
+    assert evaluation["net_reward_estimate"] == 10
+    assert evaluation["net_hourly_estimate"] == 20
+    assert evaluation["execution_allowed"] is True
+    assert "no external platform action is executed" in result.json()["execution_note"]
+
+
+def test_opportunity_evaluation_blocks_country_mismatch_and_unreviewed_status(client):
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    opp = client.post("/api/opportunities", headers=headers, json={
+        "title": "Regional task", "platform": "Example",
+        "url": "https://example.com/regional",
+        "eligible_countries": ["Germany"],
+    }).json()
+    source = client.post("/api/sources", headers=headers, json={
+        "name": "Example source", "url": "https://example.com/source"
+    }).json()
+    client.patch(f"/api/sources/{source['id']}/review", headers=headers,
+        json={"status": "approved"})
+    client.patch(f"/api/opportunities/{opp['id']}/verification", headers=headers,
+        json={"status": "verified"})
+    result = client.post(f"/api/opportunities/{opp['id']}/evaluate",
+        headers=headers, json={
+            "source_id": source["id"], "country": "France",
+            "execution_mode": "official_api", "reward_amount": 5,
+            "estimated_minutes": 10, "payment_probability": 95,
+            "risk_score": 5, "evidence": ["Terms reviewed"],
+        })
+    assert result.status_code == 200
+    assert result.json()["evaluation"]["eligibility"] == "ineligible"
+    assert result.json()["evaluation"]["execution_allowed"] is False
+
+
+def test_evaluation_rejects_source_from_different_host(client):
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    opp = client.post("/api/opportunities", headers=headers, json={
+        "title": "Task", "platform": "Example", "url": "https://example.com/task"
+    }).json()
+    source = client.post("/api/sources", headers=headers, json={
+        "name": "Different host", "url": "https://other.example/source"
+    }).json()
+    result = client.post(f"/api/opportunities/{opp['id']}/evaluate",
+        headers=headers, json={"source_id": source["id"], "country": "Germany"})
+    assert result.status_code == 409
