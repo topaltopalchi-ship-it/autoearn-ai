@@ -106,18 +106,18 @@ function renderTasks(tasks){$("task-list").innerHTML=tasks.length?tasks.map(t=>`
 function renderEarnings(rows){
   const next={estimated:["earned","pending"],earned:["pending","withdrawable"],pending:["withdrawable"],withdrawable:["paid"],paid:[]};
   const labels={earned:"ثبت کسب درآمد",pending:"در انتظار پرداخت",withdrawable:"قابل برداشت",paid:"ثبت پرداخت"};
-  $("reward-list").innerHTML=rows.length?rows.map(r=>\`<div class="item"><div><h3>\${money(r.amount,r.currency)} <span class="pill">\${esc(statusFa(r.state))}</span></h3><p>\${esc(r.opportunity_title||"درآمد بدون پیوند")} · \${esc(r.reference||"بدون توضیح")}<br>\${r.evidence?"مدرک: "+esc(r.evidence):"مدرکی پیوست نشده است"}</p></div><div class="item-actions">\${next[r.state].map(s=>'<button class="secondary" data-earning-state="'+r.id+'" data-next-state="'+s+'">'+labels[s]+'</button>').join("")}<button class="secondary" data-earning-history="\${r.id}">سوابق</button></div></div>\`).join(""):'<div class="empty">هنوز درآمدی ثبت نشده است.</div>';
+  $("reward-list").innerHTML=rows.length?rows.map(r=>`<div class="item"><div><h3>${money(r.amount,r.currency)} <span class="pill">${esc(statusFa(r.state))}</span></h3><p>${esc(r.opportunity_title||"درآمد بدون پیوند")} · ${esc(r.reference||"بدون توضیح")}<br>${r.evidence?"مدرک: "+esc(r.evidence):"مدرکی پیوست نشده است"}</p></div><div class="item-actions">${next[r.state].map(s=>'<button class="secondary" data-earning-state="'+r.id+'" data-next-state="'+s+'">'+labels[s]+'</button>').join("")}<button class="secondary" data-earning-history="${r.id}">سوابق</button></div></div>`).join(""):'<div class="empty">هنوز درآمدی ثبت نشده است.</div>';
   $("reward-list").querySelectorAll("[data-earning-state]").forEach(b=>b.onclick=()=>setEarningState(Number(b.dataset.earningState),b.dataset.nextState));
   $("reward-list").querySelectorAll("[data-earning-history]").forEach(b=>b.onclick=()=>showEarningHistory(Number(b.dataset.earningHistory)));
 }
 async function setEarningState(id,state){
   const note=prompt("یادداشت این تغییر را وارد کنید (اختیاری):")||"";
-  try{await api(\`/api/earnings/\${id}/state\`,{method:"PATCH",body:JSON.stringify({state,note})});toast("وضعیت درآمد به‌روزرسانی شد");refresh()}catch(e){toast(e.message)}
+  try{await api(`/api/earnings/${id}/state`,{method:"PATCH",body:JSON.stringify({state,note})});toast("وضعیت درآمد به‌روزرسانی شد");refresh()}catch(e){toast(e.message)}
 }
 async function showEarningHistory(id){
   try{
-    const rows=await api(\`/api/earnings/\${id}/history\`);
-    $("earnings-history-list").innerHTML=rows.length?rows.map(r=>\`<div class="item"><div><b>\${esc(statusFa(r.to_state))}</b><p>\${esc(r.note||"بدون یادداشت")} · \${esc(new Date(r.created_at).toLocaleString("fa-IR"))}</p></div></div>\`).join(""):'<div class="empty">سابقه‌ای ثبت نشده است.</div>';
+    const rows=await api(`/api/earnings/${id}/history`);
+    $("earnings-history-list").innerHTML=rows.length?rows.map(r=>`<div class="item"><div><b>${esc(statusFa(r.to_state))}</b><p>${esc(r.note||"بدون یادداشت")} · ${esc(new Date(r.created_at).toLocaleString("fa-IR"))}</p></div></div>`).join(""):'<div class="empty">سابقه‌ای ثبت نشده است.</div>';
     $("earnings-history-dialog").showModal();
   }catch(e){toast(e.message)}
 }
