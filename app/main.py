@@ -120,6 +120,8 @@ def init_db() -> None:
             reviewed_at TEXT,
             last_checked_at TEXT,
             last_success_at TEXT,
+            etag TEXT,
+            last_modified TEXT,
             consecutive_failures INTEGER NOT NULL DEFAULT 0,
             total_checks INTEGER NOT NULL DEFAULT 0,
             total_successes INTEGER NOT NULL DEFAULT 0,
@@ -315,6 +317,8 @@ def init_db() -> None:
         feed_columns = {row["name"] for row in db.execute("PRAGMA table_info(discovery_feeds)")}
         feed_migrations = {
             "last_success_at": "TEXT",
+            "etag": "TEXT",
+            "last_modified": "TEXT",
             "consecutive_failures": "INTEGER NOT NULL DEFAULT 0",
             "total_checks": "INTEGER NOT NULL DEFAULT 0",
             "total_successes": "INTEGER NOT NULL DEFAULT 0",
@@ -1742,6 +1746,8 @@ def _run_approved_discovery_batch():
                 category=feed["category"],
                 allowed_domains=tuple(json.loads(feed["allowed_domains"] or "[]")),
                 max_items=feed["max_items"],
+                etag=feed["etag"],
+                last_modified=feed["last_modified"],
             )
             leads = adapter.discover()
             feed_inserted = 0
@@ -1774,14 +1780,15 @@ def _run_approved_discovery_batch():
                     except sqlite3.IntegrityError:
                         feed_duplicates += 1
                 db.execute(
-                    "UPDATE discovery_feeds SET last_checked_at = ?, last_success_at = ?, consecutive_failures = 0, total_checks = total_checks + 1, total_successes = total_successes + 1, last_error = '', next_retry_at = NULL WHERE id = ?",
-                    (now(), now(), feed_id),
+                    "UPDATE discovery_feeds SET last_checked_at = ?, last_success_at = ?, etag = ?, last_modified = ?, consecutive_failures = 0, total_checks = total_checks + 1, total_successes = total_successes + 1, last_error = '', next_retry_at = NULL WHERE id = ?",
+                    (now(), now(), adapter.etag, adapter.last_modified, feed_id),
                 )
             successful_feeds += 1
             inserted_count += feed_inserted
             duplicate_count += feed_duplicates
             feed_results.append({
-                "feed_id": feed_id, "name": feed["name"], "status": "ok",
+                "feed_id": feed_id, "name": feed["name"],
+                "status": "not_modified" if adapter.not_modified else "ok",
                 "discovered": len(leads), "inserted": feed_inserted,
                 "duplicates": feed_duplicates,
             })
