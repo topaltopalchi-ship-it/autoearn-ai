@@ -22,6 +22,14 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _reject_symlink_components(path: Path) -> None:
+    """Reject symlinks in an input path before resolving it."""
+    absolute = Path(os.path.abspath(Path(path).expanduser()))
+    for component in (absolute, *absolute.parents):
+        if component.is_symlink():
+            raise ValueError(f"Symbolic links are not allowed in data paths: {component}")
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as stream:
@@ -36,6 +44,10 @@ def create_backup(
     destination: Path,
 ) -> dict:
     """Build a complete backup at destination without overwriting prior backups."""
+    # Check lexical paths first: resolve() would follow a symlink and hide it.
+    _reject_symlink_components(database_path)
+    _reject_symlink_components(evidence_dir)
+    _reject_symlink_components(destination)
     database_path = Path(database_path).resolve()
     evidence_dir = Path(evidence_dir).resolve()
     destination = Path(destination).resolve()
