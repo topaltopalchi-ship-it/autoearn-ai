@@ -354,7 +354,7 @@ async def add_security_headers(request, call_next):
         "default-src 'self'; base-uri 'self'; form-action 'self'; "
         "frame-ancestors 'none'; object-src 'none'; "
         "script-src 'self'; style-src 'self'; img-src 'self' data:; "
-        "connect-src 'self'; upgrade-insecure-requests",
+        "connect-src 'self'",
     )
     return response
 
