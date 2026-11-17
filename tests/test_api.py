@@ -141,3 +141,40 @@ def test_negative_minimum_withdrawal_is_rejected(client):
         "minimum_withdrawal_amount": -1,
     })
     assert response.status_code == 422
+
+
+def test_opportunity_requires_explicit_human_verification(client):
+    item = opportunity(client)
+    assert item["verification_status"] == "pending"
+    assert item["verified_at"] is None
+
+    verified = client.patch(f"/api/opportunities/{item['id']}/verification", json={
+        "status": "verified", "notes": "Terms and country restrictions checked manually"
+    })
+    assert verified.status_code == 200
+    result = verified.json()
+    assert result["verification_status"] == "verified"
+    assert result["verified_at"]
+    assert result["verification_notes"].startswith("Terms and country")
+
+    rejected = client.patch(f"/api/opportunities/{item['id']}/verification", json={
+        "status": "rejected", "notes": "Payout terms could not be confirmed"
+    })
+    assert rejected.status_code == 200
+    assert rejected.json()["verification_status"] == "rejected"
+    assert rejected.json()["verified_at"] is None
+
+
+def test_verification_endpoint_rejects_unknown_status(client):
+    item = opportunity(client)
+    response = client.patch(f"/api/opportunities/{item['id']}/verification", json={
+        "status": "probably_legit"
+    })
+    assert response.status_code == 422
+
+
+def test_verification_returns_404_for_missing_opportunity(client):
+    response = client.patch("/api/opportunities/9999/verification", json={
+        "status": "verified"
+    })
+    assert response.status_code == 404
