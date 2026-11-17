@@ -203,6 +203,10 @@ class CompetitionAdapterRegistry:
     def __init__(self) -> None:
         self._adapters: dict[str, CompetitionAdapter] = {}
 
+    def get_manifest(self, adapter_id: str) -> CompetitionAdapterManifest | None:
+        adapter = self._adapters.get(adapter_id)
+        return adapter.manifest if adapter else None
+
     def register(self, adapter: CompetitionAdapter) -> None:
         manifest = adapter.manifest
         if not isinstance(manifest, CompetitionAdapterManifest):
