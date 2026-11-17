@@ -199,9 +199,11 @@ class RssDiscoveryIn(BaseModel):
 
 def require_owner(x_autoearn_owner_token: str | None = Header(default=None)):
     configured = OWNER_TOKEN
-    if not configured:
-        raise HTTPException(503, "Owner actions are disabled: AUTOEARN_OWNER_TOKEN is not configured.")
-    if not x_autoearn_owner_token or not hmac.compare_digest(x_autoearn_owner_token, configured):
+    if len(configured) < 32:
+        raise HTTPException(503, "Owner actions are disabled: AUTOEARN_OWNER_TOKEN must contain at least 32 characters.")
+    if not x_autoearn_owner_token or not hmac.compare_digest(
+        x_autoearn_owner_token.encode("utf-8"), configured.encode("utf-8")
+    ):
         raise HTTPException(401, "Owner authentication required.")
     return "owner"
 
