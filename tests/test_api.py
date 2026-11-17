@@ -1975,6 +1975,67 @@ def test_earning_evidence_rejects_symlinked_parent_directory(client, tmp_path, m
     assert list(real_parent.iterdir()) == []
 
 
+def test_earning_evidence_download_rejects_symlinked_file(client, tmp_path, monkeypatch):
+    from app import main
+
+    if os.name != "posix":
+        pytest.skip("Symlink permission semantics are platform-specific.")
+
+    evidence_dir = tmp_path / "private-evidence"
+    monkeypatch.setattr(main, "EVIDENCE_DIR", evidence_dir)
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    earning = client.post(
+        "/api/earnings", headers=headers,
+        json={"amount": 4, "currency": "EUR", "state": "earned"},
+    ).json()
+    payload = b"%PDF-1.4\\nreceipt\\n"
+    uploaded = client.post(
+        f"/api/earnings/{earning['id']}/evidence",
+        headers=headers,
+        files={"upload": ("receipt.pdf", payload, "application/pdf")},
+    )
+    assert uploaded.status_code == 201
+    metadata = uploaded.json()
+    stored_file = next(evidence_dir.iterdir())
+    outside_file = tmp_path / "outside.pdf"
+    outside_file.write_bytes(b"%PDF-1.4\\nnot private\\n")
+    stored_file.unlink()
+    stored_file.symlink_to(outside_file)
+
+    downloaded = client.get(
+        f"/api/earnings/{earning['id']}/evidence/{metadata['id']}",
+        headers=headers,
+    )
+    assert downloaded.status_code == 404
+    assert downloaded.json()["detail"] == "Evidence file is unavailable."
+
+
+def test_earning_evidence_download_rejects_symlinked_storage_directory(
+    client, tmp_path, monkeypatch
+):
+    from app import main
+
+    if os.name != "posix":
+        pytest.skip("Symlink permission semantics are platform-specific.")
+
+    real_directory = tmp_path / "real-private-evidence"
+    real_directory.mkdir()
+    linked_directory = tmp_path / "private-evidence-link"
+    linked_directory.symlink_to(real_directory, target_is_directory=True)
+    monkeypatch.setattr(main, "EVIDENCE_DIR", linked_directory)
+
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    earning = client.post(
+        "/api/earnings", headers=headers,
+        json={"amount": 5, "currency": "EUR", "state": "earned"},
+    ).json()
+    downloaded = client.get(
+        f"/api/earnings/{earning['id']}/evidence/1", headers=headers
+    )
+    assert downloaded.status_code == 404
+    assert downloaded.json()["detail"] == "Evidence file not found."
+
+
 def test_earning_evidence_rejects_unsupported_and_mismatched_files(client):
     headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
     earning = client.post(
