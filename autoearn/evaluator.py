@@ -256,7 +256,7 @@ def evaluate_candidate(
         payout_fee = candidate.payout_fee_fixed + gross_after_cost * candidate.payout_fee_percent / 100
         conversion_fee = gross_after_cost * candidate.conversion_fee_percent / 100
         net_reward = round(max(0.0, gross_after_cost - payout_fee - conversion_fee), 2)
-        if candidate.minimum_withdrawal_amount is not None:
+        if candidate.minimum_withdrawal_amount is not None and withdrawal_currency_matches:
             withdrawal_reachable = net_reward >= candidate.minimum_withdrawal_amount
         if (candidate.payment_probability is not None
                 and candidate.acceptance_probability is not None
