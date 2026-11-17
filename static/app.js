@@ -301,10 +301,29 @@ function renderTasks(tasks){$("task-list").innerHTML=tasks.length?tasks.map(t=>`
 function renderEarnings(rows){
   const next={estimated:["earned","pending"],earned:["pending","withdrawable"],pending:["withdrawable"],withdrawable:["paid"],paid:[]};
   const labels={earned:"ثبت کسب درآمد",pending:"در انتظار پرداخت",withdrawable:"قابل برداشت",paid:"ثبت پرداخت"};
-  $("reward-list").innerHTML=rows.length?rows.map(r=>`<div class="item"><div><h3>${money(r.amount,r.currency)} <span class="pill">${esc(statusFa(r.state))}</span></h3><p>${esc(r.opportunity_title||"درآمد بدون پیوند")} · ${esc(r.reference||"بدون توضیح")}<br>${r.evidence?"مدرک: "+esc(r.evidence):"مدرکی پیوست نشده است"}</p></div><div class="item-actions">${next[r.state].map(s=>'<button class="secondary" data-earning-state="'+r.id+'" data-next-state="'+s+'">'+labels[s]+'</button>').join("")}<button class="secondary" data-earning-history="${r.id}">سوابق</button><button class="secondary" data-earning-upload="${r.id}">پیوست رسید</button></div></div>`).join(""):'<div class="empty">هنوز درآمدی ثبت نشده است.</div>';
+  $("reward-list").innerHTML=rows.length?rows.map(r=>`<div class="item"><div><h3>${money(r.amount,r.currency)} <span class="pill">${esc(statusFa(r.state))}</span></h3><p>${esc(r.opportunity_title||"درآمد بدون پیوند")} · ${esc(r.reference||"بدون توضیح")}<br>${r.evidence?"مدرک: "+esc(r.evidence):"مدرکی پیوست نشده است"}</p></div><div class="item-actions">${next[r.state].map(s=>'<button class="secondary" data-earning-state="'+r.id+'" data-next-state="'+s+'">'+labels[s]+'</button>').join("")}<button class="secondary" data-earning-history="${r.id}">سوابق</button><button class="secondary" data-earning-upload="${r.id}">پیوست رسید</button><button class="secondary" data-earning-evidence="${r.id}">مشاهده رسیدها</button></div></div>`).join(""):'<div class="empty">هنوز درآمدی ثبت نشده است.</div>';
   $("reward-list").querySelectorAll("[data-earning-state]").forEach(b=>b.onclick=()=>setEarningState(Number(b.dataset.earningState),b.dataset.nextState));
   $("reward-list").querySelectorAll("[data-earning-history]").forEach(b=>b.onclick=()=>showEarningHistory(Number(b.dataset.earningHistory)));
   $("reward-list").querySelectorAll("[data-earning-upload]").forEach(b=>b.onclick=()=>pickEarningEvidence(Number(b.dataset.earningUpload)));
+  $("reward-list").querySelectorAll("[data-earning-evidence]").forEach(b=>b.onclick=()=>showEarningEvidence(Number(b.dataset.earningEvidence)));
+}
+async function showEarningEvidence(id){
+  try{
+    const rows=await api(`/api/earnings/${id}/evidence`);
+    $("earnings-evidence-list").innerHTML=rows.length?rows.map(item=>`<div class="item"><div><b>${esc(item.media_type)}</b><p>${(Number(item.size_bytes)/1024).toFixed(1)} KB · ${esc(new Date(item.created_at).toLocaleString("fa-IR"))}</p></div><button class="secondary" data-evidence-download="${item.id}" data-evidence-ledger="${id}">دریافت رسید</button></div>`).join(""):'<div class="empty">هنوز رسیدی پیوست نشده است.</div>';
+    $("earnings-evidence-list").querySelectorAll("[data-evidence-download]").forEach(button=>button.onclick=()=>downloadEarningEvidence(Number(button.dataset.evidenceLedger),Number(button.dataset.evidenceDownload)));
+    $("earnings-evidence-dialog").showModal();
+  }catch(error){toast(error.message)}
+}
+async function downloadEarningEvidence(ledgerId,evidenceId){
+  try{
+    const headers={};if(ownerToken())headers["X-AutoEarn-Owner-Token"]=ownerToken();
+    const response=await fetch(`/api/earnings/${ledgerId}/evidence/${evidenceId}`,{headers});
+    if(!response.ok)throw new Error("دریافت رسید ناموفق بود");
+    const objectUrl=URL.createObjectURL(await response.blob());
+    const link=document.createElement("a");link.href=objectUrl;link.download=`earning-evidence-${evidenceId}`;
+    document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(objectUrl),1000);
+  }catch(error){toast(error.message)}
 }
 function pickEarningEvidence(id){
   const picker=document.createElement("input");
