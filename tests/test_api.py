@@ -669,3 +669,16 @@ def test_vault_rejects_recovery_phrase_even_with_generic_provider(client):
         "passphrase": "a-long-test-vault-passphrase",
     })
     assert response.status_code == 422
+
+
+
+def test_vault_rejects_recovery_phrase_even_when_mislabelled_as_api_key(client):
+    response = client.post("/api/vault/credentials", json={
+        "label": "API credential",
+        "provider": "Generic API",
+        "credential_type": "api_key",
+        "secret": "alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima",
+        "passphrase": "a-long-test-vault-passphrase",
+    })
+    assert response.status_code == 422
+    assert "عبارت بازیابی" in response.text
