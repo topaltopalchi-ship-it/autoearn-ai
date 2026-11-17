@@ -43,7 +43,7 @@ def test_source_intake_is_persistent_and_requires_human_review(client):
     assert source["status"] == "pending"
     assert source["review_notes"] == ""
 
-    listed = client.get("/api/sources?status=pending")
+    listed = client.get("/api/sources?status=pending", headers={ "X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef" })
     assert listed.status_code == 200
     assert listed.json()[0]["id"] == source["id"]
 
@@ -58,7 +58,7 @@ def test_source_intake_is_persistent_and_requires_human_review(client):
     assert approved.status_code == 200
     assert approved.json()["status"] == "approved"
     assert approved.json()["review_notes"] == "Public terms reviewed manually"
-    assert client.get("/api/sources?status=pending").json() == []
+    assert client.get("/api/sources?status=pending", headers={ "X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef" }).json() == []
 
 
 def test_source_intake_rejects_unsafe_terms_url(client):
@@ -141,7 +141,7 @@ def test_opportunity_duplicate_race_is_rejected_by_unique_index(client):
     )
     assert response.status_code == 409
     assert response.json()["detail"] == "This opportunity URL is already registered."
-    assert client.get("/api/opportunities").status_code == 200
+    assert client.get("/api/opportunities", headers={ "X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef" }).status_code == 200
 
 
 def test_normalizes_duplicate_urls(client):
@@ -213,7 +213,7 @@ def test_opportunity_records_region_and_payout_requirements(client):
     assert item["withdrawal_currency"] == "EUR"
     assert item["payout_methods"] == ["PayPal", "Bank transfer"]
 
-    listed = client.get("/api/opportunities").json()
+    listed = client.get("/api/opportunities", headers={ "X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef" }).json()
     assert listed[0]["payout_methods"] == ["PayPal", "Bank transfer"]
 
 
@@ -279,12 +279,12 @@ def test_verification_returns_404_for_missing_opportunity(client):
 
 def test_opportunities_can_be_filtered_by_verification_status(client):
     item = opportunity(client)
-    assert len(client.get("/api/opportunities?verification_status=pending").json()) == 1
+    assert len(client.get("/api/opportunities?verification_status=pending", headers={ "X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef" }).json()) == 1
     client.patch(f"/api/opportunities/{item['id']}/verification", headers={"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}, json={
         "status": "verified", "notes": "Manually checked"
     })
-    assert client.get("/api/opportunities?verification_status=pending").json() == []
-    verified = client.get("/api/opportunities?verification_status=verified").json()
+    assert client.get("/api/opportunities?verification_status=pending", headers={ "X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef" }).json() == []
+    verified = client.get("/api/opportunities?verification_status=verified", headers={ "X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef" }).json()
     assert len(verified) == 1
     assert verified[0]["id"] == item["id"]
 
@@ -447,7 +447,7 @@ def test_rss_discovery_persists_only_pending_candidates_and_deduplicates(
     assert result["inserted_count"] == 1
     assert result["duplicate_count"] == 1
     assert result["review_required"] is True
-    candidates = client.get("/api/sources?status=pending").json()
+    candidates = client.get("/api/sources?status=pending", headers={ "X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef" }).json()
     assert len(candidates) == 1
     assert candidates[0]["name"] == "Paid survey listing"
     assert candidates[0]["category"] == "surveys_microtasks"
@@ -768,4 +768,11 @@ def test_rss_discovery_skips_opportunities_already_in_catalog(client, monkeypatc
     result = response.json()
     assert result["inserted_count"] == 0
     assert result["duplicate_count"] == 1
-    assert client.get("/api/sources").json() == []
+    assert client.get("/api/sources", headers={ "X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef" }).json() == []
+
+def test_opportunity_and_source_lists_require_owner_auth(client):
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    assert client.get("/api/opportunities").status_code == 401
+    assert client.get("/api/sources").status_code == 401
+    assert client.get("/api/opportunities", headers=headers).status_code == 200
+    assert client.get("/api/sources", headers=headers).status_code == 200
