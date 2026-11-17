@@ -191,7 +191,8 @@ def evaluate_candidate(
     ))
     confidence = round(confidence_inputs / 9 * 100)
 
-    net_reward = None    hourly_net = None
+    net_reward = None
+    hourly_net = None
     withdrawal_reachable = None
     if candidate.reward_amount is not None:
         gross_after_cost = max(0.0, candidate.reward_amount - candidate.estimated_cost)
