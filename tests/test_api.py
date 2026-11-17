@@ -955,6 +955,14 @@ def test_owner_managed_discovery_feeds_require_review_and_batch_deduplicate(clie
     assert result["inserted_count"] == 1
     assert result["review_required"] is True
 
+    # Move the persisted check timestamp beyond the per-feed cooldown so
+    # this assertion exercises canonical-URL deduplication, not throttling.
+    from datetime import datetime, timedelta, timezone
+    with main.connect() as db:
+        db.execute(
+            "UPDATE discovery_feeds SET last_checked_at = ? WHERE id = ?",
+            ((datetime.now(timezone.utc) - timedelta(seconds=61)).isoformat(), feed["id"]),
+        )
     second = client.post("/api/discovery/run", headers=headers)
     assert second.status_code == 200
     assert second.json()["inserted_count"] == 0
