@@ -31,7 +31,17 @@ def opportunity(client):
 
 
 def test_health(client):
-    assert client.get("/api/health").json()["status"] == "ok"
+    response = client.get("/api/health")
+    assert response.json()["status"] == "ok"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["x-frame-options"] == "DENY"
+    assert response.headers["referrer-policy"] == "no-referrer"
+    assert response.headers["permissions-policy"] == "camera=(), microphone=(), geolocation=()"
+    csp = response.headers["content-security-policy"]
+    assert "default-src 'self'" in csp
+    assert "frame-ancestors 'none'" in csp
+    assert "object-src 'none'" in csp
+    assert "script-src 'self'" in csp
 
 
 def test_private_opportunity_and_source_lists_require_owner_token(client):
