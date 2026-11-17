@@ -959,7 +959,11 @@ def upload_earning_evidence(
         raise HTTPException(415, "File content does not match its declared evidence type.")
     digest = hashlib.sha256(payload).hexdigest()
     stored_name = f"{uuid.uuid4().hex}{extension}"
-    EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
+    EVIDENCE_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
+    # Receipt files contain potentially sensitive financial information. Keep
+    # the directory owner-only even when it already existed with loose modes.
+    if os.name == "posix":
+        os.chmod(EVIDENCE_DIR, 0o700)
     target = (EVIDENCE_DIR / stored_name).resolve()
     if target.parent != EVIDENCE_DIR.resolve():
         raise HTTPException(400, "Invalid evidence storage path.")
@@ -973,8 +977,13 @@ def upload_earning_evidence(
         ).fetchone()[0]
         if count >= 10:
             raise HTTPException(409, "An earning record can have at most 10 evidence files.")
-        target.write_bytes(payload)
+        file_descriptor = None
         try:
+            flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+            file_descriptor = os.open(target, flags, 0o600)
+            with os.fdopen(file_descriptor, "wb") as evidence_file:
+                file_descriptor = None
+                evidence_file.write(payload)
             cur = db.execute(
                 """INSERT INTO earnings_evidence
                    (ledger_id, stored_name, media_type, size_bytes, sha256, created_at)
@@ -982,6 +991,8 @@ def upload_earning_evidence(
                 (ledger_id, stored_name, upload.content_type, len(payload), digest, now()),
             )
         except Exception:
+            if file_descriptor is not None:
+                os.close(file_descriptor)
             target.unlink(missing_ok=True)
             raise
         return {
