@@ -12,6 +12,11 @@ The first release is a local-first MVP. It helps users record opportunity metada
 - Human verification status with reviewer notes and timestamp; new entries remain pending until manually verified.
 - Persistent SQLite source-candidate intake with canonical URL deduplication, pending-by-default review, and reviewer notes.
 - Dashboard workflow to submit source candidates and manually approve or reject them; source metadata is recorded without scraping or interacting with external platforms.
+- Capability-scoped discovery adapter registry covering games/competitions, surveys/microtasks, freelancing/services, AI content/products, and reviewed additional categories.
+- Adapter manifests declare categories, allowed domains, execution mode, rate limits, allowed actions, terms permission, and mandatory user approval for platform actions.
+- Discovery results are checked against declared categories and domain allowlists; all discovered source records remain pending review.
+- Conservative eligibility evaluator reports eligible/ineligible/unknown, evidence freshness, confidence, risk flags, estimated net reward, and a transparent ranking score.
+- Automatic participation is blocked unless country eligibility, source review, opportunity verification, fresh evidence, reward, time, payment-probability, risk, and an official API mode are all present.
 - Backward-compatible SQLite schema migration for the new eligibility and payout fields.
 - Explainable 0–100 scoring using reward clarity, terms clarity, source trust, region fit, and effort fit.
 - Unit tests using Python's standard library.
@@ -23,6 +28,14 @@ The first release is a local-first MVP. It helps users record opportunity metada
 - `GET /api/sources` lists candidates; use `?status=pending`, `?status=approved`, or `?status=rejected` to filter.
 - `PATCH /api/sources/{id}/review` records a human decision (`pending`, `approved`, or `rejected`) and reviewer notes.
 - Canonical source URLs are unique. Duplicate submissions return HTTP 409. The intake stores supplied metadata only; it does not crawl websites or verify claims automatically.
+
+## Discovery adapter contract
+
+Implementations must register a local Python adapter with an explicit `AdapterManifest`. Each adapter returns `DiscoveredLead` records with provenance and observation timestamps. The registry rejects leads outside the adapter's declared categories or allowed domains. The framework does not crawl arbitrary websites, run source-provided code, or perform platform actions. New leads are converted to pending source candidates and require human review.
+
+## Eligibility evaluation
+
+`autoearn.evaluator.evaluate_candidate()` keeps missing country evidence as `unknown`, marks explicit country mismatches as `ineligible`, and flags stale or incomplete evidence. Ranking values are estimates, not proof of payment. Execution is only marked eligible for a tightly scoped official-API integration with complete current evidence; actual platform execution is not implemented by this evaluator.
 
 ## Development
 
