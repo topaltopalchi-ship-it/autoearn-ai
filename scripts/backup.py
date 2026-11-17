@@ -49,14 +49,12 @@ def create_backup(
         destination == evidence_dir or evidence_dir in destination.parents
     ):
         raise ValueError("Backup destination cannot be inside the evidence directory")
-    if database_path == destination or database_path in destination.parents:
-        raise ValueError("Backup destination cannot be inside the database directory")
 
     destination.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=".autoearn-backup-", dir=destination.parent))
     try:
         database_copy = staging / database_path.name
-        with sqlite3.connect(f"file:{database_path.as_posix()}?mode=ro", uri=True) as source:
+        with sqlite3.connect(database_path.as_uri() + "?mode=ro", uri=True) as source:
             with sqlite3.connect(database_copy) as target:
                 source.backup(target)
                 integrity = target.execute("PRAGMA integrity_check").fetchone()[0]
