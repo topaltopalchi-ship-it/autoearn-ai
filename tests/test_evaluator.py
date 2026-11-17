@@ -74,6 +74,20 @@ def test_stale_evidence_blocks_execution():
     assert "evidence is stale" in result["risk_flags"]
 
 
+def test_any_future_evidence_timestamp_blocks_execution():
+    from datetime import timedelta
+
+    future = (NOW + timedelta(hours=12)).isoformat()
+    result = evaluate_candidate(
+        complete_candidate(observed_at=future),
+        "Germany",
+        now=NOW,
+    )
+    assert result["evidence_stale"] is True
+    assert result["execution_allowed"] is False
+    assert "evidence timestamp is in the future" in result["risk_flags"]
+
+
 def test_manual_or_assisted_mode_never_auto_executes():
     for mode in ("manual", "assist"):
         result = evaluate_candidate(
