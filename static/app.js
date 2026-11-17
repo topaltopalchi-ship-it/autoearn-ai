@@ -376,12 +376,15 @@ $("evaluation-form").onsubmit=async e=>{
   const data=Object.fromEntries(new FormData(e.target));
   data.opportunity_id=Number(data.opportunity_id);
   data.source_id=Number(data.source_id);
-  for(const field of ["reward_amount","estimated_minutes","payment_probability","risk_score"])
+  for(const field of ["reward_amount","estimated_minutes","payment_probability","acceptance_probability","payout_reliability","risk_score"])
     data[field]=data[field]===""?null:Number(data[field]);
   for(const field of ["estimated_cost","payout_fee_fixed","payout_fee_percent","conversion_fee_percent"])
     data[field]=Number(data[field]||0);
-  data.evidence=String(data.evidence||"").split("\n").map(x=>x.trim()).filter(Boolean);
+  data.payout_supported=data.payout_supported===""?null:data.payout_supported==="true";
   const form=e.target;
+  data.payout_route_configured=form.elements.payout_route_configured.checked;
+  data.supports_balance_accumulation=form.elements.supports_balance_accumulation.checked;
+  data.evidence=String(data.evidence||"").split("\n").map(x=>x.trim()).filter(Boolean);
   const aiFields=[
     "requires_physical_presence","requires_personal_experience",
     "requires_identity_attestation","requires_captcha",
@@ -408,6 +411,7 @@ $("evaluation-form").onsubmit=async e=>{
       "\nکارمزد برداشت تخمینی: "+money(value.payout_fee_estimate,value.currency)+
       "\nکارمزد تبدیل تخمینی: "+money(value.conversion_fee_estimate,value.currency)+
       "\nوضعیت حداقل برداشت: "+(value.withdrawal_threshold_currency_mismatch?"نامشخص؛ ارز متفاوت است":value.withdrawal_reachable_estimate===null?"حداقل برداشت قابل محاسبه نیست":value.withdrawal_reachable_estimate?"قابل دستیابی":"کمتر از حداقل برداشت")+
+      "\nروش دریافت وجه شخصی تنظیم شده: "+(value.payout_route_configured?"بله":"خیر؛ هنوز تنظیم نشده")+
       "\nآمادگی اجرا: "+(value.execution_allowed?"پیش‌نیازها فراهم است":"مسدود است")+
       "\nارزیابی AI: "+(value.ai_task_assessment?value.ai_task_assessment.suitability:"ثبت نشده")+
       "\nنقش مجاز AI: "+(value.ai_task_assessment?.permitted_ai_role||"—")+

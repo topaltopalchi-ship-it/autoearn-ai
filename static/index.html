@@ -132,12 +132,19 @@
       <small>اگر قوانین AI نامشخص باشند، ارزیابی اجرای رسمی مسدود می‌شود. انتخاب «مجاز» باید بر اساس قوانین رسمی بررسی‌شده باشد.</small>
     </fieldset>
     <label>مبلغ پاداش اعلام‌شده<input name="reward_amount" type="number" min="0" step="0.01" placeholder="اگر خالی باشد، نامشخص است"></label>
+    <label>آیا پلتفرم رسماً به کشور محل اقامت شما پرداخت می‌کند؟
+      <select name="payout_supported"><option value="">نامشخص (پیش‌فرض امن)</option><option value="true">بله؛ از منبع رسمی تأیید شده</option><option value="false">خیر؛ پرداخت نمی‌کند</option></select>
+    </label>
+    <label><input type="checkbox" name="payout_route_configured"> روش دریافت وجه قابل استفاده و در دسترس برای خودم را واقعاً تنظیم کرده‌ام (بدون واردکردن کلید یا اطلاعات محرمانه)</label>
+    <label><input type="checkbox" name="supports_balance_accumulation"> پلتفرم صریحاً اجازهٔ تجمیع موجودی تا حداقل برداشت را می‌دهد</label>
     <label>ارز پاداش<select name="reward_currency" required><option value="EUR">یورو</option><option value="USD">دلار آمریکا</option><option value="GBP">پوند</option><option value="TRY">لیر</option><option value="IRR">ریال</option></select></label>
     <label>هزینه‌های تخمینی<input name="estimated_cost" type="number" min="0" step="0.01" value="0"></label>
     <label>کارمزد ثابت برداشت<input name="payout_fee_fixed" type="number" min="0" step="0.01" value="0"></label>
     <label>کارمزد درصدی برداشت (درصد)<input name="payout_fee_percent" type="number" min="0" max="100" step="0.01" value="0"></label>
     <label>کارمزد تبدیل ارز (درصد؛ فقط تخمین هزینه)<input name="conversion_fee_percent" type="number" min="0" max="100" step="0.01" value="0"></label>
     <label>زمان تخمینی به دقیقه<input name="estimated_minutes" type="number" min="1" placeholder="اگر خالی باشد، نامشخص است"></label>
+    <label>احتمال پذیرش کار (درصد)<input name="acceptance_probability" type="number" min="0" max="100" placeholder="اگر خالی باشد، نامشخص است"></label>
+    <label>قابلیت اطمینان روش پرداخت (درصد)<input name="payout_reliability" type="number" min="0" max="100" placeholder="اگر خالی باشد، نامشخص است"></label>
     <label>احتمال تخمینی پرداخت (درصد)<input name="payment_probability" type="number" min="0" max="100" placeholder="اگر خالی باشد، نامشخص است"></label>
     <label>امتیاز ریسک (۰ تا ۱۰۰)<input name="risk_score" type="number" min="0" max="100" placeholder="اگر خالی باشد، نامشخص است"></label>
     <label>مدارک بررسی‌شده (هر مورد در یک خط)<textarea name="evidence" placeholder="صفحهٔ رسمی قوانین بررسی شد&#10;مجازبودن کشور تأیید شد"></textarea></label>
