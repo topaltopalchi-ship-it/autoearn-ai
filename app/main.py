@@ -22,7 +22,7 @@ from autoearn.supervision import SupervisionError
 from autoearn.rss import PublicRssAdapter
 from autoearn.evaluator import OpportunityCandidate, evaluate_candidate
 from autoearn.competitions import (
-    Competition, CompetitionAdapterRegistry, assess_competition, build_strategy,
+    AIProviderError, Competition, CompetitionAdapterRegistry, assess_competition, build_strategy,
 )
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -981,6 +981,8 @@ def plan_competition(competition_id: int, data: CompetitionPlanIn,
             raise HTTPException(404, "Competition not found.")
         try:
             plan = build_strategy(competition_id, row["task_type"], data.objective)
+        except AIProviderError as exc:
+            raise HTTPException(502, str(exc))
         except ValueError as exc:
             raise HTTPException(422, str(exc))
         plan_data = asdict(plan)
