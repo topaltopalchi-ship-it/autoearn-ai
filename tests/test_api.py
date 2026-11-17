@@ -119,6 +119,31 @@ def test_duplicate_opportunity_url_is_rejected(client):
     assert "already registered" in duplicate.json()["detail"]
 
 
+def test_opportunity_duplicate_race_is_rejected_by_unique_index(client):
+    from app import main
+
+    # Simulate another request winning after the endpoint's preliminary SELECT
+    # but immediately before its INSERT.
+    with sqlite3.connect(main.DB_PATH) as db:
+        db.execute("""
+            CREATE TRIGGER simulate_concurrent_opportunity_insert
+            BEFORE INSERT ON opportunities
+            BEGIN
+                INSERT INTO opportunities (title, platform, url, created_at)
+                VALUES ('Concurrent winner', 'Example', NEW.url, '2026-01-01T00:00:00+00:00');
+            END
+        """)
+
+    response = client.post(
+        "/api/opportunities",
+        headers={"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"},
+        json={"title": "Racing request", "platform": "Example", "url": "https://example.com/race"},
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"] == "This opportunity URL is already registered."
+    assert client.get("/api/opportunities").status_code == 200
+
+
 def test_normalizes_duplicate_urls(client):
     payload = {
         "title": "Normalized URL", "platform": "Example Games",
