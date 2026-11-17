@@ -76,7 +76,7 @@ def test_completion_requires_evidence():
         queue.complete(request.request_id, actor="user", evidence=" ")
 
 
-@pytest.mark.parametrize("actor", ["", "   ", "system", " system "])
+@pytest.mark.parametrize("actor", ["", "   ", "system", " system ", "SYSTEM", " System "])
 def test_completion_requires_human_actor(actor):
     queue = SupervisionQueue()
     request = create(queue)
@@ -85,7 +85,7 @@ def test_completion_requires_human_actor(actor):
         queue.complete(request.request_id, actor=actor, evidence="receipt")
 
 
-@pytest.mark.parametrize("actor", ["", "   ", "system", " system "])
+@pytest.mark.parametrize("actor", ["", "   ", "system", " system ", "SYSTEM", " System "])
 def test_cancellation_requires_human_actor(actor):
     queue = SupervisionQueue()
     request = create(queue)
