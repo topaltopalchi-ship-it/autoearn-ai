@@ -70,3 +70,9 @@ The core `SupervisionQueue` models action requests, explicit human approval/reje
 ### Durable supervision and audit storage
 
 `SQLiteSupervisionStore` persists supervised action requests and audit events across process restarts. It enforces eligible opportunity + approved source + fresh evidence at creation, human-attributed approval/rejection, approval before completion, completion evidence, and terminal-state transition rules. Audit rows are append-only through this API. This store is not exposed through HTTP routes yet: the existing API currently lacks authentication/authorization, so publishing approval endpoints would allow unauthenticated users to approve actions. Wire it to authenticated owner-only routes only after identity, access control, CSRF protection, and deployment secrets are in place.
+
+### Owner-authenticated supervision API
+
+Set a long, random `AUTOEARN_OWNER_TOKEN` environment variable before starting the service. Send it in the `X-AutoEarn-Owner-Token` header for owner-only operations. If the secret is absent, these operations fail closed with HTTP 503; missing or incorrect tokens receive HTTP 401.
+
+The owner-only endpoints cover source approval/rejection, opportunity eligibility status and verification, and supervised action creation, approval, rejection, completion, listing, and audit retrieval. A supervised action can only be requested when its opportunity is marked eligible and verified, its source is approved, and the verification timestamp is no older than 30 days. This API records workflow state; it does not execute external platform actions. Deploy only behind HTTPS, keep the token out of source control and logs, and rotate it if exposed. This single-owner token is a basic deployment gate, not a replacement for multi-user identity, session management, CSRF protections, or a secrets manager.
