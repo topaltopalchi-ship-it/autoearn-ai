@@ -6,6 +6,13 @@ def record(opportunity_id, title, currency, score, *, eligibility="eligible",
     return {
         "opportunity_id": opportunity_id,
         "title": title,
+        "execution_mode": "manual",
+        "research": {
+            "country_status": "verified",
+            "payout_status": "verified",
+            "ai_permission": "allowed",
+            "api_status": "available",
+        },
         "evaluation": {
             "currency": currency,
             "ranking_score": score,
@@ -64,4 +71,27 @@ def test_ai_fit_is_reported_separately_from_financial_priority():
     assert item["priority_tier"] == "priority_candidate"
     assert item["ai_fit"] == "bounded_ai_draft_candidate"
     assert item["ai_suitability_score"] == 85
+    assert item["execution_authorized"] is False
+
+
+def test_ranking_blocks_unverified_country_payout_or_ai_permission():
+    candidate = record(1, "Unverified task", "EUR", 99)
+    candidate["research"]["payout_status"] = "unknown"
+    result = rank_evaluations([candidate])
+    item = result["groups"][0]["items"][0]
+    assert item["priority_tier"] == "blocked_pending_research"
+    assert item["research_complete"] is False
+    assert item["research_status"]["payout"] == "unknown"
+    assert item["execution_authorized"] is False
+
+
+def test_official_api_mode_requires_separate_api_evidence():
+    candidate = record(1, "API task", "EUR", 99)
+    candidate["execution_mode"] = "official_api"
+    candidate["research"]["api_status"] = "unknown"
+    result = rank_evaluations([candidate])
+    item = result["groups"][0]["items"][0]
+    assert item["priority_tier"] == "blocked_api_unverified"
+    assert item["research_complete"] is True
+    assert item["api_research_ready"] is False
     assert item["execution_authorized"] is False
