@@ -168,6 +168,10 @@ def test_feed_fetch_uses_pinned_public_ip_and_hostname_tls(monkeypatch):
 
 
 def test_feed_fetch_does_not_follow_http_redirects(monkeypatch):
+    monkeypatch.setattr(
+        "autoearn.rss._resolve_public_addresses",
+        lambda host, port: ("93.184.216.34",),
+    )
     from autoearn.rss import PublicRssAdapter
 
     calls = {}
@@ -204,6 +208,10 @@ def test_feed_fetch_does_not_follow_http_redirects(monkeypatch):
 
 
 def test_feed_fetch_enforces_response_size_limit(monkeypatch):
+    monkeypatch.setattr(
+        "autoearn.rss._resolve_public_addresses",
+        lambda host, port: ("93.184.216.34",),
+    )
     from autoearn.rss import MAX_FEED_BYTES, PublicRssAdapter
 
     class FakeResponse:
