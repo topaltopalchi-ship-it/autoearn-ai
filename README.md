@@ -10,10 +10,19 @@ The first release is a local-first MVP. It helps users record opportunity metada
 - Removal of common tracking query parameters and URL fragments.
 - Opportunity metadata validation, including eligible/excluded countries, minimum withdrawal thresholds, withdrawal currency, and payout methods.
 - Human verification status with reviewer notes and timestamp; new entries remain pending until manually verified.
+- Persistent SQLite source-candidate intake with canonical URL deduplication, pending-by-default review, and reviewer notes.
+- Dashboard workflow to submit source candidates and manually approve or reject them; source metadata is recorded without scraping or interacting with external platforms.
 - Backward-compatible SQLite schema migration for the new eligibility and payout fields.
 - Explainable 0–100 scoring using reward clarity, terms clarity, source trust, region fit, and effort fit.
 - Unit tests using Python's standard library.
 - GitHub Actions workflow to run unit tests on pushes and pull requests.
+
+## Source review API
+
+- `POST /api/sources` records a public source candidate. Every new candidate is stored as `pending`.
+- `GET /api/sources` lists candidates; use `?status=pending`, `?status=approved`, or `?status=rejected` to filter.
+- `PATCH /api/sources/{id}/review` records a human decision (`pending`, `approved`, or `rejected`) and reviewer notes.
+- Canonical source URLs are unique. Duplicate submissions return HTTP 409. The intake stores supplied metadata only; it does not crawl websites or verify claims automatically.
 
 ## Development
 
