@@ -121,6 +121,7 @@ async function loadRankedOpportunities(){
           'احتمال پرداخت: '+(e.payment_probability_percent==null?"نامشخص":esc(e.payment_probability_percent)+"٪")+'<br>'+
           'تناسب AI: '+esc(aiLabels[item.ai_fit]||item.ai_fit)+' · مجوز اقدام واقعی: خیر<br>'+
           'تحقیق کشور: '+esc(item.research_status?.country||"نامشخص")+' · برداشت: '+esc(item.research_status?.payout||"نامشخص")+' · مجوز AI: '+esc(item.research_status?.ai_permission||"نامشخص")+
+          ' · تازگی بررسی: '+(item.research_fresh?'معتبر (حداکثر ۳۰ روز)':'منقضی یا ثبت‌نشده')+
           (item.execution_mode==="official_api"?' · API: '+(item.api_research_ready?"تأییدشده":"تأییدنشده"):"")+'<br>'+
           'هشدارها: '+(Array.isArray(e.risk_flags)?e.risk_flags.length:0)+'</p>'+
           '<a href="'+esc(item.url)+'" target="_blank" rel="noopener noreferrer">بازکردن فرصت ↗</a></div></article>';
