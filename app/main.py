@@ -491,6 +491,10 @@ def evaluate_opportunity(opportunity_id: int, data: OpportunityEvaluationIn,
         ).fetchone()
     if opportunity is None or source is None:
         raise HTTPException(404, "Opportunity or source not found.")
+    opportunity_host = (urlparse(opportunity["url"]).hostname or "").casefold()
+    source_host = (urlparse(source["url"]).hostname or "").casefold()
+    if not opportunity_host or source_host != opportunity_host:
+        raise HTTPException(409, "The reviewed source must belong to the same host as the opportunity.")
     category_map = {
         "game": "games_competitions", "skill": "games_competitions",
         "survey": "surveys_microtasks", "mobile": "other",
@@ -518,6 +522,9 @@ def evaluate_opportunity(opportunity_id: int, data: OpportunityEvaluationIn,
             evidence=tuple(clean_list(data.evidence, "evidence")),
         )
         evaluation = evaluate_candidate(candidate, data.country)
+        if opportunity["status"] != "eligible":
+            evaluation["execution_allowed"] = False
+            evaluation["risk_flags"].append("opportunity status is not marked eligible")
     except (ValueError, TypeError, json.JSONDecodeError) as exc:
         raise HTTPException(422, f"Opportunity evaluation failed: {exc}")
     return {
