@@ -19,6 +19,7 @@ from autoearn.opportunities import normalize_url
 from autoearn.supervision_store import SQLiteSupervisionStore
 from autoearn.supervision import SupervisionError
 from autoearn.rss import PublicRssAdapter
+from autoearn.evaluator import OpportunityCandidate, evaluate_candidate
 
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.getenv("AUTOEARN_DB", ROOT / "autoearn.db"))
@@ -195,6 +196,18 @@ class RssDiscoveryIn(BaseModel):
     category: Literal["games_competitions", "surveys_microtasks", "freelancing_services", "ai_content_products", "other"]
     allowed_domains: list[str] = Field(min_length=1, max_length=20)
     max_items: int = Field(default=30, ge=1, le=100)
+
+class OpportunityEvaluationIn(BaseModel):
+    source_id: int = Field(gt=0)
+    country: str = Field(min_length=2, max_length=80)
+    execution_mode: Literal["manual", "assist", "official_api"] = "manual"
+    reward_amount: float | None = Field(default=None, ge=0)
+    reward_currency: str = Field(default="EUR", min_length=3, max_length=8)
+    estimated_cost: float = Field(default=0, ge=0)
+    estimated_minutes: int | None = Field(default=None, gt=0)
+    payment_probability: int | None = Field(default=None, ge=0, le=100)
+    risk_score: int | None = Field(default=None, ge=0, le=100)
+    evidence: list[str] = Field(default_factory=list, max_length=20)
 
 
 def require_owner(x_autoearn_owner_token: str | None = Header(default=None)):
@@ -464,6 +477,59 @@ def create_reward(data: RewardIn, actor: str = Depends(require_owner)):
             VALUES (?, ?, ?, ?, ?, ?)
         """, (data.opportunity_id, data.amount, data.currency.upper(), data.status, data.reference, now()))
         return row_dict(db.execute("SELECT * FROM rewards WHERE id = ?", (cur.lastrowid,)).fetchone())
+
+
+@app.post("/api/opportunities/{opportunity_id}/evaluate")
+def evaluate_opportunity(opportunity_id: int, data: OpportunityEvaluationIn,
+                         actor: str = Depends(require_owner)):
+    with connect() as db:
+        opportunity = db.execute(
+            "SELECT * FROM opportunities WHERE id = ?", (opportunity_id,)
+        ).fetchone()
+        source = db.execute(
+            "SELECT * FROM sources WHERE id = ?", (data.source_id,)
+        ).fetchone()
+    if opportunity is None or source is None:
+        raise HTTPException(404, "Opportunity or source not found.")
+    category_map = {
+        "game": "games_competitions", "skill": "games_competitions",
+        "survey": "surveys_microtasks", "mobile": "other",
+    }
+    category = category_map.get(opportunity["category"], opportunity["category"])
+    if category not in {"games_competitions", "surveys_microtasks",
+                        "freelancing_services", "ai_content_products", "other"}:
+        category = "other"
+    try:
+        candidate = OpportunityCandidate(
+            title=opportunity["title"],
+            category=category,
+            source_status=source["status"],
+            verification_status=opportunity["verification_status"],
+            execution_mode=data.execution_mode,
+            eligible_countries=tuple(json.loads(opportunity["eligible_countries"] or "[]")),
+            excluded_countries=tuple(json.loads(opportunity["excluded_countries"] or "[]")),
+            observed_at=opportunity["verified_at"] or "",
+            reward_amount=data.reward_amount,
+            reward_currency=data.reward_currency,
+            estimated_cost=data.estimated_cost,
+            estimated_minutes=data.estimated_minutes,
+            payment_probability=data.payment_probability,
+            risk_score=data.risk_score,
+            evidence=tuple(clean_list(data.evidence, "evidence")),
+        )
+        evaluation = evaluate_candidate(candidate, data.country)
+    except (ValueError, TypeError, json.JSONDecodeError) as exc:
+        raise HTTPException(422, f"Opportunity evaluation failed: {exc}")
+    return {
+        "opportunity_id": opportunity_id,
+        "source_id": data.source_id,
+        "title": opportunity["title"],
+        "platform": opportunity["platform"],
+        "source_status": source["status"],
+        "opportunity_status": opportunity["status"],
+        "evaluation": evaluation,
+        "execution_note": "This is a readiness assessment only; no external platform action is executed.",
+    }
 
 
 @app.post("/api/discovery/rss", status_code=200)
