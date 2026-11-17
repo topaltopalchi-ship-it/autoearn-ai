@@ -1908,3 +1908,38 @@ def test_earning_evidence_rejects_files_over_five_mib(client):
         files={"upload": ("large.pdf", oversized, "application/pdf")},
     )
     assert response.status_code == 413
+
+
+def test_approved_feed_has_persistent_sixty_second_cooldown(client, monkeypatch):
+    from app import main
+
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    created = client.post("/api/discovery/feeds", headers=headers, json={
+        "name": "Cooldown feed", "feed_url": "https://cooldown.example/rss",
+        "category": "other", "allowed_domains": ["cooldown.example"],
+        "max_items": 10,
+    })
+    assert created.status_code == 201
+    feed_id = created.json()["id"]
+    approved = client.patch(
+        f"/api/discovery/feeds/{feed_id}/review", headers=headers,
+        json={"status": "approved"},
+    )
+    assert approved.status_code == 200
+    with main.connect() as db:
+        db.execute(
+            "UPDATE discovery_feeds SET last_checked_at = ? WHERE id = ?",
+            (main.now(), feed_id),
+        )
+
+    class NeverFetch:
+        def __init__(self, **kwargs):
+            raise AssertionError("feed inside cooldown must not be fetched")
+
+    monkeypatch.setattr(main, "PublicRssAdapter", NeverFetch)
+    result = client.post("/api/discovery/run", headers=headers)
+    assert result.status_code == 200
+    feed_result = next(item for item in result.json()["feeds"] if item["feed_id"] == feed_id)
+    assert feed_result["status"] == "rate_limited"
+    assert 1 <= feed_result["retry_after_seconds"] <= 60
+    assert result.json()["inserted_count"] == 0
