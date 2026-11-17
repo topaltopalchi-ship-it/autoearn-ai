@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import hmac
 import sqlite3
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -9,15 +10,18 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Depends, Header
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, HttpUrl
 
 from autoearn.opportunities import normalize_url
+from autoearn.supervision_store import SQLiteSupervisionStore
+from autoearn.supervision import SupervisionError
 
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.getenv("AUTOEARN_DB", ROOT / "autoearn.db"))
+OWNER_TOKEN = os.getenv("AUTOEARN_OWNER_TOKEN", "")
 STATIC_DIR = ROOT / "static"
 
 
@@ -168,6 +172,29 @@ class RewardIn(BaseModel):
     currency: str = Field(default="USD", min_length=3, max_length=8)
     status: Literal["pending", "confirmed", "paid", "rejected"] = "pending"
     reference: str = Field(default="", max_length=200)
+
+class SupervisedActionIn(BaseModel):
+    opportunity_id: int = Field(gt=0)
+    source_id: int = Field(gt=0)
+    action: Literal["read_public_info", "prepare_draft", "submit_application", "accept_terms", "publish_content", "share_personal_data", "spend_money", "withdraw_funds"]
+    description: str = Field(min_length=3, max_length=500)
+
+
+class ActionDecisionIn(BaseModel):
+    reason: str = Field(default="", max_length=1000)
+
+
+class ActionCompletionIn(BaseModel):
+    evidence: str = Field(min_length=3, max_length=1000)
+
+
+def require_owner(x_autoearn_owner_token: str | None = Header(default=None)):
+    configured = OWNER_TOKEN
+    if not configured:
+        raise HTTPException(503, "Owner actions are disabled: AUTOEARN_OWNER_TOKEN is not configured.")
+    if not x_autoearn_owner_token or not hmac.compare_digest(x_autoearn_owner_token, configured):
+        raise HTTPException(401, "Owner authentication required.")
+    return "owner"
 
 
 def row_dict(row: sqlite3.Row) -> dict:
@@ -426,6 +453,81 @@ def create_reward(data: RewardIn):
             VALUES (?, ?, ?, ?, ?, ?)
         """, (data.opportunity_id, data.amount, data.currency.upper(), data.status, data.reference, now()))
         return row_dict(db.execute("SELECT * FROM rewards WHERE id = ?", (cur.lastrowid,)).fetchone())
+
+
+@app.post("/api/supervision/actions", status_code=201)
+def request_supervised_action(data: SupervisedActionIn, actor: str = Depends(require_owner)):
+    with connect() as db:
+        opportunity = db.execute(
+            "SELECT * FROM opportunities WHERE id = ?", (data.opportunity_id,)
+        ).fetchone()
+        source = db.execute(
+            "SELECT * FROM sources WHERE id = ?", (data.source_id,)
+        ).fetchone()
+        if opportunity is None or source is None:
+            raise HTTPException(404, "Opportunity or source not found.")
+        if opportunity["status"] != "eligible" or opportunity["verification_status"] != "verified":
+            raise HTTPException(409, "Opportunity must be eligible and manually verified.")
+        if source["status"] != "approved":
+            raise HTTPException(409, "Source must be manually approved.")
+        verified_at = opportunity["verified_at"]
+        if not verified_at:
+            raise HTTPException(409, "Fresh verification evidence is required.")
+        try:
+            verified_time = datetime.fromisoformat(verified_at)
+            age_seconds = (datetime.now(timezone.utc) - verified_time).total_seconds()
+        except ValueError:
+            raise HTTPException(409, "Verification timestamp is invalid.")
+        if age_seconds < -300 or age_seconds > 30 * 24 * 60 * 60:
+            raise HTTPException(409, "Verification is older than 30 days; review it again.")
+    store = SQLiteSupervisionStore(DB_PATH)
+    try:
+        item = store.create(
+            opportunity_id=data.opportunity_id, action=data.action,
+            description=data.description, opportunity_eligible=True,
+            source_approved=True, evidence_fresh=True, actor=actor,
+        )
+    except SupervisionError as exc:
+        raise HTTPException(422, str(exc))
+    return item.__dict__
+
+
+@app.get("/api/supervision/actions")
+def list_supervised_actions(status: Literal["pending_approval", "approved", "rejected", "completed", "cancelled"] | None = None,
+                             actor: str = Depends(require_owner)):
+    return [item.__dict__ for item in SQLiteSupervisionStore(DB_PATH).list(status)]
+
+
+@app.post("/api/supervision/actions/{request_id}/approve")
+def approve_supervised_action(request_id: str, actor: str = Depends(require_owner)):
+    try:
+        return SQLiteSupervisionStore(DB_PATH).approve(request_id, actor=actor).__dict__
+    except SupervisionError as exc:
+        raise HTTPException(409, str(exc))
+
+
+@app.post("/api/supervision/actions/{request_id}/reject")
+def reject_supervised_action(request_id: str, data: ActionDecisionIn, actor: str = Depends(require_owner)):
+    try:
+        return SQLiteSupervisionStore(DB_PATH).reject(request_id, actor=actor, reason=data.reason).__dict__
+    except SupervisionError as exc:
+        raise HTTPException(409, str(exc))
+
+
+@app.post("/api/supervision/actions/{request_id}/complete")
+def complete_supervised_action(request_id: str, data: ActionCompletionIn, actor: str = Depends(require_owner)):
+    try:
+        return SQLiteSupervisionStore(DB_PATH).complete(request_id, actor=actor, evidence=data.evidence).__dict__
+    except SupervisionError as exc:
+        raise HTTPException(409, str(exc))
+
+
+@app.get("/api/supervision/actions/{request_id}/audit")
+def supervised_action_audit(request_id: str, actor: str = Depends(require_owner)):
+    store = SQLiteSupervisionStore(DB_PATH)
+    if store.get(request_id) is None:
+        raise HTTPException(404, "Action request not found.")
+    return [event.__dict__ for event in store.audit_events(request_id)]
 
 
 @app.get("/api/dashboard")
