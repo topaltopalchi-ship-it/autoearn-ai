@@ -111,10 +111,10 @@ _TRACK_KEYWORDS = {
 def _normalize_track_text(value: str) -> str:
     """Normalize common Persian/Arabic keyboard variants before matching."""
     return (
-        value.replace("\\u064a", "\\u06cc")
-        .replace("\\u0643", "\\u06a9")
-        .replace("\\u0640", "")
-        .replace("\\u200c", " ")
+        value.replace("\u064a", "\u06cc")
+        .replace("\u0643", "\u06a9")
+        .replace("\u0640", "")
+        .replace("\u200c", " ")
         .casefold()
     )
 
