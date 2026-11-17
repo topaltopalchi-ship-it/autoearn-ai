@@ -1362,7 +1362,8 @@ def test_opportunity_evaluation_requires_explicit_country_payout_support_for_rea
     payload = {
         "source_id": source["id"], "country": "Iran", "execution_mode": "official_api",
         "reward_amount": 12, "reward_currency": "EUR", "estimated_minutes": 30,
-        "payment_probability": 90, "risk_score": 5,
+        "payment_probability": 90, "acceptance_probability": 80,
+        "payout_reliability": 75, "risk_score": 5,
         "evidence": ["Official terms reviewed"],
         "ai_task_profile": {"title": "Data task", "ai_permission": "allowed",
                             "repetitive_information_processing": True,
@@ -1380,4 +1381,6 @@ def test_opportunity_evaluation_requires_explicit_country_payout_support_for_rea
     verified = client.post(f"/api/opportunities/{opp['id']}/evaluate", headers=headers, json=payload)
     assert verified.status_code == 200
     assert verified.json()["evaluation"]["payout_supported"] is True
+    assert verified.json()["evaluation"]["combined_success_probability_percent"] == 54
+    assert verified.json()["evaluation"]["expected_net_reward_estimate"] == 6.48
     assert verified.json()["execution_authorized"] is False
