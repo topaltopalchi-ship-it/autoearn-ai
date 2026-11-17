@@ -1167,16 +1167,22 @@ def discover_rss_sources(data: RssDiscoveryIn, actor: str = Depends(require_owne
                 continue
             try:
                 cursor = db.execute(
+                    track_key = str(getattr(lead, "track_key", "") or "").strip()
+                track_review_status = "matched" if track_key else "needs_review"
+                cursor = db.execute(
                     """INSERT INTO discovery_leads
                        (source_feed_id, source_name, title, url, category, summary,
-                        terms_url, observed_at, status, created_at, last_seen_at)
-                       VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)""",
+                        terms_url, observed_at, status, created_at, last_seen_at,
+                        track_key, track_review_status)
+                       VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)""",
                     (data.display_name, lead.title[:160], canonical_url, lead.category,
-                     lead.summary[:1000], lead.terms_url, lead.observed_at, now(), now()),
+                     lead.summary[:1000], lead.terms_url, lead.observed_at, now(), now(),
+                     track_key, track_review_status),
                 )
                 inserted.append({"id": cursor.lastrowid, "title": lead.title,
                                  "url": lead.url, "category": lead.category,
-                                 "status": "pending"})
+                                 "status": "pending", "track_key": track_key,
+                                 "track_review_status": track_review_status})
             except sqlite3.IntegrityError:
                 duplicates += 1
     return {"adapter_id": data.adapter_id, "discovered_count": len(leads),

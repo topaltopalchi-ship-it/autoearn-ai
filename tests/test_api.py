@@ -430,6 +430,7 @@ def test_rss_discovery_persists_only_pending_candidates_and_deduplicates(
                     terms_url="",
                     summary="Public listing summary",
                     observed_at="2026-11-17T00:00:00+00:00",
+                    track_key="microtasks",
                 ),
                 SimpleNamespace(
                     title="Duplicate listing",
@@ -461,6 +462,8 @@ def test_rss_discovery_persists_only_pending_candidates_and_deduplicates(
     assert candidates[0]["title"] == "Paid survey listing"
     assert candidates[0]["category"] == "surveys_microtasks"
     assert candidates[0]["status"] == "pending"
+    assert candidates[0]["track_key"] == "microtasks"
+    assert candidates[0]["track_review_status"] == "matched"
 
 
 def test_task_approval_and_reward_ledger_are_owner_only(client):
