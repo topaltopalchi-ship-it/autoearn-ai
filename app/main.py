@@ -16,8 +16,9 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
 
+
 from fastapi import FastAPI, HTTPException, Query, Depends, Header, UploadFile, File
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, HttpUrl
 
@@ -368,7 +369,41 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 @app.middleware("http")
 async def add_security_headers(request, call_next):
-    response = await call_next(request)
+    # Browser state-changing API requests must originate from this exact origin.
+    # Requests without Origin remain available for non-browser clients; owner
+    # authentication is still mandatory on every protected route.
+    if request.url.path.startswith("/api/") and request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        origin = request.headers.get("origin")
+        if origin is not None:
+            try:
+                supplied = urlparse(origin)
+                expected = urlparse(str(request.base_url))
+                valid_origin = (
+                    supplied.scheme in {"http", "https"}
+                    and supplied.scheme == expected.scheme
+                    and supplied.hostname is not None
+                    and supplied.hostname.casefold() == (expected.hostname or "").casefold()
+                    and supplied.port == expected.port
+                    and supplied.username is None
+                    and supplied.password is None
+                    and supplied.path == ""
+                    and supplied.params == ""
+                    and supplied.query == ""
+                    and supplied.fragment == ""
+                )
+            except ValueError:
+                valid_origin = False
+            if not valid_origin:
+                response = JSONResponse(
+                    status_code=403,
+                    content={"detail": "Cross-origin state-changing requests are not allowed."},
+                )
+            else:
+                response = await call_next(request)
+        else:
+            response = await call_next(request)
+    else:
+        response = await call_next(request)
     if request.url.path == "/" or request.url.path.startswith("/api/"):
         response.headers["Cache-Control"] = "no-store"
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
