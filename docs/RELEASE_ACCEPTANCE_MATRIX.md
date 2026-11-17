@@ -7,13 +7,13 @@ This matrix is the single source of truth for progress reports. Percentages meas
 | Workstream | Weight | Verified completion | Weighted contribution | Evidence / remaining acceptance |
 |---|---:|---:|---:|---|
 | Core foundation and opportunity evaluation | 18% | 95% | 17.1% | Category model, normalization, deterministic evaluation, confidence/risk, ranking, evidence freshness, AI suitability and tests are implemented. Final integration polish remains. |
-| Discovery and source research | 18% | 85% | 15.3% | Manual intake, safe RSS/Atom, approved-feed scheduling, leases, feed health, pending review, source disable/reject and a SQLite-persisted 60-second per-feed cooldown are implemented. Feed-result caching remains. |
+| Discovery and source research | 18% | 90% | 16.2% | Manual intake, safe RSS/Atom, approved-feed scheduling, leases, feed health, pending review, source disable/reject, SQLite-persisted 60-second per-feed cooldown and durable exponential retry/backoff for failed read-only feeds are implemented. Feed-result caching remains. |
 | Country, eligibility and payout readiness | 14% | 90% | 12.6% | Unknown-safe country eligibility, evidence URLs, payout capability, owner payout-route gate, fee/threshold/currency handling and tests are implemented. Real owner/platform-specific evidence still needs to be entered and reviewed. |
 | Competition planning and integration | 12% | 65% | 7.8% | Deterministic/optional AI planning, intake, dry-run history, official API registry, exact-host allowlist, terms/eligibility checks and explicit confirmation are implemented. A real platform adapter with written permission, official scopes and sandbox validation is not installed. |
 | Supervised execution and controls | 14% | 55% | 7.7% | Persistent approval queue, human decisions, audit history, serialized decisions, global pause for competition submission and in-process per-adapter rate limiting are implemented. Durable retry/backoff, distributed limits and a shared pause gate for any future external-action surface remain. |
 | Earnings ledger and reconciliation | 10% | 70% | 7.0% | Currency-separated ledger, constrained transitions, audit history, private PDF/PNG/JPEG receipt upload/list/download, file signature and size limits are implemented. Independent reconciliation with authoritative payment evidence and any payout integration remain. |
 | Security, testing and release readiness | 14% | 45% | 6.3% | Owner authentication on API routes, browser security headers, private evidence storage, dependency checks, syntax checks and CI are verified. Malware scanning, retention/backup policy, independent security review, production secret/session design and deployment hardening remain. |
-| **Total** | **100%** |  | **73.8%** | **26.2% engineering work remains. Production release is not yet approved.** |
+| **Total** | **100%** |  | **74.7%** | **25.3% engineering work remains. Production release is not yet approved.** |
 
 Calculation: sum of (workstream weight × verified completion). Values are conservative engineering estimates and will only change when acceptance evidence changes.
 
@@ -27,7 +27,7 @@ Calculation: sum of (workstream weight × verified completion). Values are conse
 
 ## Latest verification
 
-- Latest verified implementation commit: `8e8d707ecb48bc5ce47154dd298104b20f03db31`.
-- GitHub Actions run [44152635431](https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44152635431): **259 passed, 58 warnings**, dependency consistency, Python syntax and dashboard JavaScript syntax successful.
+- Latest verified implementation commit: `cbea356eb69102ebae27ece1bd1f5e44cb5bdbe4`.
+- GitHub Actions run [44152881086](https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44152881086): **260 passed, 58 warnings**, dependency consistency, Python syntax and dashboard JavaScript syntax successful.
 - Later documentation-only updates must receive their own CI verification before release.
 - `main` remains unchanged; PR #47 remains draft and unmerged; repository visibility remains public.
