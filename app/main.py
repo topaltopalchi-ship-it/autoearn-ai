@@ -631,7 +631,7 @@ def _owner_auth_now() -> datetime:
 def _record_owner_auth_failure(request: Request) -> bool:
     """Persist a bounded sliding-window counter per direct client address."""
     address = request.client.host if request.client else "unknown"
-    source_hash = hashlib.sha256(address.encode("utf-8")).hexdigest()
+    source_hash = hmac.new(OWNER_TOKEN.encode("utf-8"), address.encode("utf-8"), hashlib.sha256).hexdigest()
     attempted_at = _owner_auth_now()
     cutoff = (attempted_at - OWNER_AUTH_FAILURE_WINDOW).isoformat()
     try:
