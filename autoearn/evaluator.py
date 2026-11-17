@@ -38,6 +38,8 @@ class OpportunityCandidate:
     payout_fee_percent: float = 0.0
     conversion_fee_percent: float = 0.0
     minimum_withdrawal_amount: float | None = None
+    minimum_withdrawal_currency: str | None = None
+    supports_balance_accumulation: bool | None = None
     estimated_minutes: int | None = None
     payment_probability: int | None = None
     acceptance_probability: int | None = None
@@ -76,6 +78,8 @@ class OpportunityCandidate:
                 raise ValueError(f"{field_name} is outside its valid range")
         if self.minimum_withdrawal_amount is not None and self.minimum_withdrawal_amount < 0:
             raise ValueError("minimum_withdrawal_amount cannot be negative")
+        if self.minimum_withdrawal_currency is not None and not self.minimum_withdrawal_currency.strip():
+            raise ValueError("minimum_withdrawal_currency cannot be blank")
         if self.estimated_minutes is not None and self.estimated_minutes < 1:
             raise ValueError("estimated_minutes must be positive")
         for field_name in ("payment_probability", "acceptance_probability", "payout_reliability"):
@@ -176,7 +180,13 @@ def evaluate_candidate(
     # Determine whether the estimated net reward clears the withdrawal
     # threshold before using that result in the execution gate.
     withdrawal_reachable = None
-    if candidate.reward_amount is not None and candidate.minimum_withdrawal_amount is not None:
+    withdrawal_currency_matches = (
+        candidate.minimum_withdrawal_currency is None
+        or candidate.minimum_withdrawal_currency.upper() == candidate.reward_currency.upper()
+    )
+    if (candidate.reward_amount is not None
+            and candidate.minimum_withdrawal_amount is not None
+            and withdrawal_currency_matches):
         gross_after_cost = max(0.0, candidate.reward_amount - candidate.estimated_cost)
         estimated_net = max(
             0.0,
@@ -204,9 +214,16 @@ def evaluate_candidate(
         and candidate.payout_reliability > 0
         and candidate.estimated_minutes is not None
         and candidate.risk_score is not None
-        and withdrawal_reachable is True
+        and (
+            withdrawal_reachable is True
+            or (withdrawal_reachable is False and candidate.supports_balance_accumulation is True)
+        )
     )
-    if withdrawal_reachable is False:
+    if not withdrawal_currency_matches:
+        flags.append("minimum withdrawal currency differs from reward currency; comparison is not allowed")
+    elif withdrawal_reachable is False and candidate.supports_balance_accumulation is True:
+        flags.append("single-task reward is below the withdrawal threshold; balance accumulation is required")
+    elif withdrawal_reachable is False:
         flags.append("estimated net reward is below the minimum withdrawal threshold")
     elif withdrawal_reachable is None:
         flags.append("minimum withdrawal threshold or net reward is unknown")
@@ -293,6 +310,15 @@ def evaluate_candidate(
         ),
         "payout_supported": candidate.payout_supported,
         "withdrawal_reachable_estimate": withdrawal_reachable,
+        "withdrawal_status": (
+            "currency_mismatch" if not withdrawal_currency_matches
+            else "immediately_reachable" if withdrawal_reachable is True
+            else "requires_accumulation" if withdrawal_reachable is False and candidate.supports_balance_accumulation is True
+            else "below_minimum_withdrawal" if withdrawal_reachable is False
+            else "unknown"
+        ),
+        "supports_balance_accumulation": candidate.supports_balance_accumulation,
+        "minimum_withdrawal_currency": candidate.minimum_withdrawal_currency or candidate.reward_currency.upper(),
         "payout_fee_estimate": round((candidate.payout_fee_fixed + (max(0.0, (candidate.reward_amount or 0) - candidate.estimated_cost) * candidate.payout_fee_percent / 100)), 2),
         "conversion_fee_estimate": round(max(0.0, (candidate.reward_amount or 0) - candidate.estimated_cost) * candidate.conversion_fee_percent / 100, 2),
         "currency": candidate.reward_currency.upper(),
