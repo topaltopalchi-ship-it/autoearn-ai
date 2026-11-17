@@ -833,5 +833,16 @@ def dashboard(actor: str = Depends(require_owner)):
         awaiting = db.execute("SELECT COUNT(*) FROM tasks WHERE status = 'pending_approval'").fetchone()[0]
         paid = db.execute("SELECT COALESCE(SUM(amount), 0) FROM rewards WHERE status = 'paid'").fetchone()[0]
         pending = db.execute("SELECT COALESCE(SUM(amount), 0) FROM rewards WHERE status = 'pending'").fetchone()[0]
+        earnings_totals = {}
+        for currency_row in db.execute("SELECT DISTINCT currency FROM earnings_ledger").fetchall():
+            currency = currency_row["currency"]
+            earnings_totals[currency] = {
+                item["state"]: round(item["total"], 2)
+                for item in db.execute(
+                    "SELECT state, COALESCE(SUM(amount), 0) AS total FROM earnings_ledger WHERE currency = ? GROUP BY state",
+                    (currency,),
+                ).fetchall()
+            }
         return {"opportunities": opportunities, "tasks": tasks, "awaiting_approval": awaiting,
-                "paid_total": round(paid, 2), "pending_total": round(pending, 2)}
+                "paid_total": round(paid, 2), "pending_total": round(pending, 2),
+                "earnings_totals": earnings_totals}
