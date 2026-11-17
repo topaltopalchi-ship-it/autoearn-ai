@@ -177,8 +177,7 @@ class OpportunityIn(BaseModel):
     eligible_countries: list[str] = Field(default_factory=list, max_length=100)
     excluded_countries: list[str] = Field(default_factory=list, max_length=100)
     minimum_withdrawal_amount: float | None = Field(default=None, ge=0)
-    withdrawal_currency: str = Field(default="USD", min_length=3, max_length=8)
-    payout_methods: list[str] = Field(default_factory=list, max_length=30)
+    withdrawal_currency: str = Field(default="USD", min_length=3, max_length=8)    payout_methods: list[str] = Field(default_factory=list, max_length=30)
 
 
 class SourceIn(BaseModel):
@@ -255,6 +254,9 @@ class OpportunityEvaluationIn(BaseModel):
     reward_amount: float | None = Field(default=None, ge=0)
     reward_currency: str = Field(default="EUR", min_length=3, max_length=8)
     estimated_cost: float = Field(default=0, ge=0)
+    payout_fee_fixed: float = Field(default=0, ge=0)
+    payout_fee_percent: float = Field(default=0, ge=0, le=100)
+    conversion_fee_percent: float = Field(default=0, ge=0, le=100)
     estimated_minutes: int | None = Field(default=None, gt=0)
     payment_probability: int | None = Field(default=None, ge=0, le=100)
     risk_score: int | None = Field(default=None, ge=0, le=100)
@@ -357,8 +359,7 @@ def create_opportunity(data: OpportunityIn, actor: str = Depends(require_owner))
         + (30 if payload["eligibility"] else 0)
         + (30 if payload["reward_description"] else 0)
     )
-    with connect() as db:
-        existing = db.execute("SELECT id FROM opportunities WHERE url = ?", (payload["url"],)).fetchone()
+    with connect() as db:        existing = db.execute("SELECT id FROM opportunities WHERE url = ?", (payload["url"],)).fetchone()
         if existing:
             raise HTTPException(409, "This opportunity URL is already registered.")
         try:
@@ -539,7 +540,6 @@ def create_reward(data: RewardIn, actor: str = Depends(require_owner)):
         """, (data.opportunity_id, data.amount, data.currency.upper(), data.status, data.reference, now()))
         return row_dict(db.execute("SELECT * FROM rewards WHERE id = ?", (cur.lastrowid,)).fetchone())
 
-
 @app.get("/api/earnings")
 def list_earnings(actor: str = Depends(require_owner)):
     with connect() as db:
@@ -662,12 +662,30 @@ def evaluate_opportunity(opportunity_id: int, data: OpportunityEvaluationIn,
             reward_amount=data.reward_amount,
             reward_currency=data.reward_currency,
             estimated_cost=data.estimated_cost,
+            payout_fee_fixed=data.payout_fee_fixed,
+            payout_fee_percent=data.payout_fee_percent,
+            conversion_fee_percent=data.conversion_fee_percent,
+            minimum_withdrawal_amount=(
+                opportunity["minimum_withdrawal_amount"]
+                if opportunity["minimum_withdrawal_amount"] is not None
+                and opportunity["withdrawal_currency"].upper() == data.reward_currency.upper()
+                else None
+            ),
             estimated_minutes=data.estimated_minutes,
             payment_probability=data.payment_probability,
             risk_score=data.risk_score,
             evidence=tuple(clean_list(data.evidence, "evidence")),
         )
         evaluation = evaluate_candidate(candidate, data.country)
+        threshold_currency_mismatch = (
+            opportunity["minimum_withdrawal_amount"] is not None
+            and opportunity["withdrawal_currency"].upper() != data.reward_currency.upper()
+        )
+        evaluation["withdrawal_threshold_currency_mismatch"] = threshold_currency_mismatch
+        if threshold_currency_mismatch:
+            evaluation["risk_flags"].append(
+                "minimum withdrawal threshold uses a different currency; conversion is unknown"
+            )
         if opportunity["status"] != "eligible":
             evaluation["execution_allowed"] = False
             evaluation["risk_flags"].append("opportunity status is not marked eligible")
@@ -717,8 +735,7 @@ def list_opportunity_evaluations(opportunity_id: int, actor: str = Depends(requi
         "opportunity_id": row["opportunity_id"],
         "source_id": row["source_id"],
         "country": row["country"],
-        "execution_mode": row["execution_mode"],
-        "request": json.loads(row["request_json"]),
+        "execution_mode": row["execution_mode"],        "request": json.loads(row["request_json"]),
         "evaluation": json.loads(row["result_json"]),
         "created_at": row["created_at"],
     } for row in rows]
