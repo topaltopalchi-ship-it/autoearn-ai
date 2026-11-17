@@ -189,10 +189,53 @@ function renderDiscoveryLeads(){
     if(!confirm("این مورد به فهرست فرصت‌ها منتقل شود؟ وضعیت آن همچنان کشف‌شده و تأییدنشده می‌ماند."))return;
     try{const result=await api("/api/discovery/leads/"+button.dataset.promoteLead+"/promote",{method:"POST"});toast("فرصت به فهرست اصلی منتقل شد؛ بررسی و تأیید آن هنوز لازم است");refresh()}catch(error){toast(error.message)}
   });
+  host.querySelectorAll("[data-research-lead]").forEach(button=>button.onclick=()=>editDiscoveryResearch(Number(button.dataset.researchLead)));
   host.querySelectorAll("[data-reject-lead]").forEach(button=>button.onclick=async()=>{
     const notes=prompt("دلیل رد این فرصت را وارد کنید (اختیاری):")||"";
     try{await api("/api/discovery/leads/"+button.dataset.rejectLead+"/review",{method:"PATCH",body:JSON.stringify({status:"rejected",notes})});toast("فرصت رد شد");refresh()}catch(error){toast(error.message)}
   });
+}
+async function editDiscoveryResearch(leadId){
+  const country="Azerbaijan";
+  const path="/api/discovery/leads/"+leadId+"/research";
+  try{
+    const current=await api(path+"?country="+encodeURIComponent(country));
+    const choose=(label,options,currentValue)=>{
+      const answer=prompt(label+"\\n"+options+"\\nمقدار فعلی: "+currentValue);
+      return answer===null?null:answer.trim();
+    };
+    const countryChoice=choose("وضعیت پشتیبانی کشور", "0 نامشخص | 1 تأییدشده | 2 غیرمجاز", current.country_status);
+    if(countryChoice===null)return;
+    const payoutChoice=choose("وضعیت برداشت پول", "0 نامشخص | 1 تأییدشده | 2 در دسترس نیست", current.payout_status);
+    if(payoutChoice===null)return;
+    const aiChoice=choose("مجوز استفاده از AI", "0 نامشخص | 1 مجاز | 2 ممنوع", current.ai_permission);
+    if(aiChoice===null)return;
+    const apiChoice=choose("وضعیت API رسمی", "0 نامشخص | 1 موجود | 2 موجود نیست", current.api_status);
+    if(apiChoice===null)return;
+    const map=(v,values)=>values[Number(v)]??"unknown";
+    const data={
+      country, country_status:map(countryChoice,["unknown","verified","blocked"]),
+      payout_status:map(payoutChoice,["unknown","verified","unavailable"]),
+      ai_permission:map(aiChoice,["unknown","allowed","prohibited"]),
+      api_status:map(apiChoice,["unknown","available","unavailable"]),
+      notes:prompt("یادداشت و خلاصهٔ شواهد رسمی",current.notes||"")||""
+    };
+    for(const [status,urlKey,label] of [
+      ["country_status","country_evidence_url","منبع رسمی وضعیت کشور"],
+      ["payout_status","payout_evidence_url","منبع رسمی روش برداشت"],
+      ["ai_permission","ai_evidence_url","منبع رسمی سیاست AI"],
+      ["api_status","api_evidence_url","منبع رسمی API"]
+    ]){
+      if(data[status]!=="unknown"){
+        const prior=current[urlKey]||"";
+        const url=prompt(label+" (نشانی HTTPS)",prior);
+        if(url===null)return;
+        data[urlKey]=url.trim();
+      }else data[urlKey]="";
+    }
+    await api(path,{method:"PUT",body:JSON.stringify(data)});
+    toast("نتایج تحقیق ذخیره شد؛ این ثبت به‌تنهایی مجوز اجرا نیست");
+  }catch(error){toast(error.message)}
 }
 async function loadPrioritizedDiscovery(){
   const host=$("prioritized-discovery-list");
@@ -207,7 +250,8 @@ async function loadPrioritizedDiscovery(){
       ' · قوانین: '+(item.terms_url?'<a href="'+esc(item.terms_url)+'" target="_blank" rel="noopener noreferrer">مشاهده ↗</a>':"ثبت نشده")+'<br>'+
       'صلاحیت کشور: هنوز بررسی نشده · پرداخت: هنوز بررسی نشده · مجوز AI: نامشخص<br>'+
       '<b>گام‌های بررسی بعدی:</b> '+(item.next_research_actions||[]).map(esc).join(' · ')+'<br>'+
-      esc(item.research_reasons.join("؛ "))+'<br><a href="'+esc(item.url)+'" target="_blank" rel="noopener noreferrer">بازکردن فرصت ↗</a></p></div></article>'
+      esc(item.research_reasons.join("؛ "))+'<br><a href="'+esc(item.url)+'" target="_blank" rel="noopener noreferrer">بازکردن فرصت ↗</a> '+
+      '<button class="secondary" data-research-lead="'+item.id+'">ثبت نتیجهٔ بررسی رسمی</button></p></div></article>'
     ).join("")+'<p class="muted">'+esc(result.note)+'</p>';
   }catch(error){host.textContent="مرتب‌سازی صف ناموفق بود: "+error.message}
 }
