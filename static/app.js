@@ -37,13 +37,14 @@ let opportunities=[];
 let sources=[];
 let competitions=[];
 let discoveryFeeds=[];
+let discoveryLeads=[];
 async function refresh(){
-  const [dash,opps,tasks,earnings,sourceRows,competitionRows,feedRows]=await Promise.all([api("/api/dashboard"),api("/api/opportunities"),api("/api/tasks"),api("/api/earnings"),api("/api/sources"),api("/api/competitions"),api("/api/discovery/feeds")]);
-  opportunities=opps;sources=sourceRows;competitions=competitionRows;discoveryFeeds=feedRows;
+  const [dash,opps,tasks,earnings,sourceRows,competitionRows,feedRows,leadRows]=await Promise.all([api("/api/dashboard"),api("/api/opportunities"),api("/api/tasks"),api("/api/earnings"),api("/api/sources"),api("/api/competitions"),api("/api/discovery/feeds"),api("/api/discovery/leads")]);
+  opportunities=opps;sources=sourceRows;competitions=competitionRows;discoveryFeeds=feedRows;discoveryLeads=leadRows;
   $("stat-opps").textContent=dash.opportunities;$("stat-tasks").textContent=dash.tasks;
   $("stat-approval").textContent=dash.awaiting_approval;$("stat-paid").textContent=ledgerTotals(dash.earnings_totals,["paid"]);
   $("stat-pending").textContent="در جریان: "+ledgerTotals(dash.earnings_totals,["estimated","earned","pending","withdrawable"]);
-  renderOpportunities();renderSources();renderDiscoveryFeeds();renderCompetitions();renderTasks(tasks);renderEarnings(earnings);fillRewardOptions();
+  renderOpportunities();renderSources();renderDiscoveryFeeds();renderDiscoveryLeads();renderCompetitions();renderTasks(tasks);renderEarnings(earnings);fillRewardOptions();
 }
 function renderOpportunities(){
   const q=$("search").value.toLowerCase(),status=$("filter").value,verification=$("verification-filter").value;
@@ -119,6 +120,19 @@ function renderDiscoveryFeeds(){
   host.innerHTML=discoveryFeeds.length?discoveryFeeds.map(feed=>`<div class="item"><div><h3>${esc(feed.name)} <span class="pill">${esc(statusFa(feed.status))}</span></h3><p><a href="${esc(feed.feed_url)}" target="_blank" rel="noopener noreferrer">نشانی خبرخوان ↗</a><br>دامنه‌های مجاز: ${esc((feed.allowed_domains||[]).join(", "))} · آخرین بررسی: ${esc(feed.last_checked_at||"هنوز بررسی نشده")} ${feed.last_error?"<br>خطا: "+esc(feed.last_error):""}</p></div><div class="item-actions">${feed.status!=="approved"?'<button class="secondary" data-feed-review="'+feed.id+'" data-feed-state="approved">تأیید خبرخوان</button>':""}${feed.status!=="rejected"?'<button class="secondary" data-feed-review="'+feed.id+'" data-feed-state="rejected">رد</button>':""}</div></div>`).join(""):'<div class="empty">خبرخوان پایداری ثبت نشده است.</div>';
   host.querySelectorAll("[data-feed-review]").forEach(button=>button.onclick=async()=>{
     try{await api("/api/discovery/feeds/"+button.dataset.feedReview+"/review",{method:"PATCH",body:JSON.stringify({status:button.dataset.feedState})});toast("وضعیت خبرخوان ذخیره شد");refresh()}catch(error){toast(error.message)}
+  });
+}
+function renderDiscoveryLeads(){
+  const host=$("discovery-lead-list");
+  const pending=discoveryLeads.filter(lead=>lead.status==="pending");
+  host.innerHTML=pending.length?pending.map(lead=>`<div class="item"><div><h3>${esc(lead.title)} <span class="pill">در انتظار بررسی</span></h3><p>منبع: ${esc(lead.source_name)} · دسته: ${esc(statusFa(lead.category))}<br><a href="${esc(lead.url)}" target="_blank" rel="noopener noreferrer">مشاهده فرصت ↗</a> ${lead.terms_url?'· <a href="'+esc(lead.terms_url)+'" target="_blank" rel="noopener noreferrer">قوانین ↗</a>':''}<br>${esc(lead.summary||"توضیحی ثبت نشده است")}<br>آخرین مشاهده: ${esc(lead.last_seen_at||lead.observed_at)}</p></div><div class="item-actions"><button class="primary" data-promote-lead="${lead.id}">انتقال به فرصت‌ها</button><button class="secondary" data-reject-lead="${lead.id}">رد فرصت</button></div></div>`).join(""):'<div class="empty">فرصت تازه‌ای در انتظار بررسی نیست.</div>';
+  host.querySelectorAll("[data-promote-lead]").forEach(button=>button.onclick=async()=>{
+    if(!confirm("این مورد به فهرست فرصت‌ها منتقل شود؟ وضعیت آن همچنان کشف‌شده و تأییدنشده می‌ماند."))return;
+    try{const result=await api("/api/discovery/leads/"+button.dataset.promoteLead+"/promote",{method:"POST"});toast("فرصت به فهرست اصلی منتقل شد؛ بررسی و تأیید آن هنوز لازم است");refresh()}catch(error){toast(error.message)}
+  });
+  host.querySelectorAll("[data-reject-lead]").forEach(button=>button.onclick=async()=>{
+    const notes=prompt("دلیل رد این فرصت را وارد کنید (اختیاری):")||"";
+    try{await api("/api/discovery/leads/"+button.dataset.rejectLead+"/review",{method:"PATCH",body:JSON.stringify({status:"rejected",notes})});toast("فرصت رد شد");refresh()}catch(error){toast(error.message)}
   });
 }
 function renderTasks(tasks){$("task-list").innerHTML=tasks.length?tasks.map(t=>`<div class="item"><div><h3>${esc(t.description)}</h3><p>${esc(t.opportunity_title)} · ${esc(t.platform)} · ${esc(statusFa(t.status))}</p></div><div class="item-actions">${t.status==="pending_approval"?'<button class="primary" data-approve="'+t.id+'">تأیید کار</button>':''}${t.status==="approved"?'<button class="secondary" data-complete="'+t.id+'">علامت‌گذاری به‌عنوان تکمیل‌شده</button>':''}</div></div>`).join(""):'<div class="empty">هنوز کاری ثبت نشده است. از یک فرصت، کار جدید بسازید.</div>';
