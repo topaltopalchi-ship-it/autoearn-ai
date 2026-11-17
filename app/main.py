@@ -991,7 +991,7 @@ def upload_earning_evidence(
         for component in (EVIDENCE_DIR, *EVIDENCE_DIR.parents):
             if component.is_symlink():
                 raise HTTPException(
-                    409, "Evidence storage path must not contain symbolic links."
+                    409, "Evidence storage directory must not be a symbolic link."
                 )
 
     reject_symlinked_evidence_path()
