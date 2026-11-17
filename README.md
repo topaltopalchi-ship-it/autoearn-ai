@@ -86,3 +86,7 @@ The owner-only endpoints cover opportunity/source intake, source approval/reject
 Task creation/approval/completion, reward-ledger writes and reads, and dashboard totals now require the owner token. The same owner authentication applies to source review, opportunity status/verification, and supervised action routes. Public health and public opportunity/source listings remain read-only. Configure `AUTOEARN_OWNER_TOKEN` before using the protected workspace.
 
 The web workspace now includes an owner-token field (kept in the current browser session only) and a **Discover RSS feed** action. Enter the exact feed and listing hostnames in the allowlist prompt. Discovered listings are added to Source candidates as pending; they still require manual review. The owner token must also be configured on the server as `AUTOEARN_OWNER_TOKEN`.
+
+### Opportunity evaluation API
+
+The owner-only `POST /api/opportunities/{id}/evaluate` endpoint combines the opportunity's verified country list and verification timestamp with an approved source from the same hostname. The owner supplies their country, evidence checked, reward/cost/time estimates, payment probability, risk score, and intended mode. The response includes eligibility (`eligible`, `ineligible`, or `unknown`), confidence, ranking score, estimated net reward/hour, and risk flags. The dashboard includes the same evaluation form. These are evidence-based estimates, not proof of payment; even when the readiness gate is true, no external action is performed.
