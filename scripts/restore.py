@@ -103,7 +103,16 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
         evidence_copy = staging / evidence_name
         evidence_copy.mkdir(mode=0o700)
         for name in sorted(expected):
-            shutil.copyfile(source_evidence / name, evidence_copy / name)
+            copied = evidence_copy / name
+            shutil.copyfile(source_evidence / name, copied)
+            entry = expected[name]
+            if copied.stat().st_size != entry["size_bytes"] or _sha256(copied) != entry["sha256"]:
+                raise ValueError(f"Evidence changed while restoring: {name}")
+        if _sha256(database_copy) != manifest["database_sha256"]:
+            raise ValueError("Database changed while restoring")
+        with closing(sqlite3.connect(database_copy.as_uri() + "?mode=ro", uri=True)) as restored_db:
+            if restored_db.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+                raise ValueError("Restored database failed SQLite integrity check")
         if os.name == "posix":
             os.chmod(database_copy, 0o600)
             os.chmod(evidence_copy, 0o700)
