@@ -532,3 +532,48 @@ def test_evaluation_rejects_source_from_different_host(client):
     result = client.post(f"/api/opportunities/{opp['id']}/evaluate",
         headers=headers, json={"source_id": source["id"], "country": "Germany"})
     assert result.status_code == 409
+
+
+def test_opportunity_evaluation_history_is_persisted_and_owner_only(client):
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    opp, source = _prepare_verified_source(client)
+    payload = {
+        "source_id": source["id"], "country": "Germany",
+        "execution_mode": "manual", "reward_amount": 8,
+        "reward_currency": "EUR", "estimated_cost": 1,
+        "estimated_minutes": 20, "payment_probability": 80,
+        "risk_score": 15, "evidence": ["Official payout terms reviewed"],
+    }
+
+    created = client.post(
+        f"/api/opportunities/{opp['id']}/evaluate",
+        headers=headers, json=payload,
+    )
+    assert created.status_code == 200
+    body = created.json()
+    assert body["evaluation_id"] > 0
+    assert body["created_at"]
+
+    history = client.get(
+        f"/api/opportunities/{opp['id']}/evaluations", headers=headers,
+    )
+    assert history.status_code == 200
+    entries = history.json()
+    assert len(entries) == 1
+    assert entries[0]["evaluation_id"] == body["evaluation_id"]
+    assert entries[0]["source_id"] == source["id"]
+    assert entries[0]["country"] == "Germany"
+    assert entries[0]["request"]["reward_amount"] == 8
+    assert entries[0]["evaluation"] == body["evaluation"]
+
+    assert client.get(
+        f"/api/opportunities/{opp['id']}/evaluations"
+    ).status_code == 401
+
+
+def test_evaluation_history_returns_404_for_unknown_opportunity(client):
+    response = client.get(
+        "/api/opportunities/9999/evaluations",
+        headers={"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"},
+    )
+    assert response.status_code == 404
