@@ -60,6 +60,8 @@ def create_backup(
                 integrity = target.execute("PRAGMA integrity_check").fetchone()[0]
                 if integrity != "ok":
                     raise RuntimeError(f"SQLite backup integrity check failed: {integrity}")
+        if os.name == "posix":
+            os.chmod(database_copy, 0o600)
 
         evidence_copy = staging / "private_evidence"
         evidence_copy.mkdir(mode=0o700)
