@@ -272,7 +272,11 @@ async function loadPrioritizedDiscovery(){
   const host=$("prioritized-discovery-list");
   host.textContent="در حال مرتب‌سازی فرصت‌های تازه…";
   try{
-    const country="Iran";
+    const country=$("rank-country").value.trim();
+    if(country.length<2){
+      host.innerHTML='<div class="empty">ابتدا کشور هدف را وارد کنید تا فرصت‌ها بر اساس همان کشور اولویت‌بندی شوند.</div>';
+      return;
+    }
     const result=await api("/api/discovery/leads/prioritized?country="+encodeURIComponent(country));
     if(!result.total){host.innerHTML='<div class="empty">فرصت تازه‌ای در صف بررسی نیست.</div>';return}
     const labels={research_first:"بررسی در اولویت",review:"بررسی معمولی",low_signal:"اطلاعات ناکافی"};
@@ -471,7 +475,7 @@ $("evaluation-form").onsubmit=async e=>{
   }catch(err){toast(err.message)}
 };
 $("reward-form").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));data.opportunity_id=data.opportunity_id?Number(data.opportunity_id):null;data.amount=Number(data.amount);try{await api("/api/earnings",{method:"POST",body:JSON.stringify(data)});e.target.closest("dialog").close();e.target.reset();toast("درآمد در دفتر درآمد ذخیره شد");refresh()}catch(err){toast(err.message)}};
-$("prioritize-discovery").onclick=loadPrioritizedDiscovery;$("rank-opportunities").onclick=loadRankedOpportunities;$("source-filter").onchange=renderSources;$("search").oninput=renderOpportunities;$("filter").onchange=renderOpportunities;$("verification-filter").onchange=renderOpportunities;
+$("prioritize-discovery").onclick=loadPrioritizedDiscovery;$("rank-opportunities").onclick=loadRankedOpportunities;$("rank-country").onchange=()=>{loadRankedOpportunities();loadPrioritizedDiscovery();};$("source-filter").onchange=renderSources;$("search").oninput=renderOpportunities;$("filter").onchange=renderOpportunities;$("verification-filter").onchange=renderOpportunities;
 $("toggle-execution-pause").onclick=async()=>{
   const paused=!executionControl.paused;
   const confirmation=paused
