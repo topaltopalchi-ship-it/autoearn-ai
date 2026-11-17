@@ -4,10 +4,11 @@ const api = async (path, options={}) => {
   const headers = {"Content-Type":"application/json", ...(options.headers || {})};
   if (ownerToken()) headers["X-AutoEarn-Owner-Token"] = ownerToken();
   const response = await fetch(path, {...options, headers});
-  const body = await response.json().catch(()=>({detail:"Unexpected server response"}));
-  if (!response.ok) throw new Error(body.detail || "Request failed");
+  const body = await response.json().catch(()=>({detail:"پاسخ غیرمنتظره از سرور"}));
+  if (!response.ok) throw new Error(body.detail || "درخواست ناموفق بود");
   return body;
 };
+const statusFa = (v) => ({discovered:"کشف‌شده",reviewing:"در حال بررسی",eligible:"مجاز",ineligible:"غیرمجاز",archived:"بایگانی‌شده",pending:"در انتظار",approved:"تأییدشده",rejected:"ردشده",verified:"تأییدشده",pending_approval:"در انتظار تأیید",confirmed:"تأییدشده",paid:"پرداخت‌شده",manual:"دستی",assist:"با کمک دستیار",official_api:"رابط رسمی برنامه‌نویسی",games_competitions:"بازی و مسابقه",surveys_microtasks:"نظرسنجی و کارهای کوچک",freelancing_services:"فریلنسری و خدمات",ai_content_products:"محتوای هوش مصنوعی و محصولات دیجیتال",other:"سایر"})[v]||v;
 const money = (n,c="USD") => new Intl.NumberFormat(undefined,{style:"currency",currency:c}).format(n);
 function toast(message){const el=$("toast");el.textContent=message;el.classList.add("show");setTimeout(()=>el.classList.remove("show"),2600)}
 function esc(s=""){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
@@ -19,13 +20,13 @@ async function refresh(){
   opportunities=opps;sources=sourceRows;
   $("stat-opps").textContent=dash.opportunities;$("stat-tasks").textContent=dash.tasks;
   $("stat-approval").textContent=dash.awaiting_approval;$("stat-paid").textContent=money(dash.paid_total);
-  $("stat-pending").textContent="Pending: "+money(dash.pending_total);
+  $("stat-pending").textContent="در انتظار: "+money(dash.pending_total);
   renderOpportunities();renderSources();renderTasks(tasks);renderRewards(rewards);fillRewardOptions();
 }
 function renderOpportunities(){
   const q=$("search").value.toLowerCase(),status=$("filter").value,verification=$("verification-filter").value;
   const rows=opportunities.filter(o=>(!status||o.status===status)&&(!verification||o.verification_status===verification)&&[o.title,o.platform,o.category].some(x=>x.toLowerCase().includes(q)));
-  $("opportunity-list").innerHTML=rows.length?rows.map(o=>`<div class="item"><div><h3>${esc(o.title)} <span class="pill">${esc(o.status)}</span></h3><p>${esc(o.platform)} · ${esc(o.category)} · Review score ${o.score}/100<br><a href="${esc(o.url)}" target="_blank" rel="noopener noreferrer">Open platform ↗</a> ${o.terms_url?'· <a href="'+esc(o.terms_url)+'" target="_blank" rel="noopener noreferrer">Terms ↗</a>':''}<br>${esc(o.reward_description||"No reward details entered")}</p><p>Verification: <b>${esc(o.verification_status||"pending")}</b> · Eligible: ${esc((o.eligible_countries||[]).join(", ")||"Not specified")} · Excluded: ${esc((o.excluded_countries||[]).join(", ")||"Not specified")}<br>Withdrawal: ${o.minimum_withdrawal_amount==null?"Not specified":esc(o.minimum_withdrawal_amount)+" "+esc(o.withdrawal_currency)} · Payout: ${esc((o.payout_methods||[]).join(", ")||"Not specified")}<br>${o.verification_notes?"Reviewer note: "+esc(o.verification_notes):"No reviewer note"}</p></div><div class="item-actions"><button class="secondary" data-evaluate="${o.id}">Evaluate / ارزیابی</button><button class="secondary" data-history="${o.id}">History / سوابق</button><button class="secondary" data-task="${o.id}">Create task / ساخت کار</button><button class="secondary" data-status="${o.id}" data-next="reviewing">Review / بررسی</button><button class="secondary" data-verify="${o.id}">Verify / تأیید</button></div></div>`).join(""):'<div class="empty">No matching opportunities.</div>';
+  $("opportunity-list").innerHTML=rows.length?rows.map(o=>`<div class="item"><div><h3>${esc(o.title)} <span class="pill">${esc(statusFa(o.status))}</span></h3><p>${esc(o.platform)} · ${esc(statusFa(o.category))} · امتیاز بررسی ${o.score}/100<br><a href="${esc(o.url)}" target="_blank" rel="noopener noreferrer">بازکردن پلتفرم ↗</a> ${o.terms_url?'· <a href="'+esc(o.terms_url)+'" target="_blank" rel="noopener noreferrer">قوانین ↗</a>':''}<br>${esc(o.reward_description||"جزئیات پاداش وارد نشده است")}</p><p>وضعیت تأیید: <b>${esc(statusFa(o.verification_status||"pending"))}</b> · کشورهای مجاز: ${esc((o.eligible_countries||[]).join(", ")||"مشخص نشده")} · کشورهای غیرمجاز: ${esc((o.excluded_countries||[]).join(", ")||"مشخص نشده")}<br>حداقل برداشت: ${o.minimum_withdrawal_amount==null?"مشخص نشده":esc(o.minimum_withdrawal_amount)+" "+esc(o.withdrawal_currency)} · روش پرداخت: ${esc((o.payout_methods||[]).join(", ")||"مشخص نشده")}<br>${o.verification_notes?"یادداشت بررسی: "+esc(o.verification_notes):"یادداشتی از بررسی‌کننده ثبت نشده است"}</p></div><div class="item-actions"><button class="secondary" data-evaluate="${o.id}">ارزیابی</button><button class="secondary" data-history="${o.id}">سوابق</button><button class="secondary" data-task="${o.id}">ساخت کار</button><button class="secondary" data-status="${o.id}" data-next="reviewing">بررسی</button><button class="secondary" data-verify="${o.id}">تأیید</button></div></div>`).join(""):'<div class="empty">فرصتی با این مشخصات پیدا نشد.</div>';
   $("opportunity-list").querySelectorAll("[data-evaluate]").forEach(b=>b.onclick=()=>openEvaluation(Number(b.dataset.evaluate)));
   $("opportunity-list").querySelectorAll("[data-history]").forEach(b=>b.onclick=()=>showEvaluationHistory(Number(b.dataset.history)));
   $("opportunity-list").querySelectorAll("[data-task]").forEach(b=>b.onclick=()=>createTask(Number(b.dataset.task)));
@@ -35,17 +36,17 @@ function renderOpportunities(){
 async function showEvaluationHistory(id){
   try{
     const rows=await api(`/api/opportunities/${id}/evaluations`);
-    if(!rows.length){toast("No evaluation history / هنوز سابقه‌ای ثبت نشده");return}
+    if(!rows.length){toast("هنوز سابقه‌ای برای ارزیابی ثبت نشده است");return}
     const summary=rows.map((row,index)=>{
       const e=row.evaluation||{};
-      return `#${index+1} · ${new Date(row.created_at).toLocaleString()}\nCountry / کشور: ${row.country}\nEligibility / شرایط: ${e.eligibility||"unknown"}\nScore / امتیاز: ${e.ranking_score??"—"}/100\nNet reward / پاداش خالص: ${e.net_reward_estimate??"unknown"} ${e.currency||""}\nMode / روش: ${row.execution_mode}`;
+      return `#${index+1} · ${new Date(row.created_at).toLocaleString()}\nکشور: ${row.country}\nوضعیت صلاحیت: ${e.eligibility||"نامشخص"}\nامتیاز: ${e.ranking_score??"—"}/100\nپاداش خالص: ${e.net_reward_estimate??"نامشخص"} ${e.currency||""}\nروش مشارکت: ${row.execution_mode}`;
     }).join("\n\n");
-    alert("Evaluation history / سوابق ارزیابی\n\n"+summary);
+    alert("سوابق ارزیابی\n\n"+summary);
   }catch(e){toast(e.message)}
 }
-async function createTask(id){const description=prompt("Describe the activity you plan to do. The assistant will not play or submit anything without your approval:");if(!description)return;try{await api("/api/tasks",{method:"POST",body:JSON.stringify({opportunity_id:id,description})});toast("Task added to approval queue");refresh()}catch(e){toast(e.message)}}
+async function createTask(id){const description=prompt("فعالیتی را که قصد انجامش را دارید شرح دهید. دستیار بدون تأیید شما بازی یا چیزی را ارسال نمی‌کند:");if(!description)return;try{await api("/api/tasks",{method:"POST",body:JSON.stringify({opportunity_id:id,description})});toast("کار به صف تأیید اضافه شد");refresh()}catch(e){toast(e.message)}}
 async function setStatus(id,status){try{await api(`/api/opportunities/${id}/status?status=${status}`,{method:"PATCH"});refresh()}catch(e){toast(e.message)}}
-async function verifyOpportunity(id){const current=opportunities.find(o=>o.id===id);const status=prompt("Set human verification state: pending, verified, or rejected",current?.verification_status||"pending");if(!status)return;if(!["pending","verified","rejected"].includes(status)){toast("Choose pending, verified, or rejected");return}const notes=prompt("Reviewer note (what was checked):",current?.verification_notes||"");if(notes===null)return;try{await api(`/api/opportunities/${id}/verification`,{method:"PATCH",body:JSON.stringify({status,notes})});toast("Verification state updated");refresh()}catch(e){toast(e.message)}}
+async function verifyOpportunity(id){const current=opportunities.find(o=>o.id===id);const status=prompt("وضعیت بررسی انسانی را تعیین کنید: در انتظار، تأییدشده یا ردشده",current?.verification_status||"pending");if(!status)return;if(!["pending","verified","rejected"].includes(status)){toast("یکی از وضعیت‌های در انتظار، تأییدشده یا ردشده را انتخاب کنید");return}const notes=prompt("یادداشت بررسی‌کننده (چه چیزی بررسی شد):",current?.verification_notes||"");if(notes===null)return;try{await api(`/api/opportunities/${id}/verification`,{method:"PATCH",body:JSON.stringify({status,notes})});toast("وضعیت تأیید به‌روزرسانی شد");refresh()}catch(e){toast(e.message)}}
 function openEvaluation(id){
   const opportunity=opportunities.find(item=>item.id===id);
   if(!opportunity)return;
@@ -54,7 +55,7 @@ function openEvaluation(id){
     try{return source.status==="approved" && new URL(source.url).hostname.toLowerCase()===host}
     catch{return false}
   });
-  if(!matching.length){toast("Approve a source on the same website host before evaluation");return}
+  if(!matching.length){toast("تأیید a source on the same website host before evaluation");return}
   $("evaluation-source").innerHTML=matching.map(source=>'<option value="'+source.id+'">'+esc(source.name)+'</option>').join("");
   $("evaluation-form").elements.opportunity_id.value=id;
   $("evaluation-form").elements.country.value="";
@@ -63,44 +64,44 @@ function openEvaluation(id){
 function renderSources(){
   const status=$("source-filter").value;
   const rows=sources.filter(s=>!status||s.status===status);
-  $("source-list").innerHTML=rows.length?rows.map(s=>`<div class="item"><div><h3>${esc(s.name)} <span class="pill">${esc(s.status)}</span></h3><p>${esc(s.category)} · <a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">Open source ↗</a> ${s.terms_url?'· <a href="'+esc(s.terms_url)+'" target="_blank" rel="noopener noreferrer">Terms ↗</a>':''}<br>Country notes: ${esc(s.country_notes||"Not provided")}<br>Payment notes: ${esc(s.payment_notes||"Not provided")}<br>Review note: ${esc(s.review_notes||"Not reviewed")}</p></div><div class="item-actions"><button class="secondary" data-source-review="${s.id}" data-review-state="approved">Approve</button><button class="secondary" data-source-review="${s.id}" data-review-state="rejected">Reject</button></div></div>`).join(""):'<div class="empty">No matching source candidates.</div>';
+  $("source-list").innerHTML=rows.length?rows.map(s=>`<div class="item"><div><h3>${esc(s.name)} <span class="pill">${esc(statusFa(s.status))}</span></h3><p>${esc(statusFa(s.category))} · <a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">بازکردن منبع ↗</a> ${s.terms_url?'· <a href="'+esc(s.terms_url)+'" target="_blank" rel="noopener noreferrer">قوانین ↗</a>':''}<br>یادداشت کشور: ${esc(s.country_notes||"ارائه نشده")}<br>یادداشت پرداخت: ${esc(s.payment_notes||"ارائه نشده")}<br>یادداشت بررسی: ${esc(s.review_notes||"بررسی نشده")}</p></div><div class="item-actions"><button class="secondary" data-source-review="${s.id}" data-review-state="approved">تأیید</button><button class="secondary" data-source-review="${s.id}" data-review-state="rejected">رد</button></div></div>`).join(""):'<div class="empty">منبعی با این مشخصات پیدا نشد.</div>';
   $("source-list").querySelectorAll("[data-source-review]").forEach(b=>b.onclick=()=>reviewSource(Number(b.dataset.sourceReview),b.dataset.reviewState));
 }
 async function reviewSource(id,status){
   const source=sources.find(s=>s.id===id);
-  const notes=prompt("Why is this source approved or rejected? Record what you checked:",source?.review_notes||"");
+  const notes=prompt("چرا این منبع را تأیید یا رد می‌کنید؟ موارد بررسی‌شده را بنویسید:",source?.review_notes||"");
   if(notes===null)return;
-  try{await api(`/api/sources/${id}/review`,{method:"PATCH",body:JSON.stringify({status,notes})});toast("Source review saved");refresh()}catch(e){toast(e.message)}
+  try{await api(`/api/sources/${id}/review`,{method:"PATCH",body:JSON.stringify({status,notes})});toast("نتیجهٔ بررسی منبع ذخیره شد");refresh()}catch(e){toast(e.message)}
 }
-function renderTasks(tasks){$("task-list").innerHTML=tasks.length?tasks.map(t=>`<div class="item"><div><h3>${esc(t.description)}</h3><p>${esc(t.opportunity_title)} · ${esc(t.platform)} · ${esc(t.status)}</p></div><div class="item-actions">${t.status==="pending_approval"?'<button class="primary" data-approve="'+t.id+'">Approve task</button>':''}${t.status==="approved"?'<button class="secondary" data-complete="'+t.id+'">Mark completed</button>':''}</div></div>`).join(""):'<div class="empty">No tasks yet. Create a task from an opportunity.</div>';
-  $("task-list").querySelectorAll("[data-approve]").forEach(b=>b.onclick=async()=>{if(!confirm("Approve this task? You remain responsible for following the platform rules."))return;try{await api(`/api/tasks/${b.dataset.approve}/approve`,{method:"POST"});toast("Task approved")}catch(e){toast(e.message)}refresh()});
-  $("task-list").querySelectorAll("[data-complete]").forEach(b=>b.onclick=async()=>{try{await api(`/api/tasks/${b.dataset.complete}/complete`,{method:"POST"});toast("Task marked completed")}catch(e){toast(e.message)}refresh()});
+function renderTasks(tasks){$("task-list").innerHTML=tasks.length?tasks.map(t=>`<div class="item"><div><h3>${esc(t.description)}</h3><p>${esc(t.opportunity_title)} · ${esc(t.platform)} · ${esc(statusFa(t.status))}</p></div><div class="item-actions">${t.status==="pending_approval"?'<button class="primary" data-approve="'+t.id+'">تأیید task</button>':''}${t.status==="approved"?'<button class="secondary" data-complete="'+t.id+'">علامت‌گذاری به‌عنوان تکمیل‌شده</button>':''}</div></div>`).join(""):'<div class="empty">هنوز کاری ثبت نشده است. از یک فرصت، کار جدید بسازید.</div>';
+  $("task-list").querySelectorAll("[data-approve]").forEach(b=>b.onclick=async()=>{if(!confirm("تأیید this task? You remain responsible for following the platform rules."))return;try{await api(`/api/tasks/${b.dataset.approve}/approve`,{method:"POST"});toast("کار تأیید شد")}catch(e){toast(e.message)}refresh()});
+  $("task-list").querySelectorAll("[data-complete]").forEach(b=>b.onclick=async()=>{try{await api(`/api/tasks/${b.dataset.complete}/complete`,{method:"POST"});toast("کار به‌عنوان تکمیل‌شده ثبت شد")}catch(e){toast(e.message)}refresh()});
 }
-function renderRewards(rows){$("reward-list").innerHTML=rows.length?rows.map(r=>`<div class="item"><div><h3>${money(r.amount,r.currency)} <span class="pill">${esc(r.status)}</span></h3><p>${esc(r.opportunity_title||"Unlinked reward")} · ${esc(r.reference)}</p></div></div>`).join(""):'<div class="empty">No rewards recorded.</div>'}
+function renderRewards(rows){$("reward-list").innerHTML=rows.length?rows.map(r=>`<div class="item"><div><h3>${money(r.amount,r.currency)} <span class="pill">${esc(statusFa(r.status))}</span></h3><p>${esc(r.opportunity_title||"درآمد بدون پیوند")} · ${esc(r.reference)}</p></div></div>`).join(""):'<div class="empty">هنوز درآمدی ثبت نشده است.</div>'}
 function fillRewardOptions(){$("reward-opportunity").innerHTML='<option value="">Not linked</option>'+opportunities.map(o=>'<option value="'+o.id+'">'+esc(o.title)+'</option>').join("")}
 $("add-opportunity").onclick=()=>$("opportunity-dialog").showModal();
 $("add-source").onclick=()=>$("source-dialog").showModal();
-$("save-owner-token").onclick=()=>{const value=$("owner-token").value.trim();if(!value){sessionStorage.removeItem("autoearn_owner_token");toast("Owner token cleared for this session");return}sessionStorage.setItem("autoearn_owner_token",value);toast("Owner token saved for this session");refresh().catch(e=>toast(e.message))};
+$("save-owner-token").onclick=()=>{const value=$("owner-token").value.trim();if(!value){sessionStorage.removeItem("autoearn_owner_token");toast("رمز مالک برای این نشست پاک شد");return}sessionStorage.setItem("autoearn_owner_token",value);toast("رمز مالک برای این نشست ذخیره شد");refresh().catch(e=>toast(e.message))};
 $("discover-rss").onclick=async()=>{
-  const feed_url=prompt("Public HTTPS RSS/Atom feed URL:");
+  const feed_url=prompt("نشانی فهرست عمومی RSS/Atom با HTTPS:");
   if(!feed_url)return;
-  const domains=prompt("Exact allowed hostnames, comma-separated (include feed and listing hosts):");
+  const domains=prompt("نام دقیق دامنه‌های مجاز، جداشده با ویرگول (دامنهٔ فهرست و آگهی‌ها را وارد کنید):");
   if(!domains)return;
-  const category=prompt("Category: games_competitions, surveys_microtasks, freelancing_services, ai_content_products, other","surveys_microtasks");
+  const category=prompt("دسته‌بندی را انتخاب کنید: بازی و مسابقه، نظرسنجی و کار کوچک، فریلنسری و خدمات، محتوای هوش مصنوعی و محصول دیجیتال، سایر","surveys_microtasks");
   if(!category)return;
   try{
     const result=await api("/api/discovery/rss",{method:"POST",body:JSON.stringify({
       adapter_id:"manual-rss-"+Date.now(),display_name:"RSS feed: "+feed_url,
       feed_url,category,allowed_domains:domains.split(",").map(x=>x.trim()).filter(Boolean)
     })});
-    toast("Found "+result.discovered_count+" listings; saved "+result.inserted_count+" pending candidates");
+    toast("تعداد موارد پیدا‌شده: "+result.discovered_count+" مورد؛ ذخیره‌شده به‌عنوان منبع در انتظار بررسی: "+result.inserted_count+"");
     refresh();
   }catch(e){toast(e.message)}
 };
 $("add-reward").onclick=()=>$("reward-dialog").showModal();
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>b.closest("dialog").close());
-$("opportunity-form").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));for(const key of ["eligible_countries","excluded_countries","payout_methods"])data[key]=String(data[key]||"").split(",").map(x=>x.trim()).filter(Boolean);data.minimum_withdrawal_amount=data.minimum_withdrawal_amount===""?null:Number(data.minimum_withdrawal_amount);try{await api("/api/opportunities",{method:"POST",body:JSON.stringify(data)});e.target.closest("dialog").close();e.target.reset();toast("Opportunity saved");refresh()}catch(err){toast(err.message)}};
-$("source-form").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));try{await api("/api/sources",{method:"POST",body:JSON.stringify(data)});e.target.closest("dialog").close();e.target.reset();toast("Source saved as pending review");refresh()}catch(err){toast(err.message)}};
+$("opportunity-form").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));for(const key of ["eligible_countries","excluded_countries","payout_methods"])data[key]=String(data[key]||"").split(",").map(x=>x.trim()).filter(Boolean);data.minimum_withdrawal_amount=data.minimum_withdrawal_amount===""?null:Number(data.minimum_withdrawal_amount);try{await api("/api/opportunities",{method:"POST",body:JSON.stringify(data)});e.target.closest("dialog").close();e.target.reset();toast("فرصت ذخیره شد");refresh()}catch(err){toast(err.message)}};
+$("source-form").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));try{await api("/api/sources",{method:"POST",body:JSON.stringify(data)});e.target.closest("dialog").close();e.target.reset();toast("منبع برای بررسی ذخیره شد");refresh()}catch(err){toast(err.message)}};
 $("evaluation-form").onsubmit=async e=>{
   e.preventDefault();
   const data=Object.fromEntries(new FormData(e.target));
@@ -114,16 +115,16 @@ $("evaluation-form").onsubmit=async e=>{
     const result=await api("/api/opportunities/"+data.opportunity_id+"/evaluate",{method:"POST",body:JSON.stringify(data)});
     const value=result.evaluation;
     $("evaluation-dialog").close();
-    alert("Eligibility: "+value.eligibility+
-      "\nConfidence: "+value.confidence+"/100"+
-      "\nRanking score: "+value.ranking_score+"/100"+
-      "\nEstimated net reward: "+(value.net_reward_estimate==null?"unknown":value.net_reward_estimate+" "+value.currency)+
-      "\nEstimated net hourly: "+(value.net_hourly_estimate==null?"unknown":value.net_hourly_estimate+" "+value.currency+"/h")+
-      "\nExecution readiness: "+(value.execution_allowed?"prerequisites met":"blocked")+
-      "\n\nWarnings:\n"+(value.risk_flags.join("\n")||"None")+
-      "\n\nNo platform action was performed.");
+    alert("وضعیت صلاحیت: "+statusFa(value.eligibility)+
+      "\nمیزان اطمینان: "+value.confidence+"/100"+
+      "\nامتیاز رتبه‌بندی: "+value.ranking_score+"/100"+
+      "\nپاداش خالص تخمینی: "+(value.net_reward_estimate==null?"نامشخص":value.net_reward_estimate+" "+value.currency)+
+      "\nدرآمد خالص ساعتی تخمینی: "+(value.net_hourly_estimate==null?"نامشخص":value.net_hourly_estimate+" "+value.currency+"/h")+
+      "\nآمادگی اجرا: "+(value.execution_allowed?"پیش‌نیازها فراهم است":"مسدود است")+
+      "\n\nهشدارها:\n"+(value.risk_flags.join("\n")||"بدون هشدار")+
+      "\n\nهیچ اقدامی در پلتفرم انجام نشد.");
   }catch(err){toast(err.message)}
 };
-$("reward-form").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));data.opportunity_id=data.opportunity_id?Number(data.opportunity_id):null;data.amount=Number(data.amount);try{await api("/api/rewards",{method:"POST",body:JSON.stringify(data)});e.target.closest("dialog").close();e.target.reset();toast("Reward recorded");refresh()}catch(err){toast(err.message)}};
+$("reward-form").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));data.opportunity_id=data.opportunity_id?Number(data.opportunity_id):null;data.amount=Number(data.amount);try{await api("/api/rewards",{method:"POST",body:JSON.stringify(data)});e.target.closest("dialog").close();e.target.reset();toast("درآمد ثبت شد");refresh()}catch(err){toast(err.message)}};
 $("source-filter").onchange=renderSources;$("search").oninput=renderOpportunities;$("filter").onchange=renderOpportunities;$("verification-filter").onchange=renderOpportunities;
 refresh().catch(e=>toast(e.message));
