@@ -95,9 +95,12 @@ Country eligibility and platform payout support do not prove that this particula
 - Append-only state-transition history with actor, previous/new state, note, and timestamp; paid records are terminal.
 - Owner-supplied evidence/reference fields can be attached to ledger entries.
 
+**Implemented foundation**
+- Owner-only evidence upload, listing, and download routes for PDF, PNG, and JPEG receipts; file signatures are checked, uploads are capped at 5 MiB and 10 files per ledger entry, stored under a private non-static directory, and recorded with SHA-256 metadata.
+
 **Still required**
-- Structured receipt/evidence uploads and validation.
-- Independent reconciliation against authoritative platform/payment evidence; current ledger entries are owner-entered claims and do not independently verify a payout.
+- Malware scanning and retention/backup policy for uploaded files before any public multi-user deployment.
+- Independent reconciliation against authoritative platform/payment evidence; uploaded files and ledger entries remain owner-supplied evidence and do not independently prove a payout.
 - Any payout integration must remain separately reviewed and explicitly user-confirmed.
 
 ## Release gates
