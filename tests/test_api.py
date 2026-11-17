@@ -62,6 +62,40 @@ def test_owner_routes_reject_invalid_token_without_reflecting_it(client):
     assert response.json()["detail"] == "Owner authentication required."
 
 
+def test_owner_authentication_rate_limit_blocks_after_ten_failures(client):
+    invalid = "wrong-owner-token-value-that-must-never-be-reflected"
+    for _ in range(10):
+        response = client.get(
+            "/api/opportunities",
+            headers={"X-AutoEarn-Owner-Token": invalid},
+        )
+        assert response.status_code == 401
+
+    limited = client.get(
+        "/api/opportunities",
+        headers={"X-AutoEarn-Owner-Token": invalid},
+    )
+    assert limited.status_code == 429
+    assert limited.headers["retry-after"] == "300"
+    assert invalid not in limited.text
+
+
+def test_owner_auth_rate_limit_is_per_client_and_valid_token_still_works(client, tmp_path, monkeypatch):
+    from app import main
+
+    # A different direct peer address receives an independent failure budget.
+    with TestClient(app, client=("192.0.2.44", 12345)) as other_client:
+        response = other_client.get("/api/opportunities")
+        assert response.status_code == 401
+
+    # A correct owner credential is not blocked by another address's failures.
+    success = client.get(
+        "/api/opportunities",
+        headers={"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"},
+    )
+    assert success.status_code == 200
+
+
 def test_state_changing_api_rejects_cross_origin_requests(client):
     response = client.post(
         "/api/opportunities",
