@@ -1,0 +1,129 @@
+"""Create a consistent, integrity-checked local backup of AutoEarn AI data.
+
+Usage:
+    python scripts/backup.py [destination-directory]
+
+The backup contains a SQLite online-backup snapshot, private evidence files,
+and a SHA-256 manifest. Keep the destination on encrypted storage.
+"""
+from __future__ import annotations
+
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import sqlite3
+import tempfile
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def create_backup(
+    database_path: Path,
+    evidence_dir: Path,
+    destination: Path,
+) -> dict:
+    """Build a complete backup at destination without overwriting prior backups."""
+    database_path = Path(database_path).resolve()
+    evidence_dir = Path(evidence_dir).resolve()
+    destination = Path(destination).resolve()
+
+    if not database_path.is_file():
+        raise FileNotFoundError(f"Database file does not exist: {database_path}")
+    if destination.exists():
+        raise FileExistsError(f"Backup destination already exists: {destination}")
+    if destination == database_path or destination == evidence_dir:
+        raise ValueError("Backup destination must be separate from source data")
+    if evidence_dir.exists() and (
+        destination == evidence_dir or evidence_dir in destination.parents
+    ):
+        raise ValueError("Backup destination cannot be inside the evidence directory")
+    if database_path == destination or database_path in destination.parents:
+        raise ValueError("Backup destination cannot be inside the database directory")
+
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=".autoearn-backup-", dir=destination.parent))
+    try:
+        database_copy = staging / database_path.name
+        with sqlite3.connect(f"file:{database_path.as_posix()}?mode=ro", uri=True) as source:
+            with sqlite3.connect(database_copy) as target:
+                source.backup(target)
+                integrity = target.execute("PRAGMA integrity_check").fetchone()[0]
+                if integrity != "ok":
+                    raise RuntimeError(f"SQLite backup integrity check failed: {integrity}")
+
+        evidence_copy = staging / "private_evidence"
+        evidence_copy.mkdir(mode=0o700)
+        evidence_entries = []
+        if evidence_dir.exists():
+            if not evidence_dir.is_dir():
+                raise ValueError("Evidence path is not a directory")
+            for item in sorted(evidence_dir.iterdir(), key=lambda path: path.name):
+                if item.is_symlink():
+                    raise ValueError(f"Evidence symlinks are not backed up: {item.name}")
+                if not item.is_file():
+                    raise ValueError(f"Unexpected non-file in evidence directory: {item.name}")
+                copied = evidence_copy / item.name
+                shutil.copyfile(item, copied)
+                if os.name == "posix":
+                    os.chmod(copied, 0o600)
+                evidence_entries.append({
+                    "name": item.name,
+                    "size_bytes": copied.stat().st_size,
+                    "sha256": _sha256(copied),
+                })
+
+        manifest = {
+            "format_version": 1,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "database_file": database_copy.name,
+            "database_size_bytes": database_copy.stat().st_size,
+            "database_sha256": _sha256(database_copy),
+            "sqlite_integrity_check": integrity,
+            "evidence_directory": "private_evidence",
+            "evidence_files": evidence_entries,
+        }
+        (staging / "manifest.json").write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        if os.name == "posix":
+            os.chmod(evidence_copy, 0o700)
+            os.chmod(staging, 0o700)
+        os.replace(staging, destination)
+        return manifest
+    except Exception:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Back up AutoEarn AI's local database and private evidence.")
+    parser.add_argument("destination", nargs="?", help="New backup directory (must not already exist)")
+    args = parser.parse_args()
+
+    database = Path(os.getenv("AUTOEARN_DB", ROOT / "autoearn.db"))
+    evidence = Path(os.getenv("AUTOEARN_EVIDENCE_DIR", ROOT / "private_evidence"))
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    destination = Path(args.destination) if args.destination else ROOT / "backups" / f"autoearn-{stamp}"
+    manifest = create_backup(database, evidence, destination)
+    print(f"Backup created: {destination.resolve()}")
+    print(f"Database SHA-256: {manifest['database_sha256']}")
+    print(f"Evidence files: {len(manifest['evidence_files'])}")
+    print("SQLite integrity: ok")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
