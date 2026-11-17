@@ -98,3 +98,25 @@ def test_missing_evidence_and_payment_probability_reduce_confidence():
     )
     assert result["confidence"] < 100
     assert result["execution_allowed"] is False
+
+
+def test_incomplete_payout_evidence_blocks_automatic_execution():
+    result = evaluate_candidate(
+        complete_candidate(payment_probability=None),
+        "Germany",
+        now=NOW,
+    )
+    assert result["execution_allowed"] is False
+    assert "payment probability is unknown" in result["risk_flags"]
+
+
+def test_candidate_rejects_invalid_probability_and_negative_cost():
+    with pytest.raises(ValueError, match="payment_probability"):
+        complete_candidate(payment_probability=101)
+    with pytest.raises(ValueError, match="estimated_cost"):
+        complete_candidate(estimated_cost=-1)
+
+
+def test_unknown_execution_mode_is_rejected():
+    with pytest.raises(ValueError, match="execution mode"):
+        complete_candidate(execution_mode="browser_bot")
