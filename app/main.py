@@ -54,7 +54,17 @@ def now() -> str:
 
 def connect() -> sqlite3.Connection:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if DB_PATH.is_symlink():
+        raise RuntimeError("Database path must not be a symbolic link")
+    if os.name == "posix" and not DB_PATH.exists():
+        try:
+            descriptor = os.open(DB_PATH, os.O_CREAT | os.O_EXCL | os.O_RDWR, 0o600)
+            os.close(descriptor)
+        except FileExistsError:
+            pass
     db = sqlite3.connect(DB_PATH)
+    if os.name == "posix":
+        os.chmod(DB_PATH, 0o600)
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA foreign_keys = ON")
     return db
