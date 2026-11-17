@@ -1301,8 +1301,10 @@ def test_discovery_research_requires_official_https_evidence_and_is_owner_only(c
     assert body["ai_permission"] == "allowed"
     assert body["api_status"] == "available"
     assert body["execution_authorized"] is False
-    assert "do not prove" not in body["evidence_validation_note"]
-    assert "require owner review" in body["evidence_validation_note"]
+    assert body["evidence_validation_note"] == (
+        "Only HTTPS URL shape and public-host checks are performed; "
+        "page authenticity and contents require owner review."
+    )
 
     loaded = client.get(path, headers=headers, params={"country": "Azerbaijan"})
     assert loaded.status_code == 200
