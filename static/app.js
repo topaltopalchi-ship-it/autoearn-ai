@@ -24,6 +24,7 @@ const riskFlagFa = (v) => ({
   "opportunity has not been verified":"فرصت هنوز بررسی و تأیید نشده است",
   "no supporting evidence recorded":"مدرک پشتیبان ثبت نشده است",
   "payment probability is unknown":"احتمال پرداخت مشخص نیست",
+  "estimated payment probability is zero":"احتمال تخمینی پرداخت صفر است؛ اجرای خودکار مسدود شد",
   "time estimate is missing or invalid":"برآورد زمان ثبت نشده یا معتبر نیست",
   "advertised reward is unknown":"مبلغ پاداش اعلام‌شده مشخص نیست",
   "risk assessment is missing":"ارزیابی ریسک انجام نشده است",
@@ -70,7 +71,10 @@ async function showEvaluationHistory(id){
         کشور: ${esc(row.country)}<br>
         وضعیت صلاحیت: ${esc(statusFa(e.eligibility))}<br>
         امتیاز: ${e.ranking_score??"—"} از ۱۰۰<br>
-        پاداش خالص: ${e.net_reward_estimate==null?"نامشخص":esc(e.net_reward_estimate)+" "+(e.currency?currencyFa(e.currency):"")}<br>
+        پاداش خالص در صورت پرداخت: ${e.net_reward_estimate==null?"نامشخص":esc(e.net_reward_estimate)+" "+(e.currency?currencyFa(e.currency):"")}<br>
+        درآمد مورد انتظار با احتمال پرداخت: ${e.expected_net_reward_estimate==null?"نامشخص":esc(e.expected_net_reward_estimate)+" "+(e.currency?currencyFa(e.currency):"")}<br>
+        درآمد ساعتی مورد انتظار: ${e.expected_net_hourly_estimate==null?"نامشخص":esc(e.expected_net_hourly_estimate)+" "+(e.currency?currencyFa(e.currency):"")}<br>
+        احتمال پرداخت ثبت‌شده: ${e.payment_probability_percent==null?"نامشخص":esc(e.payment_probability_percent)+"٪"}<br>
         روش مشارکت: ${esc(statusFa(row.execution_mode))}</p>
       </div></article>`;
     }).join("");
@@ -109,8 +113,10 @@ async function loadRankedOpportunities(){
         const e=item.evaluation||{};
         return '<article class="item"><div><h3>#'+item.rank_in_currency+' · '+esc(item.title)+' <span class="pill">'+esc(tierLabels[item.priority_tier]||item.priority_tier)+'</span></h3>'+
           '<p>'+esc(item.platform)+' · امتیاز '+item.ranking_score+'/100 · '+esc(e.eligibility||"نامشخص")+'<br>'+
-          'خالص تخمینی: '+(e.net_reward_estimate==null?"نامشخص":esc(e.net_reward_estimate)+" "+esc(currencyFa(e.currency)))+
-          ' · ساعتی: '+(e.net_hourly_estimate==null?"نامشخص":esc(e.net_hourly_estimate)+" "+esc(currencyFa(e.currency)))+'<br>'+
+          'خالص در صورت پرداخت: '+(e.net_reward_estimate==null?"نامشخص":esc(e.net_reward_estimate)+" "+esc(currencyFa(e.currency)))+'<br>'+
+          'درآمد مورد انتظار: '+(e.expected_net_reward_estimate==null?"نامشخص":esc(e.expected_net_reward_estimate)+" "+esc(currencyFa(e.currency)))+
+          ' · ساعتی مورد انتظار: '+(e.expected_net_hourly_estimate==null?"نامشخص":esc(e.expected_net_hourly_estimate)+" "+esc(currencyFa(e.currency)))+'<br>'+
+          'احتمال پرداخت: '+(e.payment_probability_percent==null?"نامشخص":esc(e.payment_probability_percent)+"٪")+'<br>'+
           'تناسب AI: '+esc(aiLabels[item.ai_fit]||item.ai_fit)+' · مجوز اقدام واقعی: خیر<br>'+
           'هشدارها: '+(Array.isArray(e.risk_flags)?e.risk_flags.length:0)+'</p>'+
           '<a href="'+esc(item.url)+'" target="_blank" rel="noopener noreferrer">بازکردن فرصت ↗</a></div></article>';
@@ -319,8 +325,11 @@ $("evaluation-form").onsubmit=async e=>{
     alert("وضعیت صلاحیت: "+statusFa(value.eligibility)+
       "\nمیزان اطمینان: "+value.confidence+"/100"+
       "\nامتیاز رتبه‌بندی: "+value.ranking_score+"/100"+
-      "\nپاداش خالص تخمینی: "+(value.net_reward_estimate==null?"نامشخص":value.net_reward_estimate+" "+currencyFa(value.currency))+
-      "\nدرآمد خالص ساعتی تخمینی: "+(value.net_hourly_estimate==null?"نامشخص":value.net_hourly_estimate+" "+currencyFa(value.currency)+" در ساعت")+
+      "\nخالص در صورت پرداخت: "+(value.net_reward_estimate==null?"نامشخص":value.net_reward_estimate+" "+currencyFa(value.currency))+
+      "\nدرآمد مورد انتظار با احتمال پرداخت: "+(value.expected_net_reward_estimate==null?"نامشخص":value.expected_net_reward_estimate+" "+currencyFa(value.currency))+
+      "\nدرآمد ساعتی مورد انتظار: "+(value.expected_net_hourly_estimate==null?"نامشخص":value.expected_net_hourly_estimate+" "+currencyFa(value.currency)+" در ساعت")+
+      "\nاحتمال پرداخت ثبت‌شده: "+(value.payment_probability_percent==null?"نامشخص":value.payment_probability_percent+"٪")+
+      "\nدرآمد خالص ساعتی در صورت پرداخت: "+(value.net_hourly_estimate==null?"نامشخص":value.net_hourly_estimate+" "+currencyFa(value.currency)+" در ساعت")+
       "\nکارمزد برداشت تخمینی: "+money(value.payout_fee_estimate,value.currency)+
       "\nکارمزد تبدیل تخمینی: "+money(value.conversion_fee_estimate,value.currency)+
       "\nوضعیت حداقل برداشت: "+(value.withdrawal_threshold_currency_mismatch?"نامشخص؛ ارز متفاوت است":value.withdrawal_reachable_estimate===null?"حداقل برداشت قابل محاسبه نیست":value.withdrawal_reachable_estimate?"قابل دستیابی":"کمتر از حداقل برداشت")+
