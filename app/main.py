@@ -241,6 +241,15 @@ def init_db() -> None:
             result_json TEXT NOT NULL,
             created_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS execution_control (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            paused INTEGER NOT NULL DEFAULT 1,
+            updated_at TEXT NOT NULL,
+            updated_by TEXT NOT NULL DEFAULT 'system',
+            reason TEXT NOT NULL DEFAULT ''
+        );
+        INSERT OR IGNORE INTO execution_control (id, paused, updated_at, updated_by, reason)
+            VALUES (1, 1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 'system', 'Paused by default');
         """)
         # Additive migration for databases created by earlier MVP versions.
         columns = {row["name"] for row in db.execute("PRAGMA table_info(opportunities)")}
@@ -492,6 +501,11 @@ class CompetitionSubmitIn(BaseModel):
     adapter_id: str = Field(min_length=2, max_length=80)
     payload: dict = Field(default_factory=dict)
     owner_confirmed: bool = False
+
+
+class ExecutionControlIn(BaseModel):
+    paused: bool
+    reason: str = Field(default="", max_length=500)
 
 
 def require_owner(x_autoearn_owner_token: str | None = Header(default=None)):
@@ -1971,6 +1985,36 @@ def dry_run_competition(competition_id: int, actor: str = Depends(require_owner)
     return result
 
 
+@app.get("/api/execution-control")
+def get_execution_control(actor: str = Depends(require_owner)):
+    with connect() as db:
+        row = db.execute(
+            "SELECT paused, updated_at, updated_by, reason FROM execution_control WHERE id = 1"
+        ).fetchone()
+    if row is None:
+        return {"paused": True, "updated_at": None, "updated_by": "system",
+                "reason": "Paused by default"}
+    return {"paused": bool(row["paused"]), "updated_at": row["updated_at"],
+            "updated_by": row["updated_by"], "reason": row["reason"]}
+
+
+@app.patch("/api/execution-control")
+def update_execution_control(data: ExecutionControlIn,
+                             actor: str = Depends(require_owner)):
+    with connect() as db:
+        db.execute(
+            """UPDATE execution_control
+               SET paused = ?, updated_at = ?, updated_by = ?, reason = ?
+               WHERE id = 1""",
+            (int(data.paused), now(), actor, data.reason.strip()),
+        )
+        row = db.execute(
+            "SELECT paused, updated_at, updated_by, reason FROM execution_control WHERE id = 1"
+        ).fetchone()
+    return {"paused": bool(row["paused"]), "updated_at": row["updated_at"],
+            "updated_by": row["updated_by"], "reason": row["reason"]}
+
+
 @app.post("/api/competitions/{competition_id}/submit")
 def submit_competition_entry(competition_id: int, data: CompetitionSubmitIn,
                              actor: str = Depends(require_owner)):
@@ -1987,6 +2031,11 @@ def submit_competition_entry(competition_id: int, data: CompetitionSubmitIn,
         readiness = assess_competition(competition)
         if not readiness.ready:
             raise HTTPException(409, {"message": "Competition is not ready for automated entry.", "blockers": list(readiness.blockers)})
+        control = db.execute(
+            "SELECT paused FROM execution_control WHERE id = 1"
+        ).fetchone()
+        if control is None or control["paused"]:
+            raise HTTPException(423, "Global emergency pause is active; external submissions are blocked.")
         try:
             receipt = competition_adapters.submit(
                 data.adapter_id, competition, data.payload, owner_confirmed=True
