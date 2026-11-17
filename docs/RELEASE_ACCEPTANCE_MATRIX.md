@@ -10,10 +10,10 @@ This matrix is the single source of truth for progress reports. Percentages meas
 | Discovery and source research | 18% | 90% | 16.2% | Manual intake, safe RSS/Atom, approved-feed scheduling, leases, feed health, pending review, source disable/reject, SQLite-persisted 60-second per-feed cooldown and durable exponential retry/backoff for failed read-only feeds are implemented. Feed-result caching remains. |
 | Country, eligibility and payout readiness | 14% | 90% | 12.6% | Unknown-safe country eligibility, evidence URLs, payout capability, owner payout-route gate, fee/threshold/currency handling and tests are implemented. Real owner/platform-specific evidence still needs to be entered and reviewed. |
 | Competition planning and integration | 12% | 65% | 7.8% | Deterministic/optional AI planning, intake, dry-run history, official API registry, exact-host allowlist, terms/eligibility checks and explicit confirmation are implemented. A real platform adapter with written permission, official scopes and sandbox validation is not installed. |
-| Supervised execution and controls | 14% | 65% | 9.1% | Persistent approval queue, human decisions, audit history, serialized decisions, global pause for competition submission, SQLite-backed cross-worker per-adapter rolling-minute limits, persisted failure-attempt records and concurrent-request serialization are implemented. Durable retries remain intentionally disabled for non-idempotent submissions; shared pause coverage is required for any future external-action surface. |
+| Supervised execution and controls | 14% | 70% | 9.8% | Persistent approval queue, human decisions, audit history, serialized decisions, global pause for competition submission, SQLite-backed cross-worker per-adapter rolling-minute limits, concurrent-request serialization and write-ahead submission-intent records committed before external API calls are implemented. Ambiguous attempts are never auto-retried; shared pause coverage is required for any future external-action surface. |
 | Earnings ledger and reconciliation | 10% | 70% | 7.0% | Currency-separated ledger, constrained transitions, audit history, private PDF/PNG/JPEG receipt upload/list/download, file signature and size limits are implemented. Independent reconciliation with authoritative payment evidence and any payout integration remain. |
 | Security, testing and release readiness | 14% | 55% | 7.7% | Owner authentication on API routes, browser security headers, private evidence storage with owner-only POSIX directory/file permissions, dependency checks, syntax checks and a passing Python 3.10/3.12/3.14 CI matrix are verified. Malware scanning, retention/backup policy, independent security review, production secret/session design and deployment hardening remain. |
-| **Total** | **100%** |  | **77.5%** | **22.5% engineering work remains. Production release is not yet approved.** |
+| **Total** | **100%** |  | **78.2%** | **21.8% engineering work remains. Production release is not yet approved.** |
 
 Calculation: sum of (workstream weight × verified completion). Values are conservative engineering estimates and will only change when acceptance evidence changes.
 
@@ -27,7 +27,7 @@ Calculation: sum of (workstream weight × verified completion). Values are conse
 
 ## Latest verification
 
-- Latest verified implementation commit: `ca45a3be7e985776f7b86d9af8fd6348e37f97cf`.
-- GitHub Actions run [44155131607](https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44155131607): **263 passed on each of Python 3.10, 3.12 and 3.14**; includes concurrent submission-rate-limit coverage; dependency consistency, Python syntax and dashboard JavaScript syntax passed in all three jobs. The receipt-storage permission test verifies owner-only POSIX modes.
+- Latest verified implementation commit: `1ee9ac9b91492d9a8cf5eec2c31d141a815da136`.
+- GitHub Actions run [44155963308](https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44155963308): **263 passed on each of Python 3.10, 3.12 and 3.14**; includes write-ahead submission-intent and concurrent submission-rate-limit coverage; dependency consistency, Python syntax and dashboard JavaScript syntax passed in all three jobs. The receipt-storage permission test verifies owner-only POSIX modes.
 - Later documentation-only updates must receive their own CI verification before release.
 - `main` remains unchanged; PR #47 remains draft and unmerged; repository visibility remains public.
