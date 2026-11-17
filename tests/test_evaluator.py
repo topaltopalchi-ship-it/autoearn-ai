@@ -23,6 +23,7 @@ def complete_candidate(**overrides):
         "estimated_cost": 2.0,
         "estimated_minutes": 30,
         "payment_probability": 90,
+        "payout_supported": True,
         "risk_score": 10,
         "evidence": ("Official terms page checked",),
     }
@@ -235,3 +236,19 @@ def test_unknown_withdrawal_threshold_blocks_automatic_execution():
     assert result["withdrawal_reachable_estimate"] is None
     assert result["execution_allowed"] is False
     assert "minimum withdrawal threshold or net reward is unknown" in result["risk_flags"]
+
+
+@pytest.mark.parametrize("payout_supported", [None, False])
+def test_unknown_or_unsupported_country_payout_blocks_execution(payout_supported):
+    result = evaluate_candidate(
+        complete_candidate(payout_supported=payout_supported), "Germany", now=NOW
+    )
+    assert result["execution_allowed"] is False
+    assert result["payout_supported"] is payout_supported
+    assert "payout support for this country is not verified" in result["risk_flags"]
+
+
+def test_explicitly_verified_country_payout_can_pass_payout_gate():
+    result = evaluate_candidate(complete_candidate(payout_supported=True), "Germany", now=NOW)
+    assert result["payout_supported"] is True
+    assert result["execution_allowed"] is True
