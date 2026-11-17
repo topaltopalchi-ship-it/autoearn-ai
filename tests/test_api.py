@@ -1,5 +1,6 @@
 import pytest
 import sqlite3
+import os
 from fastapi.testclient import TestClient
 
 from app.main import app
