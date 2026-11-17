@@ -1338,3 +1338,41 @@ def test_discovery_research_requires_official_https_evidence_and_is_owner_only(c
     assert loaded.status_code == 200
     assert loaded.json()["country_evidence_url"] == payload["country_evidence_url"]
     assert loaded.json()["notes"] == payload["notes"]
+
+
+
+def test_opportunity_evaluation_requires_explicit_country_payout_support_for_readiness(client):
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    opp = opportunity(client)
+    source_response = client.post("/api/sources", headers=headers, json={
+        "name": "Example review", "url": "https://example.com/review",
+        "terms_url": "https://example.com/terms",
+    })
+    assert source_response.status_code == 201
+    source = source_response.json()
+    client.patch(f"/api/sources/{source["id"]}/review", headers=headers,
+                 json={"status": "approved", "notes": "Reviewed"})
+    client.patch(f"/api/opportunities/{opp["id"]}/verification", headers=headers,
+                 json={"status": "verified", "notes": "Reviewed"})
+    payload = {
+        "source_id": source["id"], "country": "Iran", "execution_mode": "official_api",
+        "reward_amount": 12, "reward_currency": "EUR", "estimated_minutes": 30,
+        "payment_probability": 90, "risk_score": 5,
+        "evidence": ["Official terms reviewed"],
+        "ai_task_profile": {"title": "Data task", "ai_permission": "allowed",
+                            "repetitive_information_processing": True,
+                            "output_is_objectively_verifiable": True},
+    }
+    unknown = client.post(f"/api/opportunities/{opp["id"]}/evaluate", headers=headers, json=payload)
+    assert unknown.status_code == 200
+    assert unknown.json()["evaluation"]["execution_allowed"] is False
+    assert unknown.json()["evaluation"]["payout_supported"] is None
+    payload["payout_supported"] = False
+    blocked = client.post(f"/api/opportunities/{opp["id"]}/evaluate", headers=headers, json=payload)
+    assert blocked.status_code == 200
+    assert blocked.json()["evaluation"]["execution_allowed"] is False
+    payload["payout_supported"] = True
+    verified = client.post(f"/api/opportunities/{opp["id"]}/evaluate", headers=headers, json=payload)
+    assert verified.status_code == 200
+    assert verified.json()["evaluation"]["payout_supported"] is True
+    assert verified.json()["execution_authorized"] is False
