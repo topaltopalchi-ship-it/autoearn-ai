@@ -1195,3 +1195,68 @@ def test_prioritized_discovery_endpoint_is_owner_only_and_marks_unknowns(client)
     assert item["payout_availability"] == "unknown"
     assert item["ai_permission"] == "unknown"
     assert item["execution_authorized"] is False
+
+
+def test_discovery_research_requires_official_https_evidence_and_is_owner_only(client):
+    from app import main
+
+    with main.connect() as db:
+        lead_id = db.execute(
+            """INSERT INTO discovery_leads
+               (source_name, title, url, category, summary, terms_url, observed_at,
+                status, created_at, last_seen_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)""",
+            ("Research source", "Research task", "https://research.example/task",
+             "freelancing_services", "Public listing", "https://research.example/terms",
+             main.now(), main.now(), main.now()),
+        ).lastrowid
+
+    path = f"/api/discovery/leads/{lead_id}/research"
+    assert client.get(path, params={"country": "Azerbaijan"}).status_code == 401
+    assert client.put(path, json={"country": "Azerbaijan"}).status_code == 401
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+
+    initial = client.get(path, headers=headers, params={"country": "Azerbaijan"})
+    assert initial.status_code == 200
+    assert initial.json()["country_status"] == "unknown"
+    assert initial.json()["payout_status"] == "unknown"
+    assert initial.json()["ai_permission"] == "unknown"
+    assert initial.json()["api_status"] == "unknown"
+    assert initial.json()["execution_authorized"] is False
+
+    missing_evidence = client.put(path, headers=headers, json={
+        "country": "Azerbaijan", "country_status": "verified",
+    })
+    assert missing_evidence.status_code == 422
+
+    insecure_evidence = client.put(path, headers=headers, json={
+        "country": "Azerbaijan", "country_status": "verified",
+        "country_evidence_url": "http://official.example/eligibility",
+    })
+    assert insecure_evidence.status_code == 422
+
+    payload = {
+        "country": "Azerbaijan",
+        "country_status": "verified",
+        "country_evidence_url": "https://official.example/eligibility",
+        "payout_status": "verified",
+        "payout_evidence_url": "https://official.example/payouts",
+        "ai_permission": "allowed",
+        "ai_evidence_url": "https://official.example/terms",
+        "api_status": "available",
+        "api_evidence_url": "https://official.example/developers",
+        "notes": "Official pages reviewed manually.",
+    }
+    saved = client.put(path, headers=headers, json=payload)
+    assert saved.status_code == 200
+    body = saved.json()
+    assert body["country_status"] == "verified"
+    assert body["payout_status"] == "verified"
+    assert body["ai_permission"] == "allowed"
+    assert body["api_status"] == "available"
+    assert body["execution_authorized"] is False
+
+    loaded = client.get(path, headers=headers, params={"country": "Azerbaijan"})
+    assert loaded.status_code == 200
+    assert loaded.json()["country_evidence_url"] == payload["country_evidence_url"]
+    assert loaded.json()["notes"] == payload["notes"]
