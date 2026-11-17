@@ -1,17 +1,20 @@
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, HttpUrl
+
+from autoearn.opportunities import normalize_url
 
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.getenv("AUTOEARN_DB", ROOT / "autoearn.db"))
@@ -45,7 +48,12 @@ def init_db() -> None:
             status TEXT NOT NULL DEFAULT 'discovered',
             score INTEGER NOT NULL DEFAULT 0,
             notes TEXT NOT NULL DEFAULT '',
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            eligible_countries TEXT NOT NULL DEFAULT '[]',
+            excluded_countries TEXT NOT NULL DEFAULT '[]',
+            minimum_withdrawal_amount REAL,
+            withdrawal_currency TEXT NOT NULL DEFAULT 'USD',
+            payout_methods TEXT NOT NULL DEFAULT '[]'
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_opportunities_url ON opportunities(url);
         CREATE TABLE IF NOT EXISTS tasks (
@@ -67,6 +75,18 @@ def init_db() -> None:
             created_at TEXT NOT NULL
         );
         """)
+        # Additive migration for databases created by earlier MVP versions.
+        columns = {row["name"] for row in db.execute("PRAGMA table_info(opportunities)")}
+        migrations = {
+            "eligible_countries": "TEXT NOT NULL DEFAULT '[]'",
+            "excluded_countries": "TEXT NOT NULL DEFAULT '[]'",
+            "minimum_withdrawal_amount": "REAL",
+            "withdrawal_currency": "TEXT NOT NULL DEFAULT 'USD'",
+            "payout_methods": "TEXT NOT NULL DEFAULT '[]'",
+        }
+        for name, definition in migrations.items():
+            if name not in columns:
+                db.execute(f"ALTER TABLE opportunities ADD COLUMN {name} {definition}")
 
 
 @asynccontextmanager
@@ -93,6 +113,11 @@ class OpportunityIn(BaseModel):
     eligibility: str = Field(default="", max_length=1000)
     terms_url: str = Field(default="", max_length=500)
     notes: str = Field(default="", max_length=1000)
+    eligible_countries: list[str] = Field(default_factory=list, max_length=100)
+    excluded_countries: list[str] = Field(default_factory=list, max_length=100)
+    minimum_withdrawal_amount: float | None = Field(default=None, ge=0)
+    withdrawal_currency: str = Field(default="USD", min_length=3, max_length=8)
+    payout_methods: list[str] = Field(default_factory=list, max_length=30)
 
 
 class TaskIn(BaseModel):
@@ -109,12 +134,33 @@ class RewardIn(BaseModel):
 
 
 def row_dict(row: sqlite3.Row) -> dict:
-    return dict(row)
+    result = dict(row)
+    for field in ("eligible_countries", "excluded_countries", "payout_methods"):
+        if field in result:
+            try:
+                result[field] = json.loads(result[field] or "[]")
+            except (TypeError, json.JSONDecodeError):
+                result[field] = []
+    return result
 
 
 def safe_url(value: str) -> bool:
     parsed = urlparse(value)
-    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc) and not parsed.username and not parsed.password
+
+
+def clean_list(values: list[str], field: str) -> list[str]:
+    cleaned = []
+    seen = set()
+    for value in values:
+        item = value.strip()
+        if not item:
+            continue
+        key = item.casefold()
+        if key not in seen:
+            cleaned.append(item[:80])
+            seen.add(key)
+    return cleaned
 
 
 @app.get("/", include_in_schema=False)
@@ -150,8 +196,16 @@ def create_opportunity(data: OpportunityIn):
     payload["url"] = normalize_url(str(payload["url"]))
     if not safe_url(payload["url"]):
         raise HTTPException(422, "Only public http/https opportunity URLs are accepted.")
-    if payload["terms_url"] and not safe_url(payload["terms_url"]):
-        raise HTTPException(422, "Terms URL must be an http/https URL.")
+    if payload["terms_url"]:
+        try:
+            payload["terms_url"] = normalize_url(payload["terms_url"])
+        except ValueError:
+            raise HTTPException(422, "Terms URL must be a safe http/https URL.")
+        if not safe_url(payload["terms_url"]):
+            raise HTTPException(422, "Terms URL must be a safe http/https URL.")
+    for field in ("eligible_countries", "excluded_countries", "payout_methods"):
+        payload[field] = json.dumps(clean_list(payload[field], field), ensure_ascii=False)
+    payload["withdrawal_currency"] = payload["withdrawal_currency"].strip().upper()
     score = 0
     score += 25 if payload["terms_url"] else 0
     score += 20 if payload["eligibility"] else 0
@@ -162,11 +216,13 @@ def create_opportunity(data: OpportunityIn):
             raise HTTPException(409, "This opportunity URL is already registered.")
         cur = db.execute("""
             INSERT INTO opportunities
-            (title, platform, url, category, reward_description, eligibility, terms_url, notes, score, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (title, platform, url, category, reward_description, eligibility, terms_url, notes, score, created_at,
+             eligible_countries, excluded_countries, minimum_withdrawal_amount, withdrawal_currency, payout_methods)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (payload["title"], payload["platform"], payload["url"], payload["category"],
               payload["reward_description"], payload["eligibility"], payload["terms_url"],
-              payload["notes"], score, now()))
+              payload["notes"], score, now(), payload["eligible_countries"], payload["excluded_countries"],
+              payload["minimum_withdrawal_amount"], payload["withdrawal_currency"], payload["payout_methods"]))
         row = db.execute("SELECT * FROM opportunities WHERE id = ?", (cur.lastrowid,)).fetchone()
         return row_dict(row)
 
