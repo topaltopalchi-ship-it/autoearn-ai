@@ -62,7 +62,9 @@ A high score is not a guarantee. Missing or stale evidence lowers confidence and
 - Added a transparent baseline strategy planner for logic, coding, chess, strategy, and general competitions.
 - Added a competition registry contract that accepts only locally registered adapters using an official API, an exact hostname allowlist, and explicit permission for automated agents.
 - Added owner-authenticated competition intake, strategy planning, dry-run history, and a guarded submission endpoint.
-- The built-in planner is a deterministic baseline, not an external LLM. No platform adapter is installed by default, so real submissions remain unavailable until a platform-specific adapter is reviewed, tested, and explicitly enabled.
+- The planner now supports the OpenAI Responses API when the server environment contains `AUTOEARN_OPENAI_API_KEY`; `AUTOEARN_OPENAI_MODEL` selects the model (default: `gpt-5.5`). Without that secret, the transparent deterministic baseline is used.
+- The API key must be configured only as a server-side secret, never committed to Git or entered in the dashboard. Each strategy-generation request can incur model API charges; the owner initiates it explicitly.
+- No platform adapter is installed by default, so real submissions remain unavailable until a platform-specific adapter is reviewed, tested, and explicitly enabled.
 - A dry-run never submits an entry or claims a score. Actual participation must use a competition's published rules and official integration.
 
 ### Phase 3 — supervised execution
