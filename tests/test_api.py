@@ -1581,3 +1581,12 @@ def test_discovery_batch_continues_after_one_feed_failure(client, monkeypatch):
         ).fetchone()
     assert tuple(broken) == (1, 1)
     assert tuple(healthy) == (0, 1, 1)
+
+
+def test_dashboard_defaults_to_users_iran_residence_country(client):
+    response = client.get("/")
+    assert response.status_code == 200
+    page = response.text
+    assert 'id="rank-country" value="Iran"' in page
+    assert page.count('name="country" value="Iran"') == 2
+    assert "Azerbaijan" not in page
