@@ -163,16 +163,17 @@ class PublicRssAdapter:
                 },
             )
             response = connection.getresponse()
+            response_header = getattr(response, "getheader", lambda _name: None)
             if response.status == 304:
                 self.not_modified = True
-                self.etag = response.getheader("ETag") or self.etag
-                self.last_modified = response.getheader("Last-Modified") or self.last_modified
+                self.etag = response_header("ETag") or self.etag
+                self.last_modified = response_header("Last-Modified") or self.last_modified
                 return b""
             if response.status != 200:
                 # Redirects are intentionally not followed.
                 raise ValueError(f"feed request rejected with HTTP {response.status}")
-            self.etag = response.getheader("ETag")
-            self.last_modified = response.getheader("Last-Modified")
+            self.etag = response_header("ETag")
+            self.last_modified = response_header("Last-Modified")
             data = response.read(MAX_FEED_BYTES + 1)
         except (OSError, ssl.SSLError, http.client.HTTPException) as exc:
             raise ValueError("feed request failed") from exc
