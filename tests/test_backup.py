@@ -13,15 +13,23 @@ from scripts.restore import restore_backup
 
 def test_backup_captures_sqlite_snapshot_and_private_evidence(tmp_path):
     database = tmp_path / "autoearn.db"
-    with sqlite3.connect(database) as db:
-        db.execute("CREATE TABLE earnings (id INTEGER PRIMARY KEY, amount INTEGER)")
-        db.execute("INSERT INTO earnings(amount) VALUES (1250)")
-        db.commit()
-
     evidence = tmp_path / "private_evidence"
     evidence.mkdir()
     receipt = evidence / "receipt.pdf"
-    receipt.write_bytes(b"%PDF-1.7 private receipt")
+    receipt_payload = b"%PDF-1.7 private receipt"
+    receipt.write_bytes(receipt_payload)
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE earnings (id INTEGER PRIMARY KEY, amount INTEGER)")
+        db.execute("INSERT INTO earnings(amount) VALUES (1250)")
+        db.execute("""CREATE TABLE earnings_evidence (
+            id INTEGER PRIMARY KEY, ledger_id INTEGER, stored_name TEXT,
+            media_type TEXT, size_bytes INTEGER, sha256 TEXT, created_at TEXT
+        )""")
+        db.execute(
+            "INSERT INTO earnings_evidence VALUES (1, 1, ?, 'application/pdf', ?, ?, '2026-01-01')",
+            (receipt.name, len(receipt_payload), hashlib.sha256(receipt_payload).hexdigest()),
+        )
+        db.commit()
 
     destination = tmp_path / "backups" / "snapshot"
     manifest = create_backup(database, evidence, destination)
@@ -122,4 +130,23 @@ def test_restore_rejects_tampered_evidence_and_does_not_create_destination(tmp_p
 
     with pytest.raises(ValueError, match="checksum or size mismatch"):
         restore_backup(backup, destination)
+    assert not destination.exists()
+
+
+def test_backup_fails_when_sqlite_references_missing_receipt(tmp_path):
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("""CREATE TABLE earnings_evidence (
+            id INTEGER PRIMARY KEY, ledger_id INTEGER, stored_name TEXT,
+            media_type TEXT, size_bytes INTEGER, sha256 TEXT, created_at TEXT
+        )""")
+        db.execute(
+            "INSERT INTO earnings_evidence VALUES (1, 1, 'missing.pdf', 'application/pdf', 5, 'deadbeef', '2026-01-01')"
+        )
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    destination = tmp_path / "backup"
+
+    with pytest.raises(RuntimeError, match="stop the app and retry"):
+        create_backup(database, evidence, destination)
     assert not destination.exists()
