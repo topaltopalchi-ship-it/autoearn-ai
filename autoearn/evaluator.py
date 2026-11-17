@@ -171,10 +171,12 @@ def evaluate_candidate(
         and candidate.payment_probability is not None
         and candidate.estimated_minutes is not None
         and candidate.risk_score is not None
-        and withdrawal_reachable is not False
+        and withdrawal_reachable is True
     )
     if withdrawal_reachable is False:
         flags.append("estimated net reward is below the minimum withdrawal threshold")
+    elif withdrawal_reachable is None:
+        flags.append("minimum withdrawal threshold or net reward is unknown")
     if candidate.execution_mode != "official_api":
         flags.append("automatic execution is unavailable for this execution mode")
 
