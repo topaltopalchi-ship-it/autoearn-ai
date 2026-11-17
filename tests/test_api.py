@@ -646,3 +646,26 @@ def test_vault_rejects_wallet_private_signing_key_provider(client, tmp_path, mon
     assert response.status_code == 422
     assert "کلید خصوصی کیف پول" in response.text
     assert vault.list_credentials() == []
+
+
+def test_vault_rejects_wallet_key_material_even_with_generic_provider(client):
+    response = client.post("/api/vault/credentials", json={
+        "label": "Service signing key",
+        "provider": "Generic API",
+        "credential_type": "signing_key",
+        "secret": "0x" + "a" * 64,
+        "passphrase": "a-long-test-vault-passphrase",
+    })
+    assert response.status_code == 422
+    assert "کلید خصوصی کیف پول" in response.text
+
+
+def test_vault_rejects_recovery_phrase_even_with_generic_provider(client):
+    response = client.post("/api/vault/credentials", json={
+        "label": "Service signing key",
+        "provider": "Generic API",
+        "credential_type": "signing_key",
+        "secret": "alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima",
+        "passphrase": "a-long-test-vault-passphrase",
+    })
+    assert response.status_code == 422
