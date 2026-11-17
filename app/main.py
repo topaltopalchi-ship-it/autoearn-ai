@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import hmac
+import ipaddress
 import sqlite3
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone, timedelta
@@ -494,8 +495,48 @@ def row_dict(row: sqlite3.Row) -> dict:
 
 
 def safe_url(value: str) -> bool:
-    parsed = urlparse(value)
-    return parsed.scheme in {"http", "https"} and bool(parsed.netloc) and not parsed.username and not parsed.password
+    try:
+        parsed = urlparse(value)
+        return parsed.scheme in {"http", "https"} and bool(parsed.netloc) and not parsed.username and not parsed.password
+    except ValueError:
+        return False
+
+
+def safe_public_https_evidence_url(value: str) -> bool:
+    """Check URL shape and reject obvious local/private evidence destinations.
+
+    This does not fetch the page or prove that its publisher is the platform.
+    Owner review of the actual page and its policy remains mandatory.
+    """
+    try:
+        parsed = urlparse(value)
+        if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+            return False
+        host = parsed.hostname.rstrip(".").casefold()
+        if not host or host == "localhost" or host.endswith((".localhost", ".local", ".internal", ".lan")):
+            return False
+        try:
+            address = ipaddress.ip_address(host)
+        except ValueError:
+            labels = host.split(".")
+            if len(labels) < 2 or any(
+                not label or len(label) > 63
+                or not label[0].isalnum() or not label[-1].isalnum()
+                or any(not (char.isalnum() or char == "-") for char in label)
+                for label in labels
+            ):
+                return False
+            # Reject dotted-quad lookalikes that are not valid IP addresses.
+            if all(label.isdigit() for label in labels):
+                return False
+        else:
+            if not address.is_global:
+                return False
+        # Accessing .port also detects malformed port syntax.
+        _ = parsed.port
+        return True
+    except ValueError:
+        return False
 
 
 def clean_list(values: list[str], field: str) -> list[str]:
@@ -1169,9 +1210,11 @@ def get_discovery_research(lead_id: int, country: str = Query(min_length=2, max_
             "ai_permission": "unknown", "ai_evidence_url": "",
             "api_status": "unknown", "api_evidence_url": "",
             "notes": "", "execution_authorized": False,
+            "evidence_validation_note": "Only HTTPS URL shape and public-host checks are performed; page authenticity and contents require owner review.",
         }
     result = row_dict(row)
     result["execution_authorized"] = False
+    result["evidence_validation_note"] = "Only HTTPS URL shape and public-host checks are performed; page authenticity and contents require owner review."
     return result
 
 
@@ -1186,13 +1229,11 @@ def save_discovery_research(lead_id: int, data: DiscoveryResearchIn,
     )
     for field_name, status, evidence_url in fields:
         if status != "unknown":
-            if not evidence_url or not safe_url(evidence_url):
-                raise HTTPException(422, f"{field_name} requires a valid evidence URL.")
-            if urlparse(evidence_url).scheme != "https":
-                raise HTTPException(422, f"{field_name} evidence URL must use HTTPS.")
+            if not evidence_url or not safe_public_https_evidence_url(evidence_url):
+                raise HTTPException(422, f"{field_name} requires a valid public HTTPS evidence URL.")
     for _, _, evidence_url in fields:
-        if evidence_url and (not safe_url(evidence_url) or urlparse(evidence_url).scheme != "https"):
-            raise HTTPException(422, "Evidence URLs must be valid HTTPS URLs.")
+        if evidence_url and not safe_public_https_evidence_url(evidence_url):
+            raise HTTPException(422, "Evidence URLs must use HTTPS and a public hostname.")
     with connect() as db:
         lead = db.execute("SELECT id FROM discovery_leads WHERE id = ?", (lead_id,)).fetchone()
         if lead is None:
@@ -1223,6 +1264,7 @@ def save_discovery_research(lead_id: int, data: DiscoveryResearchIn,
             (lead_id, data.country.strip()),
         ).fetchone())
     result["execution_authorized"] = False
+    result["evidence_validation_note"] = "Only HTTPS URL shape and public-host checks are performed; page authenticity and contents require owner review."
     return result
 
 
