@@ -119,6 +119,24 @@ def init_db() -> None:
             review_notes TEXT NOT NULL DEFAULT '',
             opportunity_id INTEGER REFERENCES opportunities(id) ON DELETE SET NULL
         );
+        CREATE TABLE IF NOT EXISTS discovery_research (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            lead_id INTEGER NOT NULL REFERENCES discovery_leads(id) ON DELETE CASCADE,
+            country TEXT NOT NULL,
+            country_status TEXT NOT NULL DEFAULT 'unknown',
+            country_evidence_url TEXT NOT NULL DEFAULT '',
+            payout_status TEXT NOT NULL DEFAULT 'unknown',
+            payout_evidence_url TEXT NOT NULL DEFAULT '',
+            ai_permission TEXT NOT NULL DEFAULT 'unknown',
+            ai_evidence_url TEXT NOT NULL DEFAULT '',
+            api_status TEXT NOT NULL DEFAULT 'unknown',
+            api_evidence_url TEXT NOT NULL DEFAULT '',
+            notes TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL,
+            UNIQUE(lead_id, country)
+        );
+        CREATE INDEX IF NOT EXISTS idx_discovery_research_lead
+            ON discovery_research(lead_id, country);
         CREATE TABLE IF NOT EXISTS discovery_scheduler (
             id INTEGER PRIMARY KEY CHECK(id = 1),
             enabled INTEGER NOT NULL DEFAULT 1,
@@ -373,6 +391,19 @@ class DiscoveryFeedIn(BaseModel):
 class DiscoveryLeadReviewIn(BaseModel):
     status: Literal["pending", "rejected"]
     notes: str = Field(default="", max_length=1000)
+
+
+class DiscoveryResearchIn(BaseModel):
+    country: str = Field(min_length=2, max_length=80)
+    country_status: Literal["unknown", "verified", "blocked"] = "unknown"
+    country_evidence_url: str = Field(default="", max_length=500)
+    payout_status: Literal["unknown", "verified", "unavailable"] = "unknown"
+    payout_evidence_url: str = Field(default="", max_length=500)
+    ai_permission: Literal["unknown", "allowed", "prohibited"] = "unknown"
+    ai_evidence_url: str = Field(default="", max_length=500)
+    api_status: Literal["unknown", "available", "unavailable"] = "unknown"
+    api_evidence_url: str = Field(default="", max_length=500)
+    notes: str = Field(default="", max_length=2000)
 
 
 class DiscoveryFeedReviewIn(BaseModel):
@@ -1093,6 +1124,82 @@ def prioritized_discovery_leads(actor: str = Depends(require_owner)):
                ORDER BY l.last_seen_at DESC, l.id DESC"""
         ).fetchall()
     result = prioritize_discovery_leads([row_dict(row) for row in rows])
+    return result
+
+
+@app.get("/api/discovery/leads/{lead_id}/research")
+def get_discovery_research(lead_id: int, country: str = Query(min_length=2, max_length=80),
+                           actor: str = Depends(require_owner)):
+    with connect() as db:
+        lead = db.execute("SELECT id FROM discovery_leads WHERE id = ?", (lead_id,)).fetchone()
+        if lead is None:
+            raise HTTPException(404, "Discovery lead not found.")
+        row = db.execute(
+            "SELECT * FROM discovery_research WHERE lead_id = ? AND country = ?",
+            (lead_id, country.strip()),
+        ).fetchone()
+    if row is None:
+        return {
+            "lead_id": lead_id, "country": country.strip(),
+            "country_status": "unknown", "country_evidence_url": "",
+            "payout_status": "unknown", "payout_evidence_url": "",
+            "ai_permission": "unknown", "ai_evidence_url": "",
+            "api_status": "unknown", "api_evidence_url": "",
+            "notes": "", "execution_authorized": False,
+        }
+    result = row_dict(row)
+    result["execution_authorized"] = False
+    return result
+
+
+@app.put("/api/discovery/leads/{lead_id}/research")
+def save_discovery_research(lead_id: int, data: DiscoveryResearchIn,
+                            actor: str = Depends(require_owner)):
+    fields = (
+        ("country_status", data.country_status, data.country_evidence_url),
+        ("payout_status", data.payout_status, data.payout_evidence_url),
+        ("ai_permission", data.ai_permission, data.ai_evidence_url),
+        ("api_status", data.api_status, data.api_evidence_url),
+    )
+    for field_name, status, evidence_url in fields:
+        if status != "unknown":
+            if not evidence_url or not safe_url(evidence_url):
+                raise HTTPException(422, f"{field_name} requires a valid evidence URL.")
+            if urlparse(evidence_url).scheme != "https":
+                raise HTTPException(422, f"{field_name} evidence URL must use HTTPS.")
+    for _, _, evidence_url in fields:
+        if evidence_url and (not safe_url(evidence_url) or urlparse(evidence_url).scheme != "https"):
+            raise HTTPException(422, "Evidence URLs must be valid HTTPS URLs.")
+    with connect() as db:
+        lead = db.execute("SELECT id FROM discovery_leads WHERE id = ?", (lead_id,)).fetchone()
+        if lead is None:
+            raise HTTPException(404, "Discovery lead not found.")
+        db.execute(
+            """INSERT INTO discovery_research
+               (lead_id, country, country_status, country_evidence_url,
+                payout_status, payout_evidence_url, ai_permission, ai_evidence_url,
+                api_status, api_evidence_url, notes, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(lead_id, country) DO UPDATE SET
+                country_status=excluded.country_status,
+                country_evidence_url=excluded.country_evidence_url,
+                payout_status=excluded.payout_status,
+                payout_evidence_url=excluded.payout_evidence_url,
+                ai_permission=excluded.ai_permission,
+                ai_evidence_url=excluded.ai_evidence_url,
+                api_status=excluded.api_status,
+                api_evidence_url=excluded.api_evidence_url,
+                notes=excluded.notes, updated_at=excluded.updated_at""",
+            (lead_id, data.country.strip(), data.country_status, data.country_evidence_url.strip(),
+             data.payout_status, data.payout_evidence_url.strip(), data.ai_permission,
+             data.ai_evidence_url.strip(), data.api_status, data.api_evidence_url.strip(),
+             data.notes.strip(), now()),
+        )
+        result = row_dict(db.execute(
+            "SELECT * FROM discovery_research WHERE lead_id = ? AND country = ?",
+            (lead_id, data.country.strip()),
+        ).fetchone())
+    result["execution_authorized"] = False
     return result
 
 
