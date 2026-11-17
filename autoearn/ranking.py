@@ -6,7 +6,25 @@ currencies are intentionally kept in separate groups until FX evidence exists.
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import datetime, timezone
 from typing import Any
+
+RESEARCH_MAX_AGE_DAYS = 30
+
+
+def research_evidence_is_fresh(research: dict[str, Any]) -> bool:
+    """Require a recent owner review; malformed/missing dates fail closed."""
+    checked_at = research.get("checked_at")
+    if not checked_at:
+        return False
+    try:
+        checked = datetime.fromisoformat(str(checked_at).replace("Z", "+00:00"))
+        if checked.tzinfo is None:
+            checked = checked.replace(tzinfo=timezone.utc)
+        age_seconds = (datetime.now(timezone.utc) - checked.astimezone(timezone.utc)).total_seconds()
+        return 0 <= age_seconds <= RESEARCH_MAX_AGE_DAYS * 86400
+    except (TypeError, ValueError, OverflowError):
+        return False
 
 
 def rank_evaluations(records: list[dict[str, Any]]) -> dict[str, Any]:
@@ -27,10 +45,12 @@ def rank_evaluations(records: list[dict[str, Any]]) -> dict[str, Any]:
             "payout": research.get("payout_status", "unknown"),
             "ai_permission": research.get("ai_permission", "unknown"),
         }
+        research_fresh = research_evidence_is_fresh(research)
         research_complete = (
             research_status["country"] == "verified"
             and research_status["payout"] == "verified"
             and research_status["ai_permission"] == "allowed"
+            and research_fresh
         )
         api_required = record.get("execution_mode") == "official_api"
         api_ready = research.get("api_status", "unknown") == "available"
@@ -68,6 +88,8 @@ def rank_evaluations(records: list[dict[str, Any]]) -> dict[str, Any]:
             "risk_flag_count": len(flags) if isinstance(flags, list) else 0,
             "research_status": research_status,
             "research_complete": research_complete,
+            "research_fresh": research_fresh,
+            "research_max_age_days": RESEARCH_MAX_AGE_DAYS,
             "api_research_ready": api_ready,
         }
         grouped[currency].append(item)
