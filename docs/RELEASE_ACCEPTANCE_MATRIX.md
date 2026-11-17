@@ -12,8 +12,8 @@ This matrix is the single source of truth for progress reports. Percentages meas
 | Competition planning and integration | 12% | 67% | 8.0% | Deterministic/optional AI planning, intake, dry-run history, official API registry, exact-host allowlist, terms/eligibility checks, explicit confirmation and dashboard access to durable submission history (including unresolved write-ahead attempts) are implemented. A real platform adapter with written permission, official scopes and sandbox validation is not installed. |
 | Supervised execution and controls | 14% | 70% | 9.8% | Persistent approval queue, human decisions, audit history, serialized decisions, global pause for competition submission, SQLite-backed cross-worker per-adapter rolling-minute limits, concurrent-request serialization and write-ahead submission-intent records committed before external API calls are implemented. Ambiguous attempts are never auto-retried; shared pause coverage is required for any future external-action surface. |
 | Earnings ledger and reconciliation | 10% | 70% | 7.0% | Currency-separated ledger, constrained transitions, audit history, private PDF/PNG/JPEG receipt upload/list/download, file signature and size limits are implemented. Independent reconciliation with authoritative payment evidence and any payout integration remain. |
-| Security, testing and release readiness | 14% | 55% | 7.7% | Owner authentication on API routes, browser security headers, private evidence storage with owner-only POSIX directory/file permissions, dependency checks, syntax checks and a passing Python 3.10/3.12/3.14 CI matrix are verified. Malware scanning, retention/backup policy, independent security review, production secret/session design and deployment hardening remain. |
-| **Total** | **100%** |  | **78.4%** | **21.6% engineering work remains. Production release is not yet approved.** |
+| Security, testing and release readiness | 14% | 57% | 8.0% | Owner authentication on API routes, browser security headers, private evidence storage with owner-only POSIX directory/file permissions, dependency checks, syntax checks and a passing Python 3.10/3.12/3.14 CI matrix are verified. Malware scanning, retention/backup policy, independent security review, production secret/session design and deployment hardening remain. |
+| **Total** | **100%** |  | **78.7%** | **21.3% engineering work remains. Production release is not yet approved.** |
 
 Calculation: sum of (workstream weight × verified completion). Values are conservative engineering estimates and will only change when acceptance evidence changes.
 
@@ -27,7 +27,7 @@ Calculation: sum of (workstream weight × verified completion). Values are conse
 
 ## Latest verification
 
-- Latest verified implementation commit: `318b7f9d666acc1c4fa5d47486073af334675502`.
-- GitHub Actions run [44156437500](https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44156437500): **263 passed on each of Python 3.10, 3.12 and 3.14**; includes dashboard JavaScript syntax validation and the existing write-ahead submission-intent and concurrent submission-rate-limit coverage; dependency consistency, Python syntax and dashboard JavaScript syntax passed in all three jobs. The receipt-storage permission test verifies owner-only POSIX modes.
+- Latest verified implementation commit: `d197f449c0eea74157245407449364b77e1dc94f`.
+- GitHub Actions run [44157230823](https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44157230823): **266 tests collected and all three Python jobs (3.10, 3.12, 3.14) passed**; includes explicit security-header/CSP coverage on HTML, API and static assets, plus dashboard JavaScript syntax validation; dependency consistency, Python syntax and dashboard JavaScript syntax passed in all three jobs. The receipt-storage permission test verifies owner-only POSIX modes.
 - Later documentation-only updates must receive their own CI verification before release.
 - `main` remains unchanged; PR #47 remains draft and unmerged; repository visibility remains public.
