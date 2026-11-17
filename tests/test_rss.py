@@ -165,3 +165,68 @@ def test_feed_fetch_uses_pinned_public_ip_and_hostname_tls(monkeypatch):
     assert calls["address"] == ("93.184.216.34", 443)
     assert calls["server_hostname"] == "feed.example"
     assert connection.sock == "tls-socket"
+
+
+def test_feed_fetch_does_not_follow_http_redirects(monkeypatch):
+    from autoearn.rss import PublicRssAdapter
+
+    calls = {}
+    class FakeResponse:
+        status = 302
+        def read(self, limit):
+            return b"redirect"
+
+    class FakeConnection:
+        def __init__(self, host, pinned_ip, **kwargs):
+            calls["host"] = host
+            calls["pinned_ip"] = pinned_ip
+            calls["kwargs"] = kwargs
+        def request(self, method, path, headers):
+            calls["request"] = (method, path, headers)
+        def getresponse(self):
+            return FakeResponse()
+        def close(self):
+            calls["closed"] = True
+
+    monkeypatch.setattr("autoearn.rss._PinnedHTTPSConnection", FakeConnection)
+    feed = PublicRssAdapter(
+        adapter_id="redirect-test", display_name="Redirect test",
+        feed_url="https://feed.example/rss.xml?kind=jobs",
+        category="other", allowed_domains=("feed.example",),
+    )
+    with pytest.raises(ValueError, match="HTTP 302"):
+        feed._fetch(feed.feed_url)
+    assert calls["host"] == "feed.example"
+    assert calls["pinned_ip"] == "93.184.216.34"
+    assert calls["request"][0:2] == ("GET", "/rss.xml?kind=jobs")
+    assert calls["request"][2]["Host"] == "feed.example"
+    assert calls["closed"] is True
+
+
+def test_feed_fetch_enforces_response_size_limit(monkeypatch):
+    from autoearn.rss import MAX_FEED_BYTES, PublicRssAdapter
+
+    class FakeResponse:
+        status = 200
+        def read(self, limit):
+            assert limit == MAX_FEED_BYTES + 1
+            return b"x" * limit
+
+    class FakeConnection:
+        def __init__(self, *args, **kwargs):
+            pass
+        def request(self, *args, **kwargs):
+            pass
+        def getresponse(self):
+            return FakeResponse()
+        def close(self):
+            pass
+
+    monkeypatch.setattr("autoearn.rss._PinnedHTTPSConnection", FakeConnection)
+    feed = PublicRssAdapter(
+        adapter_id="size-test", display_name="Size test",
+        feed_url="https://feed.example/rss.xml",
+        category="other", allowed_domains=("feed.example",),
+    )
+    with pytest.raises(ValueError, match="1 MB"):
+        feed._fetch(feed.feed_url)
