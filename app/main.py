@@ -1435,6 +1435,8 @@ def create_discovery_feed(data: DiscoveryFeedIn, actor: str = Depends(require_ow
     domains = [item.strip().casefold() for item in data.allowed_domains]
     if parsed.scheme != "https" or not host or parsed.username or parsed.password:
         raise HTTPException(422, "Discovery feed must use a public HTTPS URL without credentials.")
+    if parsed.port not in (None, 443):
+        raise HTTPException(422, "Discovery feed must use the standard HTTPS port 443.")
     if host not in domains:
         raise HTTPException(422, "The feed hostname must exactly match one allowed domain.")
     if len(set(domains)) != len(domains) or any(

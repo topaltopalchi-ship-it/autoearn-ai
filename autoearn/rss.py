@@ -66,6 +66,8 @@ def _validate_public_https_target(
     host = (parsed.hostname or "").casefold()
     if parsed.scheme != "https":
         raise ValueError("RSS feed URLs must use HTTPS")
+    if parsed.port not in (None, 443):
+        raise ValueError("RSS feed URLs must use the standard HTTPS port 443")
     if not allowed_domains or host not in {d.casefold() for d in allowed_domains}:
         raise ValueError("feed host must be explicitly allowlisted")
     addresses = _resolve_public_addresses(host, parsed.port or 443)

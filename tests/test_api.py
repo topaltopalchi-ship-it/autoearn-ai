@@ -960,6 +960,11 @@ def test_discovery_feed_rejects_non_https_host_mismatch_and_wildcards(client):
     })
     assert http.status_code == 422
 
+    nonstandard_port = client.post("/api/discovery/feeds", headers=headers, json={
+        **base, "feed_url": "https://feed.example:8443/rss.xml",
+    })
+    assert nonstandard_port.status_code == 422
+
     mismatch = client.post("/api/discovery/feeds", headers=headers, json={
         **base, "feed_url": "https://other.example/rss.xml",
     })

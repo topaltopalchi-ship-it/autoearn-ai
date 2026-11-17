@@ -230,3 +230,12 @@ def test_feed_fetch_enforces_response_size_limit(monkeypatch):
     )
     with pytest.raises(ValueError, match="1 MB"):
         feed._fetch(feed.feed_url)
+
+
+def test_feed_rejects_nonstandard_https_port():
+    with pytest.raises(ValueError, match="standard HTTPS port 443"):
+        PublicRssAdapter(
+            adapter_id="custom-port", display_name="Custom port",
+            feed_url="https://feed.example:8443/rss.xml",
+            category="other", allowed_domains=("feed.example",),
+        )
