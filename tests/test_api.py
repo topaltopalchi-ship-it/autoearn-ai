@@ -1146,6 +1146,35 @@ def test_ranked_opportunities_uses_latest_country_evaluation_and_separates_curre
     other_currency = evaluate(second["id"], "USD", 15)
     assert older.status_code == latest.status_code == other_currency.status_code == 200
 
+    # Link one promoted discovery lead to the first opportunity and attach
+    # country-specific evidence; the second opportunity remains unresearched.
+    with main.connect() as db:
+        lead_id = db.execute(
+            """INSERT INTO discovery_leads
+               (source_name, title, url, category, summary, terms_url, observed_at,
+                status, created_at, last_seen_at, opportunity_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 'converted', ?, ?, ?)""",
+            ("Official source", "First task", "https://example.com/game",
+             "other", "Listing", "https://example.com/terms", main.now(),
+             main.now(), main.now(), first["id"]),
+        ).lastrowid
+    evidence = client.put(
+        f"/api/discovery/leads/{lead_id}/research",
+        headers=headers,
+        json={
+            "country": "Germany",
+            "country_status": "verified",
+            "country_evidence_url": "https://official.example/country",
+            "payout_status": "verified",
+            "payout_evidence_url": "https://official.example/payout",
+            "ai_permission": "allowed",
+            "ai_evidence_url": "https://official.example/ai-policy",
+            "api_status": "available",
+            "api_evidence_url": "https://official.example/api",
+        },
+    )
+    assert evidence.status_code == 200
+
     ranked = client.get("/api/opportunities/ranked?country=Germany", headers=headers)
     assert ranked.status_code == 200
     body = ranked.json()
@@ -1155,6 +1184,10 @@ def test_ranked_opportunities_uses_latest_country_evaluation_and_separates_curre
     assert eur_item["opportunity_id"] == first["id"]
     assert eur_item["evaluation_id"] == latest.json()["evaluation_id"]
     assert eur_item["evaluation"]["net_reward_estimate"] == 12
+    assert eur_item["research_complete"] is True
+    usd_item = body["groups"][1]["items"][0]
+    assert usd_item["priority_tier"] == "blocked_pending_research"
+    assert usd_item["research_status"]["country"] == "unknown"
     assert all(item["execution_authorized"] is False
                for group in body["groups"] for item in group["items"])
     assert "Different currencies" in body["comparison_note"] or "different currencies" in body["comparison_note"].lower()
