@@ -94,6 +94,29 @@ function openEvaluation(id){
   $("evaluation-form").elements.country.value="";
   $("evaluation-dialog").showModal();
 }
+async function loadRankedOpportunities(){
+  const country=$("rank-country").value.trim();
+  if(country.length<2){toast("نام کشور را کامل وارد کنید");return}
+  const host=$("ranked-opportunity-list");
+  host.textContent="در حال محاسبهٔ اولویت‌ها…";
+  try{
+    const result=await api("/api/opportunities/ranked?country="+encodeURIComponent(country));
+    if(!result.total){host.innerHTML='<div class="empty">برای این کشور هنوز ارزیابی ثبت نشده است. ابتدا فرصت‌ها را ارزیابی کنید.</div>';return}
+    const tierLabels={priority_candidate:"اولویت بالاتر",needs_review:"نیازمند بررسی بیشتر",low_priority:"اولویت پایین"};
+    const aiLabels={bounded_ai_draft_candidate:"مناسب تهیهٔ پیش‌نویس با AI",policy_blocked:"استفاده از AI مسدود",human_review_or_policy_check:"نیازمند بررسی انسانی یا قوانین"};
+    host.innerHTML=result.groups.map(group=>'<div class="rank-currency"><h3>گروه '+esc(currencyFa(group.currency))+' · '+group.count+' فرصت</h3>'+
+      group.items.map(item=>{
+        const e=item.evaluation||{};
+        return '<article class="item"><div><h3>#'+item.rank_in_currency+' · '+esc(item.title)+' <span class="pill">'+esc(tierLabels[item.priority_tier]||item.priority_tier)+'</span></h3>'+
+          '<p>'+esc(item.platform)+' · امتیاز '+item.ranking_score+'/100 · '+esc(e.eligibility||"نامشخص")+'<br>'+
+          'خالص تخمینی: '+(e.net_reward_estimate==null?"نامشخص":esc(e.net_reward_estimate)+" "+esc(currencyFa(e.currency)))+
+          ' · ساعتی: '+(e.net_hourly_estimate==null?"نامشخص":esc(e.net_hourly_estimate)+" "+esc(currencyFa(e.currency)))+'<br>'+
+          'تناسب AI: '+esc(aiLabels[item.ai_fit]||item.ai_fit)+' · مجوز اقدام واقعی: خیر<br>'+
+          'هشدارها: '+(Array.isArray(e.risk_flags)?e.risk_flags.length:0)+'</p>'+
+          '<a href="'+esc(item.url)+'" target="_blank" rel="noopener noreferrer">بازکردن فرصت ↗</a></div></article>';
+      }).join("")+'</div>').join("")+'<p class="muted">'+esc(result.comparison_note)+'</p>';
+  }catch(error){host.textContent="دریافت رتبه‌بندی ناموفق بود: "+error.message}
+}
 function renderCompetitions(){
   const host=$("competition-list");
   host.innerHTML=competitions.length?competitions.map(c=>`<div class="item"><div><h3>${esc(c.title)} <span class="pill">${esc(statusFa(c.eligibility))}</span></h3><p>${esc(c.country)} · نوع: ${esc(statusFa(c.task_type))}<br><a href="${esc(c.url)}" target="_blank" rel="noopener noreferrer">صفحه مسابقه ↗</a> · <a href="${esc(c.rules_url)}" target="_blank" rel="noopener noreferrer">قوانین ↗</a><br>بررسی قوانین: ${c.terms_verified?"بله":"خیر"} · اجازه ربات: ${c.automated_agents_allowed?"بله":"خیر"} · API رسمی: ${c.official_api?"بله":"خیر"}</p></div><div class="item-actions"><button class="secondary" data-comp-plan="${c.id}">ساخت استراتژی</button><button class="secondary" data-comp-dry="${c.id}">تمرین آزمایشی</button></div></div>`).join(""):'<div class="empty">هنوز مسابقه‌ای ثبت نشده است.</div>';
@@ -293,6 +316,6 @@ $("evaluation-form").onsubmit=async e=>{
   }catch(err){toast(err.message)}
 };
 $("reward-form").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));data.opportunity_id=data.opportunity_id?Number(data.opportunity_id):null;data.amount=Number(data.amount);try{await api("/api/earnings",{method:"POST",body:JSON.stringify(data)});e.target.closest("dialog").close();e.target.reset();toast("درآمد در دفتر درآمد ذخیره شد");refresh()}catch(err){toast(err.message)}};
-$("source-filter").onchange=renderSources;$("search").oninput=renderOpportunities;$("filter").onchange=renderOpportunities;$("verification-filter").onchange=renderOpportunities;
+$("rank-opportunities").onclick=loadRankedOpportunities;$("source-filter").onchange=renderSources;$("search").oninput=renderOpportunities;$("filter").onchange=renderOpportunities;$("verification-filter").onchange=renderOpportunities;
 refresh().catch(e=>toast(e.message));
 setInterval(()=>refresh().catch(()=>{}),60000);
