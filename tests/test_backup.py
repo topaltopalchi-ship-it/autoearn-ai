@@ -169,6 +169,46 @@ def test_restore_verifies_and_recovers_backup_without_overwriting(tmp_path):
         restore_backup(backup, destination)
 
 
+def test_restore_rejects_symlinked_backup_directory(tmp_path):
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    backup = tmp_path / "backup"
+    create_backup(database, evidence, backup)
+    linked_backup = tmp_path / "linked-backup"
+    try:
+        linked_backup.symlink_to(backup, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("Symlinks are unavailable on this platform")
+
+    with pytest.raises(ValueError, match="Symbolic links"):
+        restore_backup(linked_backup, tmp_path / "recovered")
+    assert not (tmp_path / "recovered").exists()
+
+
+def test_restore_rejects_symlinked_destination_parent(tmp_path):
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    backup = tmp_path / "backup"
+    create_backup(database, evidence, backup)
+    real_parent = tmp_path / "real-parent"
+    real_parent.mkdir()
+    linked_parent = tmp_path / "linked-parent"
+    try:
+        linked_parent.symlink_to(real_parent, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("Symlinks are unavailable on this platform")
+
+    with pytest.raises(ValueError, match="Symbolic links"):
+        restore_backup(backup, linked_parent / "recovered")
+    assert not (real_parent / "recovered").exists()
+
+
 def test_restore_rejects_tampered_evidence_and_does_not_create_destination(tmp_path):
     database = tmp_path / "autoearn.db"
     with sqlite3.connect(database) as db:
