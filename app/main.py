@@ -26,6 +26,7 @@ from autoearn.competitions import (
     AIProviderError, Competition, CompetitionAdapterRegistry, assess_competition, build_strategy,
 )
 from autoearn.task_suitability import TaskProfile, assess_task_suitability
+from autoearn.ranking import rank_evaluations
 
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.getenv("AUTOEARN_DB", ROOT / "autoearn.db"))
@@ -963,6 +964,56 @@ def list_opportunity_evaluations(opportunity_id: int, actor: str = Depends(requi
         "evaluation": json.loads(row["result_json"]),
         "created_at": row["created_at"],
     } for row in rows]
+
+
+@app.get("/api/opportunities/ranked")
+def ranked_opportunities(
+    country: str = Query(min_length=2, max_length=80),
+    actor: str = Depends(require_owner),
+):
+    """Rank the latest evaluation per opportunity, separated by currency."""
+    with connect() as db:
+        rows = db.execute(
+            """SELECT eh.id AS evaluation_id, eh.opportunity_id, eh.source_id,
+                      eh.country, eh.execution_mode, eh.result_json, eh.created_at,
+                      o.title, o.platform, o.url, o.category, o.status,
+                      o.verification_status
+               FROM evaluation_history eh
+               JOIN opportunities o ON o.id = eh.opportunity_id
+               WHERE lower(trim(eh.country)) = lower(trim(?))
+                 AND eh.id = (
+                    SELECT MAX(latest.id)
+                    FROM evaluation_history latest
+                    WHERE latest.opportunity_id = eh.opportunity_id
+                      AND lower(trim(latest.country)) = lower(trim(eh.country))
+                 )
+               ORDER BY eh.id DESC""",
+            (country.strip(),),
+        ).fetchall()
+    records = []
+    for row in rows:
+        try:
+            evaluation = json.loads(row["result_json"])
+        except (TypeError, json.JSONDecodeError):
+            evaluation = {}
+        records.append({
+            "evaluation_id": row["evaluation_id"],
+            "opportunity_id": row["opportunity_id"],
+            "source_id": row["source_id"],
+            "country": row["country"],
+            "execution_mode": row["execution_mode"],
+            "title": row["title"],
+            "platform": row["platform"],
+            "url": row["url"],
+            "category": row["category"],
+            "opportunity_status": row["status"],
+            "verification_status": row["verification_status"],
+            "created_at": row["created_at"],
+            "evaluation": evaluation,
+        })
+    ranked = rank_evaluations(records)
+    ranked["country"] = country.strip()
+    return ranked
 
 
 @app.post("/api/discovery/rss", status_code=200)
