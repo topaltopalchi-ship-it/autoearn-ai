@@ -35,13 +35,14 @@ function esc(s=""){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt
 $("owner-token").value = ownerToken();
 let opportunities=[];
 let sources=[];
+let competitions=[];
 async function refresh(){
-  const [dash,opps,tasks,earnings,sourceRows]=await Promise.all([api("/api/dashboard"),api("/api/opportunities"),api("/api/tasks"),api("/api/earnings"),api("/api/sources")]);
-  opportunities=opps;sources=sourceRows;
+  const [dash,opps,tasks,earnings,sourceRows,competitionRows]=await Promise.all([api("/api/dashboard"),api("/api/opportunities"),api("/api/tasks"),api("/api/earnings"),api("/api/sources"),api("/api/competitions")]);
+  opportunities=opps;sources=sourceRows;competitions=competitionRows;
   $("stat-opps").textContent=dash.opportunities;$("stat-tasks").textContent=dash.tasks;
   $("stat-approval").textContent=dash.awaiting_approval;$("stat-paid").textContent=ledgerTotals(dash.earnings_totals,["paid"]);
   $("stat-pending").textContent="در جریان: "+ledgerTotals(dash.earnings_totals,["estimated","earned","pending","withdrawable"]);
-  renderOpportunities();renderSources();renderTasks(tasks);renderEarnings(earnings);fillRewardOptions();
+  renderOpportunities();renderSources();renderCompetitions();renderTasks(tasks);renderEarnings(earnings);fillRewardOptions();
 }
 function renderOpportunities(){
   const q=$("search").value.toLowerCase(),status=$("filter").value,verification=$("verification-filter").value;
@@ -89,6 +90,17 @@ function openEvaluation(id){
   $("evaluation-form").elements.country.value="";
   $("evaluation-dialog").showModal();
 }
+function renderCompetitions(){
+  const host=$("competition-list");
+  host.innerHTML=competitions.length?competitions.map(c=>`<div class="item"><div><h3>${esc(c.title)} <span class="pill">${esc(statusFa(c.eligibility))}</span></h3><p>${esc(c.country)} · نوع: ${esc(statusFa(c.task_type))}<br><a href="${esc(c.url)}" target="_blank" rel="noopener noreferrer">صفحه مسابقه ↗</a> · <a href="${esc(c.rules_url)}" target="_blank" rel="noopener noreferrer">قوانین ↗</a><br>بررسی قوانین: ${c.terms_verified?"بله":"خیر"} · اجازه ربات: ${c.automated_agents_allowed?"بله":"خیر"} · API رسمی: ${c.official_api?"بله":"خیر"}</p></div><div class="item-actions"><button class="secondary" data-comp-plan="${c.id}">ساخت استراتژی</button><button class="secondary" data-comp-dry="${c.id}">تمرین آزمایشی</button></div></div>`).join(""):'<div class="empty">هنوز مسابقه‌ای ثبت نشده است.</div>';
+  host.querySelectorAll("[data-comp-plan]").forEach(b=>b.onclick=async()=>{
+    const objective=prompt("هدف یا شرح مسئلهٔ مسابقه را بنویسید (اختیاری):")||"";
+    try{const result=await api(`/api/competitions/${b.dataset.compPlan}/plan`,{method:"POST",body:JSON.stringify({objective})});const p=result.plan;alert("استراتژی آماده شد\n\nروش: "+p.approach+"\n\nمراحل:\n"+p.steps.join("\n")+"\n\nبررسی‌ها:\n"+p.validation_checks.join("\n")+"\n\nاین نسخه از برنامه‌ریز پایه استفاده می‌کند، نه مدل زبانی متصل.");}catch(e){toast(e.message)}
+  });
+  host.querySelectorAll("[data-comp-dry]").forEach(b=>b.onclick=async()=>{
+    try{const result=await api(`/api/competitions/${b.dataset.compDry}/dry-run`,{method:"POST"});alert("نتیجه تمرین آزمایشی\n\nارسال واقعی: خیر\nآمادگی: "+(result.readiness?"بله":"خیر")+"\nموانع:\n"+(result.blockers.join("\n")||"ندارد")+"\n\n"+result.message);}catch(e){toast(e.message)}
+  });
+}
 function renderSources(){
   const status=$("source-filter").value;
   const rows=sources.filter(s=>!status||s.status===status);
@@ -124,6 +136,13 @@ async function showEarningHistory(id){
   }catch(e){toast(e.message)}
 }
 function fillRewardOptions(){$("reward-opportunity").innerHTML='<option value="">بدون پیوند به فرصت</option>'+opportunities.map(o=>'<option value="'+o.id+'">'+esc(o.title)+'</option>').join("")}
+$("competition-form").onsubmit=async e=>{
+  e.preventDefault();
+  const form=e.target,data=Object.fromEntries(new FormData(form));
+  for(const key of ["terms_verified","automated_agents_allowed","official_api"])data[key]=form.elements[key].checked;
+  data.eligibility="unknown";
+  try{await api("/api/competitions",{method:"POST",body:JSON.stringify(data)});form.reset();toast("مسابقه ثبت شد؛ اکنون استراتژی بسازید");refresh()}catch(err){toast(err.message)}
+};
 $("add-opportunity").onclick=()=>$("opportunity-dialog").showModal();
 $("add-source").onclick=()=>$("source-dialog").showModal();
 $("save-owner-token").onclick=()=>{const value=$("owner-token").value.trim();if(!value){sessionStorage.removeItem("autoearn_owner_token");toast("رمز مالک برای این نشست پاک شد");return}sessionStorage.setItem("autoearn_owner_token",value);toast("رمز مالک برای این نشست ذخیره شد");refresh().catch(e=>toast(e.message))};
