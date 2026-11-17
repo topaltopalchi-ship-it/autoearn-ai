@@ -63,6 +63,7 @@ Country eligibility and platform payout support do not prove that this particula
 - Approved RSS/Atom feeds can now be checked automatically on a configurable schedule (default: every 6 hours); the owner can pause or change the interval from the dashboard.
 - Feed health is recorded per approved source: last check, last successful check, consecutive failures, and latest error. An owner-only health endpoint classifies feeds as healthy, failing, stale, never checked, or inactive pending review; it performs no additional network requests. It also tracks cumulative check/success counts and a historical success percentage. The dashboard labels the sample as limited until at least five checks; this operational metric is not a guarantee that listings are legitimate or rewards will be paid.
 - A SQLite-backed lease prevents overlapping scheduled/manual scans across app workers. Only owner-approved feeds are fetched; newly found items stay in the pending review queue and are never promoted or executed automatically.
+- Each approved feed has a persisted 60-second minimum check interval. Transient feed failures receive durable exponential retry backoff (60 seconds up to 6 hours); a healthy feed clears its retry schedule. This applies only to read-only discovery, never to non-idempotent platform submissions.
 - Manual batch discovery remains available. No broad crawling is enabled.
 
 ### Competition agent implementation (first vertical slice)
