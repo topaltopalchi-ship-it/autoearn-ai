@@ -5,6 +5,7 @@ from .discovery import SourceCandidate
 from .evaluator import OpportunityCandidate, evaluate_candidate
 from .opportunities import Opportunity, normalize_url, score_opportunity
 from .registry import SourceRegistry
+from .rss import PublicRssAdapter
 
 __all__ = [
     "AdapterManifest",
@@ -12,6 +13,7 @@ __all__ = [
     "DiscoveredLead",
     "Opportunity",
     "OpportunityCandidate",
+    "PublicRssAdapter",
     "SourceCandidate",
     "SourceRegistry",
     "evaluate_candidate",
