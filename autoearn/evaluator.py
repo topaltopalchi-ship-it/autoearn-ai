@@ -38,6 +38,30 @@ class OpportunityCandidate:
     risk_score: int | None = None
     evidence: tuple[str, ...] = field(default_factory=tuple)
 
+    def __post_init__(self) -> None:
+        if not self.title.strip():
+            raise ValueError("title is required")
+        if self.category not in ("games_competitions", "surveys_microtasks", "freelancing_services", "ai_content_products", "other"):
+            raise ValueError("unsupported category")
+        if self.execution_mode not in ("manual", "assist", "official_api"):
+            raise ValueError("unsupported execution mode")
+        if self.source_status not in ("pending", "approved", "rejected"):
+            raise ValueError("unsupported source status")
+        if self.verification_status not in ("pending", "verified", "rejected"):
+            raise ValueError("unsupported verification status")
+        if self.reward_amount is not None and self.reward_amount < 0:
+            raise ValueError("reward_amount cannot be negative")
+        if self.estimated_cost < 0:
+            raise ValueError("estimated_cost cannot be negative")
+        if self.estimated_minutes is not None and self.estimated_minutes < 1:
+            raise ValueError("estimated_minutes must be positive")
+        if self.payment_probability is not None and not 0 <= self.payment_probability <= 100:
+            raise ValueError("payment_probability must be from 0 to 100")
+        if self.risk_score is not None and not 0 <= self.risk_score <= 100:
+            raise ValueError("risk_score must be from 0 to 100")
+        if not self.reward_currency.strip():
+            raise ValueError("reward_currency is required")
+
 
 def _country_key(value: str) -> str:
     return " ".join(value.casefold().split())
@@ -119,6 +143,10 @@ def evaluate_candidate(
         and candidate.verification_status == "verified"
         and bool(candidate.evidence)
         and candidate.execution_mode == "official_api"
+        and candidate.reward_amount is not None
+        and candidate.payment_probability is not None
+        and candidate.estimated_minutes is not None
+        and candidate.risk_score is not None
     )
     if candidate.execution_mode != "official_api":
         flags.append("automatic execution is unavailable for this execution mode")
