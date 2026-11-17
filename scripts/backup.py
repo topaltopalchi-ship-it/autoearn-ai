@@ -63,6 +63,14 @@ def create_backup(
         if os.name == "posix":
             os.chmod(database_copy, 0o600)
 
+        with sqlite3.connect(database_copy) as snapshot:
+            try:
+                evidence_rows = snapshot.execute(
+                    "SELECT stored_name, size_bytes, sha256 FROM earnings_evidence"
+                ).fetchall()
+            except sqlite3.OperationalError:
+                evidence_rows = []
+
         evidence_copy = staging / "private_evidence"
         evidence_copy.mkdir(mode=0o700)
         evidence_entries = []
@@ -84,6 +92,14 @@ def create_backup(
                     "sha256": _sha256(copied),
                 })
 
+        copied_by_name = {entry["name"]: entry for entry in evidence_entries}
+        for stored_name, size_bytes, sha256 in evidence_rows:
+            copied = copied_by_name.get(stored_name)
+            if copied is None or copied["size_bytes"] != size_bytes or copied["sha256"] != sha256:
+                raise RuntimeError(
+                    "Evidence files do not match the SQLite snapshot; stop the app and retry the backup"
+                )
+
         manifest = {
             "format_version": 1,
             "created_at": datetime.now(timezone.utc).isoformat(),
@@ -93,6 +109,7 @@ def create_backup(
             "sqlite_integrity_check": integrity,
             "evidence_directory": "private_evidence",
             "evidence_files": evidence_entries,
+            "database_evidence_records_checked": len(evidence_rows),
         }
         manifest_path = staging / "manifest.json"
         manifest_path.write_text(
