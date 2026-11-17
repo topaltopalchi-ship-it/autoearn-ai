@@ -84,3 +84,7 @@ A high score is not a guarantee. Missing or stale evidence lowers confidence and
 - No automatic execution for unreviewed sources or unknown eligibility.
 - No public deployment of review or execution endpoints without authentication, authorization, CSRF protections where relevant, and secret management.
 - Never claim guaranteed earnings or verified payouts without evidence.
+
+## Initial focused discovery tracks
+
+The first discovery priorities are game playtesting, puzzle solving, and IQ/reasoning tasks, followed by skill competitions, bug testing, software QA, AI data tasks, microtasks, and freelance projects. The code registry in `autoearn/tracks.py` maps each track to its parent adapter category and conservative execution guidance. Playtesting and software QA remain human-required; skill competitions require an official API and explicit platform permission; AI assistance is conditional on each task's terms. Track priority never overrides country eligibility, payout verification, source review, or the supervision gates above.
