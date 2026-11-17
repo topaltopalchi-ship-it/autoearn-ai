@@ -375,13 +375,14 @@ def create_opportunity(data: OpportunityIn, actor: str = Depends(require_owner))
                   payload["reward_description"], payload["eligibility"], payload["terms_url"],
                   payload["notes"], score, now(), payload["eligible_countries"], payload["excluded_countries"],
                   payload["minimum_withdrawal_amount"], payload["withdrawal_currency"], payload["payout_methods"]))
-        except sqlite3.IntegrityError:
-            # The pre-insert SELECT is only a friendly fast path. The unique
-            # index is the concurrency-safe authority when two requests race.
+        except sqlite3.IntegrityError as exc:
+            # The unique URL index is the concurrency-safe authority.
+            # SQLite may roll back a trigger's competing insert together
+            # with the failed statement, so inspect the constraint error too.
             existing = db.execute(
                 "SELECT id FROM opportunities WHERE url = ?", (payload["url"],)
             ).fetchone()
-            if existing:
+            if existing or "opportunities.url" in str(exc):
                 raise HTTPException(409, "This opportunity URL is already registered.")
             raise
         row = db.execute("SELECT * FROM opportunities WHERE id = ?", (cur.lastrowid,)).fetchone()
