@@ -263,6 +263,13 @@ def init_db() -> None:
             result_json TEXT NOT NULL,
             created_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS competition_adapter_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            adapter_id TEXT NOT NULL,
+            requested_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_competition_adapter_requests_window
+            ON competition_adapter_requests(adapter_id, requested_at);
         CREATE TABLE IF NOT EXISTS execution_control (
             id INTEGER PRIMARY KEY CHECK (id = 1),
             paused INTEGER NOT NULL DEFAULT 1,
@@ -2208,6 +2215,11 @@ def submit_competition_entry(competition_id: int, data: CompetitionSubmitIn,
     manifest = competition_adapters.get_manifest(data.adapter_id)
     if manifest is None:
         raise HTTPException(409, "No approved official competition adapter is installed for this platform.")
+    adapter_limit = int(getattr(manifest, "requests_per_minute", 10))
+    if adapter_limit < 1 or adapter_limit > 600:
+        raise HTTPException(409, "Adapter declares an invalid request limit.")
+    adapter_error = None
+    result = None
     with connect() as db:
         row = db.execute("SELECT * FROM competitions WHERE id = ?", (competition_id,)).fetchone()
         if row is None:
@@ -2216,28 +2228,61 @@ def submit_competition_entry(competition_id: int, data: CompetitionSubmitIn,
         readiness = assess_competition(competition)
         if not readiness.ready:
             raise HTTPException(409, {"message": "Competition is not ready for automated entry.", "blockers": list(readiness.blockers)})
-        # Serialize the pause check with owner pause updates. Once this
-        # submission acquires the write reservation, a concurrent pause
-        # request waits until the in-flight adapter call and audit write finish.
-        # The pause endpoint returning therefore guarantees no later submission
-        # can pass this gate while the pause remains enabled.
+        # Serialize the pause check and durable rate reservation with owner
+        # pause updates. The write lock stays held until the adapter call and
+        # audit event finish, so a successful pause waits for in-flight work.
         db.execute("BEGIN IMMEDIATE")
         control = db.execute(
             "SELECT paused FROM execution_control WHERE id = 1"
         ).fetchone()
         if control is None or control["paused"]:
             raise HTTPException(423, "Global emergency pause is active; external submissions are blocked.")
+        requested_at = datetime.now(timezone.utc)
+        cutoff = (requested_at - timedelta(seconds=60)).isoformat()
+        db.execute(
+            "DELETE FROM competition_adapter_requests WHERE requested_at < ?",
+            (cutoff,),
+        )
+        recent_requests = db.execute(
+            """SELECT COUNT(*) FROM competition_adapter_requests
+               WHERE adapter_id = ? AND requested_at >= ?""",
+            (data.adapter_id, cutoff),
+        ).fetchone()[0]
+        if recent_requests >= adapter_limit:
+            raise HTTPException(429, "Persistent adapter rate limit exceeded; wait before submitting again.")
+        timestamp = requested_at.isoformat()
+        db.execute(
+            "INSERT INTO competition_adapter_requests (adapter_id, requested_at) VALUES (?, ?)",
+            (data.adapter_id, timestamp),
+        )
         try:
             receipt = competition_adapters.submit(
                 data.adapter_id, competition, data.payload, owner_confirmed=True
             )
-        except (PermissionError, KeyError, ValueError, RuntimeError) as exc:
-            raise HTTPException(409, str(exc))
-        result = {"status": receipt.status, "external_entry_id": receipt.external_entry_id,
-                  "evidence": receipt.evidence, "external_submission": True}
-        db.execute(
-            "INSERT INTO competition_attempts (competition_id, mode, status, result_json, created_at) VALUES (?, 'official_api', ?, ?, ?)",
-            (competition_id, receipt.status, json.dumps(result, ensure_ascii=False), now()),
+            result = {"status": receipt.status, "external_entry_id": receipt.external_entry_id,
+                      "evidence": receipt.evidence, "external_submission": True}
+            db.execute(
+                "INSERT INTO competition_attempts (competition_id, mode, status, result_json, created_at) VALUES (?, 'official_api', ?, ?, ?)",
+                (competition_id, receipt.status, json.dumps(result, ensure_ascii=False), now()),
+            )
+        except Exception as exc:
+            # Persist the reservation and an audit record even when the
+            # adapter errors. The remote outcome may be ambiguous, so never
+            # auto-retry this non-idempotent submission.
+            adapter_error = type(exc).__name__
+            failure = {
+                "status": "failed", "error_type": adapter_error,
+                "external_submission": "unknown",
+                "message": "Adapter failed; verify the remote platform before any manual retry.",
+            }
+            db.execute(
+                "INSERT INTO competition_attempts (competition_id, mode, status, result_json, created_at) VALUES (?, 'official_api', 'failed', ?, ?)",
+                (competition_id, json.dumps(failure, ensure_ascii=False), now()),
+            )
+    if adapter_error:
+        raise HTTPException(
+            502,
+            "Official adapter failed and the attempt was recorded. Verify the remote platform before any manual retry.",
         )
     return result
 
