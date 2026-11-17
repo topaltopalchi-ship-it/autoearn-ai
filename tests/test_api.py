@@ -1834,3 +1834,77 @@ def test_all_api_routes_except_health_require_owner_authentication():
         assert main.require_owner in dependency_calls, (
             f"{route.path} is missing owner authentication"
         )
+
+
+def test_earning_evidence_upload_is_private_validated_and_downloadable(client, tmp_path, monkeypatch):
+    import hashlib
+    from app import main
+
+    monkeypatch.setattr(main, "EVIDENCE_DIR", tmp_path / "private-evidence")
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    earning = client.post(
+        "/api/earnings", headers=headers,
+        json={"amount": 14.5, "currency": "EUR", "state": "earned"},
+    ).json()
+    payload = b"%PDF-1.4\n% owner receipt evidence\n"
+    uploaded = client.post(
+        f"/api/earnings/{earning['id']}/evidence",
+        headers=headers,
+        files={"upload": ("receipt.pdf", payload, "application/pdf")},
+    )
+    assert uploaded.status_code == 201
+    metadata = uploaded.json()
+    assert metadata["ledger_id"] == earning["id"]
+    assert metadata["media_type"] == "application/pdf"
+    assert metadata["size_bytes"] == len(payload)
+    assert metadata["sha256"] == hashlib.sha256(payload).hexdigest()
+    assert list((tmp_path / "private-evidence").iterdir())
+
+    listed = client.get(
+        f"/api/earnings/{earning['id']}/evidence", headers=headers
+    )
+    assert listed.status_code == 200
+    assert listed.json()[0]["id"] == metadata["id"]
+
+    downloaded = client.get(
+        f"/api/earnings/{earning['id']}/evidence/{metadata['id']}",
+        headers=headers,
+    )
+    assert downloaded.status_code == 200
+    assert downloaded.content == payload
+    assert downloaded.headers["cache-control"] == "no-store"
+    assert client.get(
+        f"/api/earnings/{earning['id']}/evidence/{metadata['id']}"
+    ).status_code == 401
+
+
+def test_earning_evidence_rejects_unsupported_and_mismatched_files(client):
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    earning = client.post(
+        "/api/earnings", headers=headers,
+        json={"amount": 1, "currency": "EUR"},
+    ).json()
+    unsupported = client.post(
+        f"/api/earnings/{earning['id']}/evidence", headers=headers,
+        files={"upload": ("script.html", b"<script>alert(1)</script>", "text/html")},
+    )
+    assert unsupported.status_code == 415
+    mismatch = client.post(
+        f"/api/earnings/{earning['id']}/evidence", headers=headers,
+        files={"upload": ("fake.pdf", b"not a pdf", "application/pdf")},
+    )
+    assert mismatch.status_code == 415
+
+
+def test_earning_evidence_rejects_files_over_five_mib(client):
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    earning = client.post(
+        "/api/earnings", headers=headers,
+        json={"amount": 1, "currency": "EUR"},
+    ).json()
+    oversized = b"%PDF-" + (b"x" * (5 * 1024 * 1024))
+    response = client.post(
+        f"/api/earnings/{earning['id']}/evidence", headers=headers,
+        files={"upload": ("large.pdf", oversized, "application/pdf")},
+    )
+    assert response.status_code == 413
