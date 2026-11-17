@@ -96,24 +96,35 @@ def tracks_for_category(category: str) -> tuple[OpportunityTrack, ...]:
 
 
 _TRACK_KEYWORDS = {
-    "game_playtesting": ("playtest", "game testing", "test a game"),
-    "puzzle_solving": ("puzzle", "logic puzzle", "brain teaser"),
-    "iq_reasoning": ("iq test", "reasoning test", "logic test"),
-    "skill_competitions": ("skill contest", "skill competition", "tournament"),
-    "bug_testing": ("bug bounty", "bug report", "report a bug"),
-    "software_qa": ("software testing", "qa testing", "test software"),
-    "ai_data_tasks": ("data annotation", "ai training", "label data"),
-    "microtasks": ("microtask", "small task", "paid survey"),
-    "freelance_projects": ("freelance project", "client project", "contract work"),
+    "game_playtesting": ("playtest", "game testing", "test a game", "تست بازی", "بازی آزمایی"),
+    "puzzle_solving": ("puzzle", "logic puzzle", "brain teaser", "حل پازل", "معما", "چیستان"),
+    "iq_reasoning": ("iq test", "reasoning test", "logic test", "آزمون هوش", "تست هوش", "استدلال"),
+    "skill_competitions": ("skill contest", "skill competition", "tournament", "مسابقه مهارتی", "مسابقات مهارتی"),
+    "bug_testing": ("bug bounty", "bug report", "report a bug", "گزارش باگ", "گزارش خطا", "اشکال نرم افزار"),
+    "software_qa": ("software testing", "qa testing", "test software", "تست نرم افزار", "آزمون نرم افزار"),
+    "ai_data_tasks": ("data annotation", "ai training", "label data", "برچسب گذاری داده", "برچسب گذاری اطلاعات", "وظایف داده", "آموزش هوش مصنوعی"),
+    "microtasks": ("microtask", "small task", "paid survey", "مأموریت خرد", "وظیفه خرد", "کار کوچک", "نظرسنجی پولی"),
+    "freelance_projects": ("freelance project", "client project", "contract work", "پروژه فریلنسری", "پروژه آزادکاری", "پروژه دورکاری"),
 }
+
+
+def _normalize_track_text(value: str) -> str:
+    """Normalize common Persian/Arabic keyboard variants before matching."""
+    return (
+        value.replace("\\u064a", "\\u06cc")
+        .replace("\\u0643", "\\u06a9")
+        .replace("\\u0640", "")
+        .replace("\\u200c", " ")
+        .casefold()
+    )
 
 
 def infer_track_from_text(title: str, summary: str, category: str) -> str:
     """Infer only a unique track; ambiguous candidates remain for manual review."""
-    text = f"{title} {summary}".casefold()
+    text = _normalize_track_text(f"{title} {summary}")
     matches = [
         track.key for track in tracks_for_category(category)
-        if any(term in text for term in _TRACK_KEYWORDS.get(track.key, ()))
+        if any(_normalize_track_text(term) in text for term in _TRACK_KEYWORDS.get(track.key, ()))
     ]
     return matches[0] if len(matches) == 1 else ""
 
