@@ -526,7 +526,12 @@ def test_opportunity_evaluation_uses_reviewed_source_country_and_evidence(client
     assert evaluation["eligibility"] == "eligible"
     assert evaluation["net_reward_estimate"] == 10
     assert evaluation["net_hourly_estimate"] == 20
-    assert evaluation["execution_allowed"] is True
+    # Official-API readiness must remain blocked until the task's AI
+    # permission is explicitly reviewed and a suitability profile is supplied.
+    assert evaluation["execution_allowed"] is False
+    assert evaluation["ai_task_assessment"] is None
+    assert any("AI task profile" in flag for flag in evaluation["risk_flags"])
+    assert result.json()["execution_authorized"] is False
     assert "no external platform action is executed" in result.json()["execution_note"]
 
 
