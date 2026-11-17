@@ -1,6 +1,6 @@
 import pytest
 
-from autoearn.tracks import get_track, infer_track_from_text, list_tracks, track_matches_category
+from autoearn.tracks import _normalize_track_text, get_track, infer_track_from_text, list_tracks, track_matches_category
 
 
 def test_priority_tracks_put_playtesting_and_puzzles_first():
@@ -60,5 +60,5 @@ def test_infer_track_from_persian_text(title, summary, category, expected):
 
 
 def test_infer_track_normalizes_arabic_keyboard_variants():
-    assert infer_track_from_text("حل پازل و معما", "", "games_competitions") == "puzzle_solving"
-    assert infer_track_from_text("گزارش باگ نرم افزار", "", "freelancing_services") == "bug_testing"
+    assert _normalize_track_text("ي ك ـ\u200c") == "ی ک  "
+    assert infer_track_from_text("برچسب‌گذاری داده برای هوش مصنوعی", "", "surveys_microtasks") == "ai_data_tasks"
