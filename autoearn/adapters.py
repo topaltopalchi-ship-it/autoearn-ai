@@ -40,6 +40,8 @@ class AdapterManifest:
             raise ValueError("adapter id and display name are required")
         if not self.categories:
             raise ValueError("at least one supported category is required")
+        if not self.allowed_domains:
+            raise ValueError("at least one exact allowed domain is required")
         if self.requests_per_minute < 1 or self.requests_per_minute > 600:
             raise ValueError("requests_per_minute must be between 1 and 600")
         if self.execution_mode != "official_api" and self.allowed_actions:
@@ -49,8 +51,16 @@ class AdapterManifest:
         if self.allowed_actions and not self.requires_user_approval:
             raise ValueError("platform actions must retain user approval")
         for domain in self.allowed_domains:
-            if not domain or "/" in domain or ":" in domain:
-                raise ValueError("allowed_domains must contain bare hostnames")
+            if (
+                not domain
+                or domain != domain.strip()
+                or domain.startswith("*.")
+                or "/" in domain
+                or ":" in domain
+                or "@" in domain
+                or domain.casefold() != domain
+            ):
+                raise ValueError("allowed_domains must contain lowercase exact bare hostnames")
 
 
 @dataclass(frozen=True)
