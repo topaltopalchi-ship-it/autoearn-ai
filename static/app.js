@@ -8,9 +8,26 @@ const api = async (path, options={}) => {
   if (!response.ok) throw new Error("انجام درخواست با خطا روبه‌رو شد. اطلاعات و دسترسی را بررسی کنید.");
   return body;
 };
-const statusFa = (v) => ({game_rewards:"پاداش بازی",survey_rewards:"پاداش نظرسنجی",microtasks:"کارهای کوچک",freelance_jobs:"کارهای آزاد",digital_products:"محصولات دیجیتال",discovered:"کشف‌شده",reviewing:"در حال بررسی",eligible:"مجاز",ineligible:"غیرمجاز",archived:"بایگانی‌شده",pending:"در انتظار",approved:"تأییدشده",rejected:"ردشده",verified:"تأییدشده",pending_approval:"در انتظار تأیید",confirmed:"تأییدشده",paid:"پرداخت‌شده",manual:"دستی",assist:"با کمک دستیار",official_api:"رابط رسمی برنامه‌نویسی",games_competitions:"بازی و مسابقه",surveys_microtasks:"نظرسنجی و کارهای کوچک",freelancing_services:"فریلنسری و خدمات",ai_content_products:"محتوای هوش مصنوعی و محصولات دیجیتال",other:"سایر"})[v]||v;
+const statusFa = (v) => ({game_rewards:"پاداش بازی",survey_rewards:"پاداش نظرسنجی",microtasks:"کارهای کوچک",freelance_jobs:"کارهای آزاد",digital_products:"محصولات دیجیتال",discovered:"کشف‌شده",reviewing:"در حال بررسی",eligible:"مجاز",ineligible:"غیرمجاز",archived:"بایگانی‌شده",pending:"در انتظار",approved:"تأییدشده",rejected:"ردشده",verified:"تأییدشده",pending_approval:"در انتظار تأیید",confirmed:"تأییدشده",paid:"پرداخت‌شده",manual:"دستی",assist:"با کمک دستیار",official_api:"رابط رسمی برنامه‌نویسی",games_competitions:"بازی و مسابقه",surveys_microtasks:"نظرسنجی و کارهای کوچک",freelancing_services:"فریلنسری و خدمات",ai_content_products:"محتوای هوش مصنوعی و محصولات دیجیتال",other:"سایر","unknown":"نامشخص"})[v]||"نامشخص";
 const currencyFa = (c) => ({EUR:"یورو",USD:"دلار آمریکا",GBP:"پوند",TRY:"لیر",IRR:"ریال",CAD:"دلار کانادا",AUD:"دلار استرالیا"})[String(c||"").toUpperCase()] || "واحد پول";
 const money = (n,c="EUR") => new Intl.NumberFormat("fa-IR",{maximumFractionDigits:2}).format(Number(n||0))+" "+currencyFa(c);
+const riskFlagFa = (v) => ({
+  "country explicitly excluded":"کشور محل اقامت شما صریحاً در فهرست کشورهای غیرمجاز قرار دارد",
+  "country not in the explicit eligible-country list":"کشور محل اقامت شما در فهرست کشورهای مجاز ثبت نشده است",
+  "country eligibility is not documented":"شرایط مجازبودن کشور مشخص نشده است",
+  "evidence observation time is missing":"زمان ثبت مدارک مشخص نشده است",
+  "evidence timestamp is in the future":"زمان ثبت مدارک در آینده قرار دارد",
+  "evidence is stale":"مدارک قدیمی هستند و باید دوباره بررسی شوند",
+  "evidence timestamp is invalid":"زمان ثبت مدارک معتبر نیست",
+  "source has not been approved":"منبع هنوز تأیید نشده است",
+  "opportunity has not been verified":"فرصت هنوز بررسی و تأیید نشده است",
+  "no supporting evidence recorded":"مدرک پشتیبان ثبت نشده است",
+  "payment probability is unknown":"احتمال پرداخت مشخص نیست",
+  "time estimate is missing or invalid":"برآورد زمان ثبت نشده یا معتبر نیست",
+  "advertised reward is unknown":"مبلغ پاداش اعلام‌شده مشخص نیست",
+  "risk assessment is missing":"ارزیابی ریسک انجام نشده است",
+  "automatic execution is unavailable for this execution mode":"اجرای خودکار در روش انتخاب‌شده مجاز نیست"
+})[v]||"هشدار دیگری ثبت شده است";
 function toast(message){const el=$("toast");el.textContent=message;el.classList.add("show");setTimeout(()=>el.classList.remove("show"),2600)}
 function esc(s=""){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 $("owner-token").value = ownerToken();
@@ -40,7 +57,7 @@ async function showEvaluationHistory(id){
     if(!rows.length){toast("هنوز سابقه‌ای برای ارزیابی ثبت نشده است");return}
     const summary=rows.map((row,index)=>{
       const e=row.evaluation||{};
-      return `#${index+1} · ${new Date(row.created_at).toLocaleString("fa-IR")}\nکشور: ${row.country}\nوضعیت صلاحیت: ${e.eligibility||"نامشخص"}\nامتیاز: ${e.ranking_score??"—"}/100\nپاداش خالص: ${e.net_reward_estimate??"نامشخص"} ${e.currency?currencyFa(e.currency):""}\nروش مشارکت: ${statusFa(row.execution_mode)}`;
+      return `#${index+1} · ${new Date(row.created_at).toLocaleString("fa-IR")}\nکشور: ${row.country}\nوضعیت صلاحیت: ${statusFa(e.eligibility)}\nامتیاز: ${e.ranking_score??"—"}/100\nپاداش خالص: ${e.net_reward_estimate??"نامشخص"} ${e.currency?currencyFa(e.currency):""}\nروش مشارکت: ${statusFa(row.execution_mode)}`;
     }).join("\n\n");
     alert("سوابق ارزیابی\n\n"+summary);
   }catch(e){toast(e.message)}
@@ -121,10 +138,10 @@ $("evaluation-form").onsubmit=async e=>{
     alert("وضعیت صلاحیت: "+statusFa(value.eligibility)+
       "\nمیزان اطمینان: "+value.confidence+"/100"+
       "\nامتیاز رتبه‌بندی: "+value.ranking_score+"/100"+
-      "\nپاداش خالص تخمینی: "+(value.net_reward_estimate==null?"نامشخص":value.net_reward_estimate+" "+value.currency)+
-      "\nدرآمد خالص ساعتی تخمینی: "+(value.net_hourly_estimate==null?"نامشخص":value.net_hourly_estimate+" "+value.currency+" در ساعت")+
+      "\nپاداش خالص تخمینی: "+(value.net_reward_estimate==null?"نامشخص":value.net_reward_estimate+" "+currencyFa(value.currency))+
+      "\nدرآمد خالص ساعتی تخمینی: "+(value.net_hourly_estimate==null?"نامشخص":value.net_hourly_estimate+" "+currencyFa(value.currency)+" در ساعت")+
       "\nآمادگی اجرا: "+(value.execution_allowed?"پیش‌نیازها فراهم است":"مسدود است")+
-      "\n\nهشدارها:\n"+(value.risk_flags.join("\n")||"بدون هشدار")+
+      "\n\nهشدارها:\n"+(value.risk_flags.map(riskFlagFa).join("\n")||"بدون هشدار")+
       "\n\nهیچ اقدامی در پلتفرم انجام نشد.");
   }catch(err){toast(err.message)}
 };
