@@ -614,6 +614,8 @@ def test_earnings_ledger_records_state_and_audit_history(client):
         "estimated", "earned", "pending", "withdrawable", "paid"
     ]
     assert all(event["actor"] == "owner" for event in history.json())
+    totals = client.get("/api/dashboard", headers=headers).json()["earnings_totals"]
+    assert totals["EUR"]["paid"] == 8.75
     assert client.get("/api/earnings", headers=headers).json()[0]["id"] == item["id"]
 
 
