@@ -42,6 +42,7 @@ def test_health(client):
     assert "frame-ancestors 'none'" in csp
     assert "object-src 'none'" in csp
     assert "script-src 'self'" in csp
+    assert "upgrade-insecure-requests" not in csp
 
 
 def test_private_opportunity_and_source_lists_require_owner_token(client):
