@@ -71,3 +71,30 @@ def test_decision_requires_human_actor_and_completion_evidence(tmp_path):
     store.approve(request.request_id, actor="owner")
     with pytest.raises(SupervisionError, match="evidence"):
         store.complete(request.request_id, actor="owner", evidence=" ")
+
+
+def test_concurrent_decisions_allow_only_one_transition(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    store = make_store(tmp_path)
+    request = create(store)
+    barrier = Barrier(2)
+
+    def decide(method):
+        barrier.wait()
+        try:
+            method(request.request_id, actor="owner")
+            return "success"
+        except SupervisionError:
+            return "rejected"
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        outcomes = list(pool.map(decide, [store.approve, store.reject]))
+
+    assert sorted(outcomes) == ["rejected", "success"]
+    final = store.get(request.request_id)
+    assert final.status in {"approved", "rejected"}
+    decisions = [event for event in store.audit_events(request.request_id)
+                 if event.event_type in {"approved", "rejected"}]
+    assert len(decisions) == 1
