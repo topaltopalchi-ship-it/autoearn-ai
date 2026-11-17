@@ -874,6 +874,9 @@ def update_earning_state(ledger_id: int, data: EarningsStateIn,
         "paid": set(),
     }
     with connect() as db:
+        # Serialize competing state transitions so each decision is based on
+        # the latest committed state and the audit trail cannot fork.
+        db.execute("BEGIN IMMEDIATE")
         row = db.execute(
             "SELECT * FROM earnings_ledger WHERE id = ?", (ledger_id,)
         ).fetchone()
