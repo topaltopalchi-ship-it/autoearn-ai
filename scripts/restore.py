@@ -83,7 +83,7 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
         item = source_evidence / name
         if item.stat().st_size != entry.get("size_bytes") or _sha256(item) != entry.get("sha256"):
             raise ValueError(f"Evidence checksum or size mismatch: {name}")
-    with sqlite3.connect(source_database.as_uri() + "?mode=ro", uri=True) as db:
+    with closing(sqlite3.connect(source_database.as_uri() + "?mode=ro", uri=True)) as db:
         try:
             database_evidence = db.execute(
                 "SELECT stored_name, size_bytes, sha256 FROM earnings_evidence"
