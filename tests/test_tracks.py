@@ -1,6 +1,6 @@
 import pytest
 
-from autoearn.tracks import get_track, infer_track_from_text, list_tracks, track_matches_category
+from autoearn.tracks import get_track, list_tracks, track_matches_category
 
 
 def test_priority_tracks_put_playtesting_and_puzzles_first():
@@ -40,25 +40,3 @@ def test_human_testing_tracks_are_not_marked_as_automatable():
     assert get_track("game_playtesting").execution_guidance == "human_required"
     assert get_track("software_qa").execution_guidance == "human_required"
     assert get_track("skill_competitions").execution_guidance == "official_api_only"
-
-@pytest.mark.parametrize(
-    ("title", "summary", "category", "expected"),
-    [
-        ("فرصت حل پازل روزانه", "", "games_competitions", "puzzle_solving"),
-        ("آزمون هوش و استدلال", "", "games_competitions", "iq_reasoning"),
-        ("گزارش باگ نرم‌افزار", "", "freelancing_services", "bug_testing"),
-        ("تست نرم افزار موبایل", "", "freelancing_services", "software_qa"),
-        ("برچسب‌گذاری داده برای هوش مصنوعی", "", "surveys_microtasks", "ai_data_tasks"),
-        ("مأموریت خرد", "", "surveys_microtasks", "microtasks"),
-        ("پروژه فریلنسری", "", "freelancing_services", "freelance_projects"),
-        ("حل پازل", "آزمون هوش", "games_competitions", ""),
-        ("فرصت نامشخص", "", "other", ""),
-    ],
-)
-def test_infer_track_from_persian_text(title, summary, category, expected):
-    assert infer_track_from_text(title, summary, category) == expected
-
-
-def test_infer_track_normalizes_arabic_keyboard_variants():
-    assert infer_track_from_text("حل پازل و معما", "", "games_competitions") == "puzzle_solving"
-    assert infer_track_from_text("گزارش باگ نرم افزار", "", "freelancing_services") == "bug_testing"

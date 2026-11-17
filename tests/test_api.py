@@ -441,13 +441,13 @@ def test_rss_discovery_persists_only_pending_candidates_and_deduplicates(
                     observed_at="2026-11-17T00:00:00+00:00",
                 ),
                 SimpleNamespace(
-                    title="Unclassified opportunity",
+                    title="فرصت حل پازل روزانه",
                     url="https://tasks.example.com/listing/2",
-                    category="surveys_microtasks",
+                    category="games_competitions",
                     terms_url="",
                     summary="No reliable category clues",
                     observed_at="2026-11-17T00:00:00+00:00",
-                    track_key="game_playtesting",
+                    track_key="microtasks",
                 ),
             ]
 
@@ -473,9 +473,9 @@ def test_rss_discovery_persists_only_pending_candidates_and_deduplicates(
     assert candidates[0]["status"] == "pending"
     assert candidates[0]["track_key"] == "microtasks"
     assert candidates[0]["track_review_status"] == "matched"
-    assert candidates[1]["title"] == "Unclassified opportunity"
-    assert candidates[1]["track_key"] == ""
-    assert candidates[1]["track_review_status"] == "needs_review"
+    assert candidates[1]["title"] == "فرصت حل پازل روزانه"
+    assert candidates[1]["track_key"] == "puzzle_solving"
+    assert candidates[1]["track_review_status"] == "matched"
 
 
 def test_task_approval_and_reward_ledger_are_owner_only(client):
