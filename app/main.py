@@ -319,6 +319,24 @@ app = FastAPI(
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    response.headers.setdefault(
+        "Content-Security-Policy",
+        "default-src 'self'; base-uri 'self'; form-action 'self'; "
+        "frame-ancestors 'none'; object-src 'none'; "
+        "script-src 'self'; style-src 'self'; img-src 'self' data:; "
+        "connect-src 'self'; upgrade-insecure-requests",
+    )
+    return response
+
+
+
 class OpportunityIn(BaseModel):
     title: str = Field(min_length=2, max_length=160)
     platform: str = Field(min_length=2, max_length=100)
