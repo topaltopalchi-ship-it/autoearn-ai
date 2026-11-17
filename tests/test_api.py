@@ -217,8 +217,7 @@ def test_opportunity_records_region_and_payout_requirements(client):
     assert listed[0]["payout_methods"] == ["PayPal", "Bank transfer"]
 
 
-def test_opportunity_defaults_region_and_payout_fields(client):
-    response = client.post("/api/opportunities", headers={"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}, json={
+def test_opportunity_defaults_region_and_payout_fields(client):    response = client.post("/api/opportunities", headers={"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}, json={
         "title": "Basic source", "platform": "Example",
         "url": "https://example.com/basic",
     })
@@ -437,8 +436,7 @@ def test_rss_discovery_persists_only_pending_candidates_and_deduplicates(
         headers={"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"},
         json={
             "adapter_id": "feed-1", "display_name": "Public feed",
-            "feed_url": "https://feeds.example.com/rss",
-            "category": "surveys_microtasks",
+            "feed_url": "https://feeds.example.com/rss",            "category": "surveys_microtasks",
             "allowed_domains": ["feeds.example.com", "tasks.example.com"],
             "max_items": 10,
         })
@@ -518,6 +516,60 @@ def test_opportunity_evaluation_uses_reviewed_source_country_and_evidence(client
     assert evaluation["net_hourly_estimate"] == 20
     assert evaluation["execution_allowed"] is True
     assert "no external platform action is executed" in result.json()["execution_note"]
+
+
+def test_opportunity_evaluation_applies_payout_fees_and_currency_safe_threshold(client):
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    opp = client.post("/api/opportunities", headers=headers, json={
+        "title": "Payout fee task", "platform": "Example",
+        "url": "https://example.com/payout-fees",
+        "eligible_countries": ["Germany"],
+        "minimum_withdrawal_amount": 8,
+        "withdrawal_currency": "EUR",
+    }).json()
+    source = client.post("/api/sources", headers=headers, json={
+        "name": "Example official source", "url": "https://example.com/source"
+    }).json()
+    client.patch(f"/api/sources/{source['id']}/review", headers=headers,
+        json={"status": "approved"})
+    client.patch(f"/api/opportunities/{opp['id']}/status", headers=headers,
+        params={"status": "eligible"})
+    client.patch(f"/api/opportunities/{opp['id']}/verification", headers=headers,
+        json={"status": "verified"})
+
+    result = client.post(f"/api/opportunities/{opp['id']}/evaluate",
+        headers=headers, json={
+            "source_id": source["id"], "country": "Germany",
+            "execution_mode": "official_api", "reward_amount": 10,
+            "reward_currency": "EUR", "estimated_cost": 1,
+            "payout_fee_fixed": 0.5, "payout_fee_percent": 5,
+            "conversion_fee_percent": 2, "estimated_minutes": 30,
+            "payment_probability": 95, "risk_score": 5,
+            "evidence": ["Official payout terms reviewed"],
+        })
+    assert result.status_code == 200
+    evaluation = result.json()["evaluation"]
+    assert evaluation["payout_fee_estimate"] == 0.95
+    assert evaluation["conversion_fee_estimate"] == 0.18
+    assert evaluation["net_reward_estimate"] == 7.87
+    assert evaluation["withdrawal_reachable_estimate"] is False
+    assert evaluation["execution_allowed"] is False
+    assert evaluation["withdrawal_threshold_currency_mismatch"] is False
+
+    mismatch = client.post(f"/api/opportunities/{opp['id']}/evaluate",
+        headers=headers, json={
+            "source_id": source["id"], "country": "Germany",
+            "execution_mode": "official_api", "reward_amount": 10,
+            "reward_currency": "USD", "estimated_minutes": 30,
+            "payment_probability": 95, "risk_score": 5,
+            "evidence": ["Official payout terms reviewed"],
+        })
+    assert mismatch.status_code == 200
+    mismatch_evaluation = mismatch.json()["evaluation"]
+    assert mismatch_evaluation["withdrawal_reachable_estimate"] is None
+    assert mismatch_evaluation["withdrawal_threshold_currency_mismatch"] is True
+    assert any("different currency" in flag
+               for flag in mismatch_evaluation["risk_flags"])
 
 
 def test_opportunity_evaluation_blocks_country_mismatch_and_unreviewed_status(client):
@@ -657,8 +709,7 @@ def test_earnings_ledger_blocks_invalid_transitions_and_paid_mutation(client):
     client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
         json={"state": "pending"})
     client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
-        json={"state": "withdrawable"})
-    client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
+        json={"state": "withdrawable"})    client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
         json={"state": "paid"})
     terminal = client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
         json={"state": "pending"})
