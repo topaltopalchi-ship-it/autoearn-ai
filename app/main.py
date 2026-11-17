@@ -275,6 +275,16 @@ def _is_wallet_provider(provider: str) -> bool:
     return any(marker in normalized for marker in _WALLET_PROVIDER_MARKERS)
 
 
+def _looks_like_wallet_private_material(secret: str) -> bool:
+    """Conservative format guard for common raw wallet keys and recovery phrases."""
+    candidate = secret.strip()
+    hexadecimal = candidate[2:] if candidate.startswith(("0x", "0X")) else candidate
+    if len(hexadecimal) == 64 and all(char in "0123456789abcdefABCDEF" for char in hexadecimal):
+        return True
+    words = candidate.split()
+    return len(words) in {12, 24} and all(word.isascii() and word.isalpha() for word in words)
+
+
 class VaultCredentialIn(BaseModel):
     label: str = Field(min_length=1, max_length=80)
     provider: str = Field(min_length=1, max_length=80)
@@ -333,7 +343,9 @@ def vault_list_credentials():
 
 @app.post("/api/vault/credentials", status_code=201)
 def vault_add_credential(data: VaultCredentialIn):
-    if data.credential_type == "signing_key" and _is_wallet_provider(data.provider):
+    if data.credential_type == "signing_key" and (
+        _is_wallet_provider(data.provider) or _looks_like_wallet_private_material(data.secret)
+    ):
         raise HTTPException(
             422,
             "کلید خصوصی کیف پول و عبارت بازیابی را در این خزانه ثبت نکنید؛ "
