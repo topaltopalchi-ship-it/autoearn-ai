@@ -1,4 +1,5 @@
 import pytest
+import sqlite3
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -190,3 +191,32 @@ def test_opportunities_can_be_filtered_by_verification_status(client):
     verified = client.get("/api/opportunities?verification_status=verified").json()
     assert len(verified) == 1
     assert verified[0]["id"] == item["id"]
+
+
+def test_existing_database_gets_verification_columns(tmp_path, monkeypatch):
+    from app import main
+
+    legacy_db = tmp_path / "legacy.db"
+    monkeypatch.setattr(main, "DB_PATH", legacy_db)
+    with sqlite3.connect(legacy_db) as db:
+        db.execute("""
+            CREATE TABLE opportunities (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                platform TEXT NOT NULL,
+                url TEXT NOT NULL,
+                category TEXT NOT NULL DEFAULT 'game',
+                reward_description TEXT NOT NULL DEFAULT '',
+                eligibility TEXT NOT NULL DEFAULT '',
+                terms_url TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'discovered',
+                score INTEGER NOT NULL DEFAULT 0,
+                notes TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL
+            )
+        """)
+    main.init_db()
+    with sqlite3.connect(legacy_db) as db:
+        columns = {row[1] for row in db.execute("PRAGMA table_info(opportunities)")}
+    assert {"eligible_countries", "payout_methods", "verification_status",
+            "verified_at", "verification_notes"}.issubset(columns)
