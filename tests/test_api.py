@@ -1829,6 +1829,25 @@ def test_concurrent_earning_state_transitions_are_serialized(client, monkeypatch
     assert [event["to_state"] for event in history][-2:] == ["withdrawable", "pending"]
 
 
+
+@pytest.mark.parametrize("path", ["/", "/api/health", "/static/app.js"])
+def test_security_headers_cover_html_api_and_static_assets(client, path):
+    response = client.get(path)
+    assert response.status_code == 200
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["x-frame-options"] == "DENY"
+    assert response.headers["referrer-policy"] == "no-referrer"
+    assert response.headers["permissions-policy"] == "camera=(), microphone=(), geolocation=()"
+    policy = response.headers["content-security-policy"]
+    assert "default-src 'self'" in policy
+    assert "object-src 'none'" in policy
+    assert "frame-ancestors 'none'" in policy
+    assert "script-src 'self'" in policy
+    assert "connect-src 'self'" in policy
+    assert "'unsafe-inline'" not in policy
+    assert "'unsafe-eval'" not in policy
+
+
 def test_all_api_routes_except_health_require_owner_authentication():
     from app import main
 
