@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from autoearn.discovery_ranking import prioritize_discovery_leads
 
@@ -52,6 +52,13 @@ def test_old_leads_are_not_awarded_freshness_points():
     assert result["items"][0]["research_priority_score"] == 90
 
 
-def test_future_dated_leads_are_not_awarded_freshness_points():
+def test_far_future_leads_are_not_awarded_freshness_points():
     result = prioritize_discovery_leads([lead(last_seen_at="2099-01-01T00:00:00+00:00")])
     assert result["items"][0]["research_priority_score"] == 90
+
+
+def test_near_future_leads_are_not_awarded_freshness_points():
+    future = (datetime.now(timezone.utc) + timedelta(hours=12)).isoformat()
+    result = prioritize_discovery_leads([lead(last_seen_at=future)])
+    assert result["items"][0]["research_priority_score"] == 90
+    assert "تازگی فرصت تأیید نشده" in result["items"][0]["research_reasons"][-1]
