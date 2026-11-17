@@ -104,7 +104,7 @@ class SQLiteSupervisionStore:
 
     def _transition(self, request_id: str, allowed: set[str], new_status: str,
                     event_type: str, actor: str, details: str = "") -> SupervisedAction:
-        if not actor.strip() or actor.strip() == "system":
+        if not actor.strip() or actor.strip().casefold() == "system":
             raise SupervisionError("decision must be attributed to a human actor")
         with self._connect() as db:
             # Serialize transitions before reading status so competing decisions
