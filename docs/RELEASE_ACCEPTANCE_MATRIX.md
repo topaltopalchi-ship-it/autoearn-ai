@@ -21,13 +21,13 @@ Calculation: sum of (workstream weight × verified completion). Values are conse
 
 1. No real competition or earning-platform adapter is installed. Real external submissions remain unavailable by design.
 2. No automatic earnings or guaranteed payment exists. Ledger records and uploaded receipts are owner-provided evidence until independently reconciled.
-3. Durable retry/backoff and multi-worker rate limiting are not complete. Do not retry non-idempotent submissions automatically.
+3. Automatic retry is deliberately disabled for non-idempotent competition submissions because a timeout can leave the remote outcome ambiguous. The SQLite-backed rolling-minute limit is cross-worker; the owner must verify the remote platform before any manual retry.
 4. Independent security review, malware scanning, evidence retention/backup policy, and production deployment review are outstanding.
 5. Owner must manually confirm their country, platform eligibility, terms, and usable payout route using authoritative evidence.
 
 ## Latest verification
 
 - Latest verified implementation commit: `ca45a3be7e985776f7b86d9af8fd6348e37f97cf`.
-- GitHub Actions run [44155131607](https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44155131607): **263 passed on each of Python 3.10, 3.12 and 3.14**; includes concurrent submission-rate-limit coverage.; dependency consistency, Python syntax and dashboard JavaScript syntax passed in all three jobs. The receipt-storage permission test verifies owner-only POSIX modes.
+- GitHub Actions run [44155131607](https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44155131607): **263 passed on each of Python 3.10, 3.12 and 3.14**; includes concurrent submission-rate-limit coverage; dependency consistency, Python syntax and dashboard JavaScript syntax passed in all three jobs. The receipt-storage permission test verifies owner-only POSIX modes.
 - Later documentation-only updates must receive their own CI verification before release.
 - `main` remains unchanged; PR #47 remains draft and unmerged; repository visibility remains public.
