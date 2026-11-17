@@ -38,6 +38,9 @@
         <input name="url" type="url" required placeholder="نشانی مسابقه با HTTPS">
         <input name="rules_url" type="url" required placeholder="نشانی قوانین مسابقه">
         <input name="country" required minlength="2" maxlength="80" placeholder="کشور محل اقامت">
+        <select name="eligibility"><option value="unknown">صلاحیت کشور: نامشخص</option><option value="eligible">کشور مجاز است (پس از بررسی)</option><option value="ineligible">کشور غیرمجاز است</option></select>
+        <input name="prize_amount" type="number" min="0" step="0.01" placeholder="مبلغ جایزه (اختیاری)">
+        <select name="prize_currency"><option value="EUR">یورو</option><option value="USD">دلار</option><option value="GBP">پوند</option></select>
         <select name="task_type"><option value="logic">معما و منطق</option><option value="coding">برنامه‌نویسی</option><option value="chess">شطرنج</option><option value="strategy">بازی استراتژیک</option><option value="general">سایر</option></select>
         <label><input type="checkbox" name="terms_verified"> قوانین را بررسی کرده‌ام</label>
         <label><input type="checkbox" name="automated_agents_allowed"> قوانین ربات را صریحاً مجاز می‌دانند</label>
