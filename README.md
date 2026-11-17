@@ -99,6 +99,8 @@ The web workspace now includes an owner-token field (kept in the current browser
 
 The owner-only `POST /api/opportunities/{id}/evaluate` endpoint combines the opportunity's verified country list and verification timestamp with an approved source from the same hostname. The owner supplies their country, evidence checked, reward/cost/time estimates, payment probability, risk score, and intended mode. The response includes eligibility (`eligible`, `ineligible`, or `unknown`), confidence, ranking score, estimated net reward/hour, and risk flags. The dashboard includes the same evaluation form. These are evidence-based estimates, not proof of payment; even when the readiness gate is true, no external action is performed.
 
+Country-level payout support and the owner's own withdrawal setup are separate gates: an opportunity cannot be marked execution-ready unless the platform officially supports payouts to the selected residence country **and** the owner explicitly confirms that a usable payout method is already configured. Do not enter wallet addresses, private keys, recovery phrases, passwords, or card details into the app. Unknown payout support or an unconfigured personal payout route remains blocked.
+
 
 ### Focused discovery tracks
 

@@ -36,6 +36,10 @@ Rank candidates using configurable weighted factors:
 
 A high score is not a guarantee. Missing or stale evidence lowers confidence and may block execution.
 
+## Personal payout-route readiness
+
+Country eligibility and platform payout support do not prove that this particular owner can receive funds. The evaluator therefore keeps a separate `payout_route_configured` gate. It must be explicitly true before financial readiness or official-API readiness can pass. The dashboard must never collect wallet secrets or payment credentials; the owner only records whether a usable method is configured. Unknown and false remain blocked.
+
 ## Execution safety contract
 
 - No fake clicks/views, ad watching automation, referral abuse, spam, mass account creation, fake identities, fabricated survey answers, CAPTCHA bypass, gameplay bots, or reward manipulation.
