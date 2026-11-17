@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from autoearn.ranking import rank_evaluations
 
 
@@ -12,6 +14,7 @@ def record(opportunity_id, title, currency, score, *, eligibility="eligible",
             "payout_status": "verified",
             "ai_permission": "allowed",
             "api_status": "available",
+            "checked_at": datetime.now(timezone.utc).isoformat(),
         },
         "evaluation": {
             "currency": currency,
@@ -95,3 +98,24 @@ def test_official_api_mode_requires_separate_api_evidence():
     assert item["research_complete"] is True
     assert item["api_research_ready"] is False
     assert item["execution_authorized"] is False
+
+
+def test_ranking_blocks_missing_or_expired_research_timestamp():
+    candidate = record(1, "Old evidence", "EUR", 99)
+    candidate["research"]["checked_at"] = "2020-01-01T00:00:00+00:00"
+    item = rank_evaluations([candidate])["groups"][0]["items"][0]
+    assert item["priority_tier"] == "blocked_pending_research"
+    assert item["research_fresh"] is False
+
+    candidate["research"].pop("checked_at")
+    item = rank_evaluations([candidate])["groups"][0]["items"][0]
+    assert item["research_complete"] is False
+    assert item["research_fresh"] is False
+
+
+def test_ranking_does_not_accept_future_research_timestamp():
+    candidate = record(1, "Future evidence", "EUR", 99)
+    candidate["research"]["checked_at"] = "2999-01-01T00:00:00+00:00"
+    item = rank_evaluations([candidate])["groups"][0]["items"][0]
+    assert item["research_fresh"] is False
+    assert item["priority_tier"] == "blocked_pending_research"
