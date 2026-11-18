@@ -69,3 +69,50 @@ jobs:
         run: node --check static/app.js
       - name: Run test suite
         run: .venv/bin/python -m pytest -vv --tb=long
+
+  clamav-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout selected commit without external actions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git init .
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w 0)" fetch --no-tags --depth=1 origin "$GITHUB_SHA"
+          git checkout --force --detach FETCH_HEAD
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install ClamAV daemon and current signatures
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clamav-daemon clamav-freshclam
+          sudo freshclam
+      - name: Configure ClamAV for loopback-only integration testing
+        run: |
+          sudo sed -i '/^Example$/d' /etc/clamav/clamd.conf
+          printf '\nTCPSocket 3310\nTCPAddr 127.0.0.1\nForeground yes\n' | sudo tee -a /etc/clamav/clamd.conf
+          sudo -u clamav clamd --config-file=/etc/clamav/clamd.conf --foreground > /tmp/clamd.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if python -c 'import socket; s=socket.create_connection(("127.0.0.1", 3310), timeout=1); s.close()' 2>/dev/null; then
+              exit 0
+            fi
+            if ! pgrep -x clamd >/dev/null; then
+              cat /tmp/clamd.log
+              exit 1
+            fi
+            sleep 1
+          done
+          cat /tmp/clamd.log
+          exit 1
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pytest
+      - name: Run live ClamAV harmless and EICAR integration tests
+        env:
+          AUTOEARN_CLAMAV_INTEGRATION: "1"
+        run: python -m pytest -vv --tb=long tests/test_evidence_scanning_live.py
