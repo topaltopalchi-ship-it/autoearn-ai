@@ -27,8 +27,8 @@ Calculation: sum of (workstream weight × verified completion). Values are conse
 
 ## Latest verification
 
-- Latest verified implementation commit: `073ca4841dedfe1e9d5c0817c9fbd5b96f473b62`. This includes strict backup/restore validation that rejects a malformed existing `earnings_evidence` schema instead of silently treating database errors as an empty evidence list.
-- GitHub Actions run [44247543588](https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44247543588), on commit `073ca4841dedfe1e9d5c0817c9fbd5b96f473b62`: all three Python matrix jobs (3.10, 3.12 and 3.14) completed successfully. Each test log reports **408 passed, 2 skipped, 1 warning, and 3 subtests passed**. This verifies the covered code paths only; it does not install or validate a real external competition adapter, authorize a live submission, or verify payout.
+- Latest verified implementation commit: `99b6b116772775d9ab41fc4fc8bc46bc5771311f`. This includes strict backup/restore validation for malformed existing `earnings_evidence` schemas and defensive validation of malformed AI-provider response envelopes.
+- GitHub Actions run [44249692069](https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44249692069), on commit `99b6b116772775d9ab41fc4fc8bc46bc5771311f`: all three Python matrix jobs (3.10, 3.12 and 3.14) completed successfully. Each test log reports **413 passed, 2 skipped, 1 warning, and 3 subtests passed**. This verifies the covered code paths only; it does not install or validate a real external competition adapter, authorize a live submission, or verify payout.
 - Production deployment controls and sign-off requirements are documented in `docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md`; the checklist is not yet satisfied.
 - Later documentation-only updates must receive their own CI verification before release.
 - `main` remains unchanged; PR #47 remains draft and unmerged; repository visibility remains public.
