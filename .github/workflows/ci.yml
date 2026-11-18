@@ -15,7 +15,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node --check static/app.js && node --check static/puzzle.js
+      - run: node --check static/app.js && node --check static/puzzle.js && node --check static/reward-ledger.js && node --test tests/reward-ledger.test.js
       - run: deno check --node-modules-dir=auto supabase/functions/discover-opportunities/index.ts
       - run: deno test --node-modules-dir=auto supabase/functions/discover-opportunities/filters_test.ts
       - uses: actions/setup-python@v5
