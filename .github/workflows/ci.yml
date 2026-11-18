@@ -16,7 +16,7 @@ jobs:
         with:
           node-version: 22
       - run: node --check static/app.js && node --check static/puzzle.js
-      - run: deno check supabase/functions/discover-opportunities/index.ts
+      - run: deno check --node-modules-dir=auto supabase/functions/discover-opportunities/index.ts
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
