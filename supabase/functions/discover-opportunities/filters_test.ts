@@ -45,9 +45,10 @@ Deno.test("accepts a free spin wheel with a cash prize and payout", () => {
   });
 });
 Deno.test("accepts a free raffle with a prize draw and card payout", () => {
-  assertEquals(evaluateCandidate("https://example.com/raffle", "Free raffle prize draw win a car", "Free entry, no purchase required. Prize paid to winners by bank card."), {
-    accepted: true, url: "https://example.com/raffle", payoutMethods: ["Bank card"],
-  });
+  const result = evaluateCandidate("https://example.com/raffle", "Free raffle prize draw win a car", "Free entry, no purchase required. Prize paid to winners by bank card.");
+  if (!result.accepted) throw new Error(`Expected free raffle to be accepted, got: ${result.reason}`);
+  assertEquals(result.payoutMethods, ["Bank card"]);
+  assertEquals(result.url, "https://example.com/raffle");
 });
 Deno.test("accepts a free sweepstakes with a gift card prize", () => {
   assertEquals(evaluateCandidate("https://example.com/sweepstakes", "Free sweepstakes win a gift card", "No purchase necessary. Prize payout is delivered by Visa gift card."), {
