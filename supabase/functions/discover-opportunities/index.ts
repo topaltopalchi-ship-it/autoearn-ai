@@ -7,10 +7,10 @@ const corsHeaders = {
 };
 
 const SEARCHES = [
-  { category: "game", query: 'Germany play games earn rewards app official offer Germany' },
-  { category: "paid-task", query: 'Germany microtask paid tasks platform official signup' },
-  { category: "survey", query: 'Germany paid online surveys official panel register' },
-  { category: "signup-offer", query: 'Germany new user signup bonus reward offer official terms' },
+  { category: "game", query: 'Deutschland Spiele Apps Geld verdienen Belohnungen Auszahlung' },
+  { category: "paid-task", query: 'Deutschland Microtasks bezahlte Aufgaben Plattform Auszahlung' },
+  { category: "survey", query: 'Deutschland bezahlte Umfragen seriös Auszahlung' },
+  { category: "signup-offer", query: 'Deutschland Neukunden Bonus Prämie Anmeldung Teilnahmebedingungen' },
 ];
 
 function json(body: unknown, status = 200) {
@@ -25,12 +25,6 @@ Deno.serve((req: Request) => {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   return withSupabase({ auth: "user" }, async (_req, ctx) => {
-    const apiKey = Deno.env.get("BRAVE_SEARCH_API_KEY");
-    if (!apiKey) return json({
-      error: "Discovery is not configured yet. Add BRAVE_SEARCH_API_KEY to Supabase Edge Function secrets.",
-      needsSetup: true,
-    }, 503);
-
     // @supabase/server exposes the authenticated user ID as userClaims.id.
     const ownerId = ctx.userClaims?.id;
     if (!ownerId) return json({ error: "Authenticated user identity is missing." }, 401);
@@ -38,28 +32,26 @@ Deno.serve((req: Request) => {
     const found: Array<Record<string, unknown>> = [];
     const errors: string[] = [];
 
-    for (const search of SEARCHES) {
+    for (let index = 0; index < SEARCHES.length; index++) {
+      const search = SEARCHES[index];
       try {
-        const endpoint = new URL("https://api.search.brave.com/res/v1/web/search");
-        endpoint.searchParams.set("q", search.query);
-        endpoint.searchParams.set("country", "DE");
-        endpoint.searchParams.set("search_lang", "de");
-        endpoint.searchParams.set("count", "8");
-        const response = await fetch(endpoint, {
-          headers: { "Accept": "application/json", "X-Subscription-Token": apiKey },
-        });
+        // Anonymous Mwmbl access is limited to one request per second per IP.
+        if (index > 0) await new Promise((resolve) => setTimeout(resolve, 1100));
+        const endpoint = new URL("https://api.mwmbl.org/api/v1/search/");
+        endpoint.searchParams.set("s", search.query);
+        const response = await fetch(endpoint, { headers: { "Accept": "application/json" } });
         if (!response.ok) {
-          errors.push(`${search.category}: search provider returned ${response.status}`);
+          errors.push(`${search.category}: Mwmbl returned ${response.status}`);
           continue;
         }
         const payload = await response.json();
-        for (const item of (payload.web?.results || [])) {
+        for (const item of (Array.isArray(payload) ? payload : [])) {
           try {
             const parsed = new URL(item.url);
             if (parsed.protocol !== "https:") continue;
             const hostname = parsed.hostname.replace(/^www\./, "");
-            const title = String(item.title || hostname).trim().slice(0, 160);
-            const description = String(item.description || "No reward details provided by search result.").trim().slice(0, 900);
+            const title = String(Array.isArray(item.title) ? item.title.map((part: { value?: string }) => part.value || "").join("") : item.title || hostname).trim().slice(0, 160);
+            const description = String(Array.isArray(item.extract) ? item.extract.map((part: { value?: string }) => part.value || "").join("") : item.extract || "No reward details provided by search result.").trim().slice(0, 900);
             if (title.length < 2) continue;
             found.push({
               owner_id: ownerId,
