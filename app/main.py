@@ -2415,6 +2415,14 @@ def submit_competition_entry(competition_id: int, data: CompetitionSubmitIn,
         readiness = assess_competition(competition)
         if not readiness.ready:
             raise HTTPException(409, {"message": "Competition is not ready for automated entry.", "blockers": list(readiness.blockers)})
+        # Reject adapter/competition mismatches before reserving a rate slot or
+        # writing a "submitting" intent. A wrong-host adapter must never be
+        # invoked, and a configuration error is not an ambiguous remote attempt.
+        competition_host = (urlparse(competition.url).hostname or "").casefold()
+        if competition_host != manifest.exact_host:
+            raise HTTPException(409, "Competition host does not match the adapter's exact allowlist.")
+        if "submit_entry" not in manifest.allowed_actions:
+            raise HTTPException(409, "Adapter does not declare the submit_entry capability.")
         # Serialize the pause check and durable rate reservation with owner
         # pause updates. The write lock stays held until the adapter call and
         # audit event finish, so a successful pause waits for in-flight work.
