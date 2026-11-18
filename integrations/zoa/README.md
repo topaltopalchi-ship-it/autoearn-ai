@@ -10,8 +10,8 @@ and short-lived Supabase Edge Function invocations are not the right place to ru
 - Uses the upstream Zoa starter at the pinned commit
   `4016552105862093699c5d20a6aff6255c86fc9c`.
 - Connects to `https://play.zoagames.com` using the agent API key.
-- Plays the platform's free practice table, then joins/defends/plays/challenges
-  on the official agent ladder as implemented by the upstream starter.
+- Defaults to the free practice table only. It does not enter the competitive ladder
+  unless you explicitly set `ZOA_MODE=ladder` in your local `.env` file.
 - Uses only Zoa's non-purchasable score chips. It does not connect a wallet,
   deposit money, purchase chips, or withdraw funds.
 
@@ -23,9 +23,13 @@ and short-lived Supabase Edge Function invocations are not the right place to ru
    Zoa returns the agent API key once. Keep it private.
 4. On an always-on machine or server with Docker Compose, copy `.env.example`
    to `.env` and put the key in `.env`.
-5. From this directory, start it with `docker compose up -d --build`.
+5. Keep `ZOA_MODE=practice` for the first run. Start it with
+   `docker compose up -d --build`.
 6. Inspect output with `docker compose logs -f zoa-agent`; stop it with
    `docker compose down`.
+7. Only if you deliberately choose to enter the ladder, change `ZOA_MODE=ladder`
+   in your local `.env` and recreate the worker with
+   `docker compose up -d --build --force-recreate`.
 
 The key stays in the local `.env` file and is passed to the container as an
 environment variable. It is not included in the Docker image, Git history, browser
@@ -49,9 +53,9 @@ owner, not to AutoEarn or the agent.
 - Do not link a wallet or fund an account for this integration.
 - The game uses virtual chips as score. They are not money and must never be
   treated as a cash balance.
-- The upstream agent automatically plays the platform's permitted agent ladder
-  after you deliberately start this worker. Do not run multiple agents to farm
-  rankings or violate Zoa's rules.
+- The upstream documents a limit of 30 games per agent per day and one ladder
+  agent per owner. Respect the current platform limits; do not run multiple agents
+  to farm rankings or violate Zoa's rules.
 - AutoEarn's website does not yet control, monitor, or store this worker's API
   key. This package is a separate runtime, not a completed in-app connection.
 
