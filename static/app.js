@@ -97,7 +97,8 @@ function bindTranslator(){
   };
 }
 function bindWorkspace(){
-  bindTranslator();\n  $("add-opportunity").onclick=()=> $("opportunity-dialog").showModal();
+  bindTranslator();
+  $("add-opportunity").onclick=()=> $("opportunity-dialog").showModal();
   $("discover-opportunities").onclick=async()=>{
     const button=$("discover-opportunities");
     button.disabled=true;button.textContent="Searching worldwide…";
