@@ -38,6 +38,30 @@ class Competition:
     official_api: bool
     allowed_actions: tuple[str, ...] = ()
 
+    def __post_init__(self) -> None:
+        if type(self.competition_id) is not int or self.competition_id < 1:
+            raise ValueError("competition_id must be a positive integer")
+        for field_name in ("title", "url", "country"):
+            value = getattr(self, field_name)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{field_name} must be a non-empty string")
+        if not isinstance(self.rules_url, str):
+            raise ValueError("rules_url must be a string")
+        if self.task_type not in ("logic", "coding", "chess", "strategy", "general"):
+            raise ValueError("unsupported competition task type")
+        if self.eligibility not in ("eligible", "ineligible", "unknown"):
+            raise ValueError("unsupported eligibility value")
+        for field_name in ("terms_verified", "automated_agents_allowed", "official_api"):
+            if type(getattr(self, field_name)) is not bool:
+                raise ValueError(f"{field_name} must be a boolean")
+        if (
+            not isinstance(self.allowed_actions, tuple)
+            or any(not isinstance(action, str) or not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", action)
+                   for action in self.allowed_actions)
+            or len(set(self.allowed_actions)) != len(self.allowed_actions)
+        ):
+            raise ValueError("allowed_actions must be a tuple of unique action identifiers")
+
 
 @dataclass(frozen=True)
 class Readiness:
