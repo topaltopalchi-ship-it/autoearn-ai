@@ -1,5 +1,18 @@
 const $ = (id) => document.getElementById(id);
 const cfg = window.AUTOEARN_CONFIG || {};
+export function normalizePublicHttpsUrl(rawUrl: string): string | null {
+  let parsed: URL;
+  try { parsed = new URL(rawUrl); } catch { return null; }
+  if (parsed.protocol !== "https:" || parsed.username || parsed.password) return null;
+  if (parsed.port && parsed.port !== "443") return null;
+  const host = parsed.hostname.toLowerCase().replace(/\\.$/, "");
+  if (!host || host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local")) return null;
+  if (host.startsWith("[") || /^\\d{1,3}(?:\\.\\d{1,3}){3}$/.test(host)) return null;
+  const labels = host.split(".");
+  if (labels.length < 2 || labels.some(label => !label || label.length > 63 || !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label))) return null;
+  return parsed.toString();
+}
+
 const configured = Boolean(cfg.url && cfg.publishableKey && !cfg.publishableKey.includes("PASTE_"));
 let supabase = null;
 let currentUser = null;
@@ -48,7 +61,7 @@ function render(){
 function renderOpportunities(){
   const q=$("search").value.toLowerCase(),status=$("filter").value;
   const rows=opportunities.filter(o=>(!status||o.status===status)&&[o.title,o.platform,o.category].some(x=>(x||"").toLowerCase().includes(q)));
-  $("opportunity-list").innerHTML=rows.length?rows.map(o=>`<div class="item"><div><h3>${esc(o.title)} <span class="pill">${esc(o.status)}</span></h3><p>${esc(o.platform)} · ${esc(categoryLabel(o.category))} · Review score ${o.score}/60<br><a href="${esc(o.url)}" target="_blank" rel="noopener noreferrer">Open platform ↗</a> ${o.terms_url?'· <a href="'+esc(o.terms_url)+'" target="_blank" rel="noopener noreferrer">Terms ↗</a>':''}<br>${esc(o.reward_description||"No reward details entered")}</p></div><div class="item-actions">${o.status==="eligible"?'<button class="primary" data-task="'+o.id+'">Start guided session</button>':'<button class="secondary" data-review="'+o.id+'">Review eligibility</button>'}<button class="secondary" data-status="${o.id}" data-next="reviewing">Mark reviewing</button></div></div>`).join(""):'<div class="empty">No matching opportunities.</div>';
+  $("opportunity-list").innerHTML=rows.length?rows.map(o=>`<div class="item"><div><h3>${esc(o.title)} <span class="pill">${esc(o.status==="eligible"?"Owner-cleared · not independently verified":o.status)}</span></h3><p>${esc(o.platform)} · ${esc(categoryLabel(o.category))} · Review score ${o.score}/60<br><a href="${esc(o.url)}" target="_blank" rel="noopener noreferrer">Open platform ↗</a> ${o.terms_url?'· <a href="'+esc(o.terms_url)+'" target="_blank" rel="noopener noreferrer">Terms ↗</a>':''}<br>${esc(o.reward_description||"No reward details entered")}</p></div><div class="item-actions">${o.status==="eligible"?'<button class="primary" data-task="'+o.id+'">Start guided session</button>':'<button class="secondary" data-review="'+o.id+'">Review eligibility</button>'}<button class="secondary" data-status="${o.id}" data-next="reviewing">Mark reviewing</button></div></div>`).join(""):'<div class="empty">No matching opportunities.</div>';
   $("opportunity-list").querySelectorAll("[data-task]").forEach(b=>b.onclick=()=>createTask(Number(b.dataset.task)));
   $("opportunity-list").querySelectorAll("[data-review]").forEach(b=>b.onclick=()=>verifyEligibility(Number(b.dataset.review)));
   $("opportunity-list").querySelectorAll("[data-status]").forEach(b=>b.onclick=()=>setStatus(Number(b.dataset.status),b.dataset.next));
@@ -56,7 +69,8 @@ function renderOpportunities(){
 async function verifyEligibility(id){
   const opportunity=opportunities.find(item=>Number(item.id)===Number(id));
   if(!opportunity)return toast("Opportunity not found. Refresh and try again.");
-  if(!opportunity.terms_url)return toast("Add the official terms URL before eligibility review.");
+  if(!safePublicHttpsUrl(opportunity.url))return toast("The platform link must be a public HTTPS website.");
+  if(!safePublicHttpsUrl(opportunity.terms_url))return toast("Add a valid public HTTPS official terms URL before eligibility review.");
   $("eligibility-opportunity-id").value=String(id);
   $("eligibility-form").reset();
   $("eligibility-opportunity-id").value=String(id);
@@ -68,8 +82,9 @@ async function createTask(id){
   if(opportunity.status!=="eligible"||!opportunity.terms_url)return toast("This opportunity is not cleared. Review official terms, country eligibility and payout method first.");
   let target;
   try {
-    target=new URL(opportunity.url);
-    if(target.protocol!=="https:") throw new Error("Only secure HTTPS platform links can be opened.");
+    const safeUrl=safePublicHttpsUrl(opportunity.url);
+    if(!safeUrl) throw new Error("Only public HTTPS platform links can be opened.");
+    target=new URL(safeUrl);
   } catch(error) { return toast(error.message||"Invalid platform URL."); }
   if(!confirm("Start a guided session for this opportunity? AutoEarn will only open the official HTTPS page and record the session. It will NOT sign up, log in, play automatically, submit information, or spend money."))return;
   const opened=window.open(target.href,"_blank","noopener,noreferrer");
@@ -141,7 +156,10 @@ function bindWorkspace(){
   document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>b.closest("dialog").close());
   $("opportunity-form").onsubmit=async e=>{
     e.preventDefault();const data=Object.fromEntries(new FormData(e.target));
-    const {error}=await supabase.from("opportunities").insert({...data,owner_id:currentUser.id,url:String(data.url).trim(),score:(data.terms_url?25:0)+(data.eligibility?20:0)+(data.reward_description?15:0)});
+    const safeUrl=safePublicHttpsUrl(data.url);
+    if(!safeUrl)return toast("Enter a valid public HTTPS platform URL (no IP address, local host, credentials, or custom port).");
+    if(data.terms_url&&!safePublicHttpsUrl(data.terms_url))return toast("The official terms link must be a valid public HTTPS URL.");
+    const {error}=await supabase.from("opportunities").insert({...data,owner_id:currentUser.id,url:safeUrl,terms_url:data.terms_url?safePublicHttpsUrl(data.terms_url):"",score:(data.terms_url?25:0)+(data.eligibility?20:0)+(data.reward_description?15:0)});
     if(error)return fail(error);e.target.closest("dialog").close();e.target.reset();toast("Opportunity saved");await loadData();
   };
   $("eligibility-form").onsubmit=async e=>{
@@ -151,7 +169,7 @@ function bindWorkspace(){
     const opportunity=opportunities.find(item=>Number(item.id)===id);
     if(!opportunity)return toast("Opportunity not found. Refresh and try again.");
     for(const key of ["payout_source","automation_source"]){
-      try{const u=new URL(data[key]);if(u.protocol!=="https:")throw new Error();data[key]=u.href}
+      try{const safe=safePublicHttpsUrl(data[key]);if(!safe)throw new Error();data[key]=safe}
       catch(_){return toast("Both evidence links must be valid HTTPS URLs.")}
     }
     const passed=data.country.trim()&&data.country_allowed==="yes"&&data.payment_method&&data.payment_method!=="Other / not specified"&&data.payment_confirmed==="yes"&&data.minimum.trim()&&data.fees.trim()&&data.kyc!=="unknown"&&data.free_entry==="yes"&&data.automation==="yes";
