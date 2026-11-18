@@ -54,7 +54,7 @@ class Opportunity:
     effort_fit: int = 0
 
     def __post_init__(self) -> None:
-        if not self.title.strip():
+        if not isinstance(self.title, str) or not self.title.strip():
             raise ValueError("title is required")
         normalize_url(self.url)
         for field in ("reward_clarity", "terms_clarity", "source_trust", "region_fit", "effort_fit"):
