@@ -50,8 +50,26 @@ class OpportunityCandidate:
     evidence: tuple[str, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
-        if not self.title.strip():
+        if not isinstance(self.title, str) or not self.title.strip():
             raise ValueError("title is required")
+        for field_name in ("eligible_countries", "excluded_countries", "evidence"):
+            value = getattr(self, field_name)
+            if not isinstance(value, tuple) or any(
+                not isinstance(item, str) or not item.strip() for item in value
+            ):
+                raise ValueError(f"{field_name} must be a tuple of non-empty strings")
+        for field_name in ("observed_at", "reward_currency"):
+            value = getattr(self, field_name)
+            if not isinstance(value, str):
+                raise ValueError(f"{field_name} must be a string")
+        if self.minimum_withdrawal_currency is not None and not isinstance(
+            self.minimum_withdrawal_currency, str
+        ):
+            raise ValueError("minimum_withdrawal_currency must be a string")
+        for field_name in ("payout_supported", "payout_route_configured", "supports_balance_accumulation"):
+            value = getattr(self, field_name)
+            if value is not None and not isinstance(value, bool):
+                raise ValueError(f"{field_name} must be a boolean or None")
         if self.category not in ("games_competitions", "surveys_microtasks", "freelancing_services", "ai_content_products", "other"):
             raise ValueError("unsupported category")
         if self.execution_mode not in ("manual", "assist", "official_api"):
@@ -118,8 +136,12 @@ def evaluate_candidate(
     max_evidence_age_days: int = 30,
 ) -> dict[str, object]:
     """Return eligibility, confidence, flags, and a conservative ranking score."""
+    if not isinstance(candidate, OpportunityCandidate):
+        raise ValueError("candidate must be an OpportunityCandidate")
     if not isinstance(country, str) or not country.strip():
         raise ValueError("country is required")
+    if now is not None and not isinstance(now, datetime):
+        raise ValueError("now must be a datetime")
     if (
         isinstance(max_evidence_age_days, bool)
         or not isinstance(max_evidence_age_days, int)
