@@ -506,3 +506,27 @@ def test_restore_rejects_case_colliding_evidence_paths_on_posix(tmp_path):
     with pytest.raises(ValueError, match="case-colliding"):
         restore_backup(backup, destination)
     assert not destination.exists()
+
+
+
+def test_restore_rejects_unicode_normalization_colliding_paths(tmp_path):
+    import os
+
+    if os.name != "posix":
+        pytest.skip("Distinct normalization forms require a case-sensitive POSIX test filesystem")
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    composed = "caf\u00e9.txt"
+    decomposed = "cafe\u0301.txt"
+    (evidence / composed).write_bytes(b"first")
+    (evidence / decomposed).write_bytes(b"second")
+    backup = tmp_path / "backup"
+    create_backup(database, evidence, backup)
+
+    destination = tmp_path / "restored"
+    with pytest.raises(ValueError, match="case-colliding"):
+        restore_backup(backup, destination)
+    assert not destination.exists()
