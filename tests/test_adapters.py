@@ -281,3 +281,27 @@ def test_manifest_rejects_unknown_execution_mode():
             execution_mode="browser_automation",
             allowed_domains=("example.com",),
         )
+
+
+@pytest.mark.parametrize("kwargs", [
+    {"adapter_id": None},
+    {"adapter_id": "Bad ID"},
+    {"display_name": ""},
+    {"display_name": "x" * 121},
+    {"categories": ("other", [])},
+    {"allowed_domains": (123,)},
+    {"allowed_actions": ("ok", [])},
+    {"requests_per_minute": True},
+    {"requests_per_minute": 1.5},
+    {"terms_permit_automation": 1},
+])
+def test_manifest_rejects_malformed_field_types(kwargs):
+    values = {
+        "adapter_id": "field-check",
+        "display_name": "Field check",
+        "categories": ("other",),
+        "allowed_domains": ("example.com",),
+    }
+    values.update(kwargs)
+    with pytest.raises((ValueError, TypeError)):
+        AdapterManifest(**values)
