@@ -9,4 +9,5 @@ RUN git init \
  && git checkout --detach FETCH_HEAD
 RUN npm ci && npm run typecheck
 ENV NODE_ENV=production
-CMD ["npm", "start"]
+# Safe default: practice only. Ladder participation requires explicit ZOA_MODE=ladder.
+CMD ["sh", "-c", "if [ \"${ZOA_MODE:-practice}\" = \"practice\" ]; then npm run practice; elif [ \"${ZOA_MODE:-practice}\" = \"ladder\" ]; then npm run ladder; else echo 'Invalid ZOA_MODE: use practice or ladder'; exit 2; fi"]
