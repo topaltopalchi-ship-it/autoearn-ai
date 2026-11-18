@@ -65,8 +65,8 @@ export function domainReviewFlags(rawUrl: string): string[] {
 export type CountryEligibility = "eligible" | "ineligible" | "unknown";
 
 export function classifyCountryEligibility(text: string, country = "Iran"): CountryEligibility {
-  const value = text.toLowerCase().replace(/\\s+/g, " ");
-  const name = country.toLowerCase().replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&");
+  const value = text.toLowerCase().replace(/\s+/g, " ");
+  const name = country.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const excluded = [
     `not available in ${country.toLowerCase()}`, `unavailable in ${country.toLowerCase()}`, `not eligible in ${country.toLowerCase()}`,
     `residents of ${country.toLowerCase()} are not eligible`, `${country.toLowerCase()} is excluded`, `${country.toLowerCase()} is restricted`,
