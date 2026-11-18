@@ -2226,6 +2226,60 @@ def test_concurrent_earning_evidence_uploads_cannot_exceed_quota(client, tmp_pat
     assert len(list(evidence_dir.iterdir())) == 10
 
 
+
+def test_earning_evidence_commit_failure_removes_uncommitted_file(client, tmp_path, monkeypatch):
+    import sqlite3
+    from app import main
+
+    evidence_dir = tmp_path / "commit-failure-evidence"
+    monkeypatch.setattr(main, "EVIDENCE_DIR", evidence_dir)
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    earning = client.post(
+        "/api/earnings", headers=headers,
+        json={"amount": 4, "currency": "EUR", "state": "earned"},
+    ).json()
+
+    real_connect = main.connect
+    calls = {"count": 0}
+
+    class FailCommit:
+        def __init__(self, connection):
+            self.connection = connection
+
+        def __enter__(self):
+            return self.connection
+
+        def __exit__(self, exc_type, exc, traceback):
+            if exc_type is not None:
+                return self.connection.__exit__(exc_type, exc, traceback)
+            self.connection.rollback()
+            self.connection.close()
+            raise sqlite3.OperationalError("simulated commit failure")
+
+    def failing_connect():
+        calls["count"] += 1
+        connection = real_connect()
+        # First connection is the non-authoritative pre-check; fail only the
+        # write transaction's commit. The later recovery read uses real SQLite.
+        if calls["count"] == 2:
+            return FailCommit(connection)
+        return connection
+
+    monkeypatch.setattr(main, "connect", failing_connect)
+    with pytest.raises(sqlite3.OperationalError, match="simulated commit failure"):
+        client.post(
+            f"/api/earnings/{earning['id']}/evidence", headers=headers,
+            files={"upload": ("receipt.pdf", b"%PDF-1.4\\nreceipt\\n", "application/pdf")},
+        )
+
+    assert calls["count"] >= 3  # Includes the post-failure metadata check.
+    assert list(evidence_dir.iterdir()) == []
+    listed = client.get(
+        f"/api/earnings/{earning['id']}/evidence", headers=headers
+    )
+    assert listed.status_code == 200
+    assert listed.json() == []
+
 def test_earning_evidence_rejects_malware_before_storage(client, tmp_path, monkeypatch):
     from app import main
     from autoearn.evidence_scanning import MalwareDetected
