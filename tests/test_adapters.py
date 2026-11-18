@@ -320,14 +320,11 @@ def test_manifest_rejects_non_string_execution_mode(execution_mode):
 
 
 def test_adapter_rejects_embedded_url_credentials_even_on_allowed_host():
-    lead = DiscoveredLead(
-        title="Credential URL",
-        url="https://attacker:secret@example.com/task",
-        category="surveys_microtasks",
-        source_name="Demo",
-        observed_at="2026-11-17T10:00:00+00:00",
-    )
-    registry = AdapterRegistry()
-    registry.register(DemoAdapter(leads=[lead]))
     with pytest.raises(ValueError, match="credentials"):
-        registry.discover("demo")
+        DiscoveredLead(
+            title="Credential URL",
+            url="https://attacker:secret@example.com/task",
+            category="surveys_microtasks",
+            source_name="Demo",
+            observed_at="2026-11-17T10:00:00+00:00",
+        )
