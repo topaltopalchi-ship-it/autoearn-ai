@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert";
-import { evaluateCandidate } from "./filters.ts";
+import { evaluateCandidate, normalizePublicHttpsUrl } from "./filters.ts";
 
 function assertRejected(url: string, title: string, description: string, reason: string) {
   const result = evaluateCandidate(url, title, description);
@@ -96,4 +96,19 @@ Deno.test("rejects lottery and jackpot gambling-style listings even when adverti
 Deno.test("keeps a free raffle with official no-purchase language eligible for review", () => {
   const result = evaluateCandidate("https://example.com/free-raffle", "Free raffle prize draw win a car", "No purchase necessary. Free entry. Winners receive prize payout by bank transfer.");
   if (!result.accepted) throw new Error(`Expected free raffle to remain a candidate, got: ${result.reason}`);
+});
+
+Deno.test("rejects credentialed, local, IP literal and non-standard-port URLs", () => {
+  for (const url of [
+    "https://user:pass@example.com/game",
+    "https://localhost/game",
+    "https://service.local/game",
+    "https://127.0.0.1/game",
+    "https://192.168.1.10/game",
+    "https://[::1]/game",
+    "https://example.com:8443/game",
+  ]) assertEquals(normalizePublicHttpsUrl(url), null);
+});
+Deno.test("normalizes a public HTTPS URL and permits the default HTTPS port", () => {
+  assertEquals(normalizePublicHttpsUrl("https://Example.com:443/game"), "https://example.com/game");
 });
