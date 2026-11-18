@@ -1184,7 +1184,8 @@ def upload_earning_evidence(
                 "sha256": digest, "created_at": scanned_at,
                 "scan_status": "clean", "scanner_name": "ClamAV INSTREAM",
                 "scanned_at": scanned_at,
-            }    except Exception:
+            }
+    except Exception:
         # SQLite may fail while committing after the file has been written.
         # Delete only after a fresh read proves no committed row references it.
         # If the database is unavailable, preserve the file: the commit outcome
