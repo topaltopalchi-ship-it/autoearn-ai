@@ -13,10 +13,13 @@ const SEARCHES = [
   { category: "game", query: 'play to earn games PayPal rewards withdrawal' },
   { category: "game", query: 'online games prizes Skrill payout' },
   { category: "game", query: 'online games prizes Neteller payout' },
+  { category: "game", query: 'online games rewards Payoneer payout' },
+  { category: "game", query: 'online games rewards WebMoney payout' },
   { category: "game", query: 'online games prizes Payeer payout' },
   { category: "game", query: 'crypto games rewards Bitcoin USDT payout no deposit' },
   { category: "sweepstakes", query: 'free sweepstakes prize PayPal payout no purchase' },
   { category: "sweepstakes", query: 'online prize draw Skrill Neteller payout free entry' },
+  { category: "sweepstakes", query: 'free online prize draw Payoneer WebMoney payout' },
   { category: "sweepstakes", query: 'crypto prize giveaway Bitcoin USDT free entry official rules' },
   { category: "wheel", query: 'spin wheel prizes PayPal cash out free' },
   { category: "wheel", query: 'lucky wheel Skrill Neteller Payeer rewards' },
@@ -77,13 +80,13 @@ Deno.serve((req: Request) => {
             if (title.length < 2) continue;
             const payoutText = (title + " " + description + " " + item.url).toLowerCase();
             const walletMatches = [
-              /\\bpaypal\\b/.test(payoutText) ? "PayPal" : null,
-              /\\bskrill\\b/.test(payoutText) ? "Skrill" : null,
-              /\\bneteller\\b/.test(payoutText) ? "Neteller" : null,
-              /\\bpayeer\\b/.test(payoutText) ? "Payeer" : null,
-              /\\bpayoneer\\b/.test(payoutText) ? "Payoneer" : null,
-              /\\bwebmoney\\b/.test(payoutText) ? "WebMoney" : null,
-              /bitcoin|\\bbtc\\b|\\busdt\\b|ethereum|\\beth\\b|crypto|cryptocurrency|tether|\\busdc\\b/.test(payoutText) ? "Crypto" : null,
+              /\bpaypal\b/.test(payoutText) ? "PayPal" : null,
+              /\bskrill\b/.test(payoutText) ? "Skrill" : null,
+              /\bneteller\b/.test(payoutText) ? "Neteller" : null,
+              /\bpayeer\b/.test(payoutText) ? "Payeer" : null,
+              /\bpayoneer\b/.test(payoutText) ? "Payoneer" : null,
+              /\bwebmoney\b/.test(payoutText) ? "WebMoney" : null,
+              /bitcoin|\bbtc\b|\busdt\b|ethereum|\beth\b|crypto|cryptocurrency|tether|\busdc\b/.test(payoutText) ? "Crypto" : null,
             ].filter((value): value is string => Boolean(value));
             if (walletMatches.length === 0) continue;
             found.push({
