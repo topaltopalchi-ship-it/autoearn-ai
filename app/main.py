@@ -495,7 +495,7 @@ class EarningsLedgerIn(BaseModel):
     opportunity_id: int | None = None
     amount: float = Field(ge=0)
     currency: str = Field(default="EUR", min_length=3, max_length=8)
-    state: Literal["estimated", "earned", "pending", "withdrawable", "paid"] = "estimated"
+    state: Literal["estimated", "earned", "pending", "withdrawable"] = "estimated"
     reference: str = Field(default="", max_length=200)
     evidence: str = Field(default="", max_length=1000)
 
