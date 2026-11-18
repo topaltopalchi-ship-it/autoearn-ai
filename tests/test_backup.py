@@ -352,3 +352,35 @@ def test_backup_and_restore_preserve_quarantine_subdirectory(tmp_path):
     restored = tmp_path / "restored"
     restore_backup(backup, restored)
     assert (restored / "private_evidence" / ".quarantine" / "orphan.orphan").read_bytes() == b"recoverable orphan"
+
+
+@pytest.mark.parametrize("unsafe_name", [
+    "../escape.bin",
+    "nested\\\\escape.bin",
+    "C:/escape.bin",
+    "nested/../escape.bin",
+    "bad\\u0085name.bin",
+    "trailing-dot.",
+    "trailing-space ",
+    "x" * 256,
+    "a" * 1025,
+])
+def test_restore_rejects_nonportable_or_oversized_evidence_paths(tmp_path, unsafe_name):
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    (evidence / "receipt.bin").write_bytes(b"receipt")
+    backup = tmp_path / "backup"
+    create_backup(database, evidence, backup)
+
+    manifest_path = backup / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["evidence_files"][0]["name"] = unsafe_name
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    destination = tmp_path / "recovered"
+    with pytest.raises(ValueError, match="Unsafe evidence filename"):
+        restore_backup(backup, destination)
+    assert not destination.exists()
