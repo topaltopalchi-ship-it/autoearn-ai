@@ -45,8 +45,8 @@ class Competition:
             value = getattr(self, field_name)
             if not isinstance(value, str) or not value.strip():
                 raise ValueError(f"{field_name} must be a non-empty string")
-        if not isinstance(self.rules_url, str):
-            raise ValueError("rules_url must be a string")
+        if not isinstance(self.rules_url, str) or not self.rules_url.strip():
+            raise ValueError("rules_url must be a non-empty string")
         if self.task_type not in ("logic", "coding", "chess", "strategy", "general"):
             raise ValueError("unsupported competition task type")
         if self.eligibility not in ("eligible", "ineligible", "unknown"):
