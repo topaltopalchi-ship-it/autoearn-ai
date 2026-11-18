@@ -50,8 +50,10 @@ class SourceCandidateTests(unittest.TestCase):
         ]
         for changes in invalid:
             with self.subTest(changes=changes):
+                values = {"name": "Example", "url": "https://example.com"}
+                values.update(changes)
                 with self.assertRaises(ValueError):
-                    SourceCandidate("Example", "https://example.com", **changes)
+                    SourceCandidate(**values)
 
 
 if __name__ == "__main__":
