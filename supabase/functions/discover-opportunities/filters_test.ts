@@ -1,20 +1,26 @@
 import { assertEquals } from "jsr:@std/assert";
 import { evaluateCandidate } from "./filters.ts";
 
+function assertRejected(url: string, title: string, description: string, reason: string) {
+  const result = evaluateCandidate(url, title, description);
+  if (result.accepted) throw new Error(`Expected rejection: ${reason}`);
+  assertEquals(result.reason, reason);
+}
+
 Deno.test("rejects survey even when it mentions PayPal", () => {
-  assertEquals(evaluateCandidate("https://example.com/survey", "Paid survey", "Earn PayPal rewards").reason, "excluded_category");
+  assertRejected("https://example.com/survey", "Paid survey", "Earn PayPal rewards", "excluded_category");
 });
 
 Deno.test("rejects referral signup bonus", () => {
-  assertEquals(evaluateCandidate("https://example.com", "Invite friends", "PayPal signup bonus").reason, "excluded_category");
+  assertRejected("https://example.com", "Invite friends", "PayPal signup bonus", "excluded_category");
 });
 
 Deno.test("rejects non-HTTPS URLs", () => {
-  assertEquals(evaluateCandidate("http://example.com", "Prize game", "PayPal rewards").reason, "invalid_url");
+  assertRejected("http://example.com", "Prize game", "PayPal rewards", "invalid_url");
 });
 
 Deno.test("rejects games without an accepted wallet mention", () => {
-  assertEquals(evaluateCandidate("https://example.com/game", "Puzzle prize game", "Free entry").reason, "no_accepted_wallet");
+  assertRejected("https://example.com/game", "Puzzle prize game", "Free entry", "no_accepted_wallet");
 });
 
 Deno.test("accepts a free puzzle contest mentioning Skrill", () => {
