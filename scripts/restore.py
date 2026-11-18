@@ -117,8 +117,13 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
             relative_name is None or not name or relative_name.is_absolute()
             or relative_name.as_posix() != name
             or "\\" in name or ":" in name
-            or any(ord(char) < 32 or ord(char) == 127 for char in name)
-            or any(part in {"", ".", ".."} for part in relative_name.parts)
+            or len(name.encode("utf-8")) > 1024
+            or any(
+                not part or part in {".", ".."} or part.endswith((" ", "."))
+                or len(part.encode("utf-8")) > 255
+                for part in relative_name.parts
+            )
+            or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in name)
         ):
             raise ValueError("Unsafe evidence filename in backup manifest")
         if name in expected:
