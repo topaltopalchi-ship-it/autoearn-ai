@@ -2077,6 +2077,32 @@ def test_earning_evidence_upload_is_private_validated_and_downloadable(client, t
     ).status_code == 401
 
 
+def test_earning_evidence_rejects_malware_before_storage(client, tmp_path, monkeypatch):
+    from app import main
+    from autoearn.evidence_scanning import MalwareDetected
+
+    evidence_dir = tmp_path / "infected-evidence"
+    monkeypatch.setattr(main, "EVIDENCE_DIR", evidence_dir)
+    def infected(_payload):
+        raise MalwareDetected("Eicar-Test-Signature")
+    monkeypatch.setattr(main, "scan_bytes", infected)
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    earning = client.post(
+        "/api/earnings", headers=headers,
+        json={"amount": 3, "currency": "EUR"},
+    ).json()
+    response = client.post(
+        f"/api/earnings/{earning['id']}/evidence",
+        headers=headers,
+        files={"upload": ("receipt.pdf", b"%PDF-1.4\\nreceipt\\n", "application/pdf")},
+    )
+    assert response.status_code == 422
+    assert not evidence_dir.exists()
+    listed = client.get(f"/api/earnings/{earning['id']}/evidence", headers=headers)
+    assert listed.status_code == 200
+    assert listed.json() == []
+
+
 def test_earning_evidence_fails_closed_when_scanner_is_unavailable(client, tmp_path, monkeypatch):
     from app import main
     from autoearn.evidence_scanning import ScannerUnavailable
