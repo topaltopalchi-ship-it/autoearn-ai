@@ -284,3 +284,44 @@ def test_submission_rejects_malformed_adapter_receipts(receipt):
         registry.submit(
             "example-official", competition(), {"answer": 42}, owner_confirmed=True
         )
+
+
+@pytest.mark.parametrize("changes", [
+    {"adapter_id": None},
+    {"adapter_id": "Bad Adapter"},
+    {"exact_host": None},
+    {"exact_host": " contest.example.com "},
+    {"exact_host": "x" * 254},
+    {"official_api": 1},
+    {"automated_agents_allowed": "yes"},
+    {"allowed_actions": ["submit_entry"]},
+    {"allowed_actions": ("submit_entry", "submit_entry")},
+    {"allowed_actions": ("SubmitEntry",)},
+    {"allowed_actions": ("../submit",)},
+    {"requests_per_minute": True},
+    {"requests_per_minute": 1.5},
+])
+def test_competition_manifest_rejects_malformed_fields(changes):
+    values = dict(
+        adapter_id="safe-adapter",
+        exact_host="contest.example.com",
+        official_api=True,
+        automated_agents_allowed=True,
+        allowed_actions=("submit_entry",),
+    )
+    values.update(changes)
+    with pytest.raises(ValueError):
+        CompetitionAdapterManifest(**values)
+
+
+def test_competition_manifest_accepts_valid_bounded_configuration():
+    manifest = CompetitionAdapterManifest(
+        adapter_id="safe_adapter-1",
+        exact_host="contest.example.com",
+        official_api=True,
+        automated_agents_allowed=True,
+        allowed_actions=("submit_entry", "check_status"),
+        requests_per_minute=5,
+    )
+    assert manifest.adapter_id == "safe_adapter-1"
+    assert manifest.requests_per_minute == 5
