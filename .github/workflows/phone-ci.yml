@@ -96,6 +96,7 @@ jobs:
         run: |
           sudo sed -i -e '/^Example$/d' -e '/^TCPSocket /d' -e '/^TCPAddr /d' -e '/^Foreground /d' /etc/clamav/clamd.conf
           printf '\nTCPSocket 3310\nTCPAddr 127.0.0.1\nForeground yes\n' | sudo tee -a /etc/clamav/clamd.conf
+          sudo install -d -o clamav -g clamav /var/run/clamav
           sudo -u clamav clamd --config-file=/etc/clamav/clamd.conf --foreground > /tmp/clamd.log 2>&1 &
           for attempt in $(seq 1 60); do
             if python -c 'import socket; s=socket.create_connection(("127.0.0.1", 3310), timeout=1); s.close()' 2>/dev/null; then
