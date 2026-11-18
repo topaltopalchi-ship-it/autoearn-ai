@@ -22,7 +22,7 @@ Calculation: sum of (workstream weight × verified completion). Values are conse
 1. No real competition or earning-platform adapter is installed. Real external submissions remain unavailable by design.
 2. No automatic earnings or guaranteed payment exists. Ledger records and uploaded receipts are owner-provided evidence until independently reconciled.
 3. Automatic retry is deliberately disabled for non-idempotent competition submissions because a timeout can leave the remote outcome ambiguous. The SQLite-backed rolling-minute limit is cross-worker; the owner must verify the remote platform before any manual retry.
-4. Independent security review, implementation of the fail-closed malware-scanning design in `docs/EVIDENCE_MALWARE_SCANNING.md`, evidence retention/backup policy, and production deployment review are outstanding.
+4. Production ClamAV daemon provisioning and hardening, live clean/EICAR/outage integration acceptance, scanner health and signature-freshness monitoring, durable evidence quarantine/retention/reconciliation, independent security review, and production deployment review are outstanding. The fail-closed upload integration itself is implemented; it is not production-accepted until the operational gates are verified.
 5. Owner must manually confirm their country, platform eligibility, terms, and usable payout route using authoritative evidence.
 
 ## Latest verification
