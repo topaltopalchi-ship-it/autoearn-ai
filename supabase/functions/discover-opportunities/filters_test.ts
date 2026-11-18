@@ -15,8 +15,8 @@ Deno.test("rejects a PayPal payment page surfaced by game search", () => assertR
 Deno.test("rejects generic loyalty points", () => assertRejected("https://example.com/rewards", "Redeeming PayPal Rewards points", "Donate points to a cause", "excluded_category"));
 Deno.test("rejects editorial play-to-earn directories", () => assertRejected("https://example.com/archive", "Play to earn games archives", "Latest news and best games to watch", "excluded_category"));
 Deno.test("rejects token price pages even when game token named", () => assertRejected("https://coindesk.com/price/play", "PLAY price chart", "Gaming token price, market cap and crypto", "excluded_category"));
-Deno.test("rejects game pages that mention wallet but no actual prize", () => assertRejected("https://example.com/game", "Free online puzzle game", "Play now with PayPal available", "missing_reward_evidence"));
-Deno.test("rejects prize games without explicit payout context", () => assertRejected("https://example.com/game", "Puzzle contest cash prize", "Win cash and prizes. PayPal mentioned.", "missing_payout_evidence"));
+Deno.test("rejects game pages that mention wallet but no actual prize", () => assertRejected("https://example.com/game", "Free online puzzle game", "Free entry. Play now with PayPal available", "missing_reward_evidence"));
+Deno.test("rejects prize games without explicit payout context", () => assertRejected("https://example.com/game", "Puzzle contest cash prize", "Free entry. Win cash and prizes. PayPal mentioned.", "missing_payout_evidence"));
 Deno.test("accepts a free puzzle contest with explicit Skrill payout", () => {
   assertEquals(evaluateCandidate("https://example.com/contest", "Puzzle contest cash prize", "Free entry. Winners receive payout via Skrill; minimum withdrawal applies."), {
     accepted: true, url: "https://example.com/contest", payoutMethods: ["Skrill"],
@@ -59,7 +59,7 @@ Deno.test("rejects a paid raffle with no free entry route", () => {
   assertRejected("https://example.com/raffle", "Paid raffle win a car", "Buy a ticket, entry fee required. Prize paid by bank transfer.", "excluded_category");
 });
 Deno.test("rejects a spin wheel with no real prize or payout evidence", () => {
-  assertRejected("https://example.com/wheel", "Lucky spin wheel game", "Spin for fun and collect points.", "missing_reward_evidence");
+  assertRejected("https://example.com/wheel", "Free lucky spin wheel game", "Free entry. Spin for fun and collect points.", "missing_reward_evidence");
 });
 
 Deno.test("accepts a free sports prediction contest with a real prize payout", () => {
