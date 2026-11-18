@@ -38,6 +38,19 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _read_evidence_rows(db: sqlite3.Connection) -> list[tuple]:
+    """Read evidence references, allowing legacy databases with no table."""
+    table = db.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'earnings_evidence'").fetchone()
+    if table is None:
+        return []
+    columns = {row[1] for row in db.execute("PRAGMA table_info(earnings_evidence)")}
+    required = {"stored_name", "size_bytes", "sha256"}
+    if not required.issubset(columns):
+        missing = ", ".join(sorted(required - columns))
+        raise RuntimeError(f"Invalid earnings_evidence schema; missing columns: {missing}")
+    return db.execute("SELECT stored_name, size_bytes, sha256 FROM earnings_evidence").fetchall()
+
+
 def create_backup(
     database_path: Path,
     evidence_dir: Path,
@@ -77,12 +90,7 @@ def create_backup(
             os.chmod(database_copy, 0o600)
 
         with closing(sqlite3.connect(database_copy)) as snapshot:
-            try:
-                evidence_rows = snapshot.execute(
-                    "SELECT stored_name, size_bytes, sha256 FROM earnings_evidence"
-                ).fetchall()
-            except sqlite3.OperationalError:
-                evidence_rows = []
+            evidence_rows = _read_evidence_rows(snapshot)
 
         evidence_copy = staging / "private_evidence"
         evidence_copy.mkdir(mode=0o700)
