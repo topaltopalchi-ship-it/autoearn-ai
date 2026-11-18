@@ -358,15 +358,17 @@ class CompetitionAdapterRegistry:
 
     def __init__(self) -> None:
         self._adapters: dict[str, CompetitionAdapter] = {}
+        # Keep the exact manifest snapshot that passed validation at
+        # registration; never trust a later dynamic property value.
+        self._manifests: dict[str, CompetitionAdapterManifest] = {}
         self._rate_lock = Lock()
         self._request_times: dict[str, deque[float]] = {}
 
     def get_manifest(self, adapter_id: str) -> CompetitionAdapterManifest | None:
-        adapter = self._adapters.get(adapter_id)
-        return adapter.manifest if adapter else None
+        return self._manifests.get(adapter_id)
 
     def list_manifests(self) -> tuple[CompetitionAdapterManifest, ...]:
-        return tuple(self._adapters[key].manifest for key in sorted(self._adapters))
+        return tuple(self._manifests[key] for key in sorted(self._manifests))
 
     def register(self, adapter: CompetitionAdapter) -> None:
         manifest = adapter.manifest
@@ -375,6 +377,7 @@ class CompetitionAdapterRegistry:
         if manifest.adapter_id in self._adapters:
             raise ValueError("adapter id is already registered")
         self._adapters[manifest.adapter_id] = adapter
+        self._manifests[manifest.adapter_id] = manifest
 
     def submit(
         self,
@@ -392,7 +395,7 @@ class CompetitionAdapterRegistry:
         adapter = self._adapters.get(adapter_id)
         if adapter is None:
             raise KeyError("official competition adapter is not registered")
-        manifest = adapter.manifest
+        manifest = self._manifests[adapter_id]
         host = (urlsplit(competition.url).hostname or "").casefold()
         if host != manifest.exact_host:
             raise PermissionError("competition host is outside the adapter's exact allowlist")
