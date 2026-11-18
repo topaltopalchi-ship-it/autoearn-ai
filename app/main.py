@@ -22,6 +22,7 @@ from fastapi import FastAPI, HTTPException, Query, Depends, Header, UploadFile, 
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, HttpUrl
+from argon2 import PasswordHasher, exceptions as argon2_exceptions
 
 from autoearn.opportunities import normalize_url
 from autoearn.supervision_store import SQLiteSupervisionStore
@@ -42,7 +43,12 @@ from autoearn.evidence_scanning import MalwareDetected, ScannerUnavailable, scan
 
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.getenv("AUTOEARN_DB", ROOT / "autoearn.db"))
-OWNER_TOKEN = os.getenv("AUTOEARN_OWNER_TOKEN", "")
+OWNER_TOKEN = os.getenv("AUTOEARN_OWNER_TOKEN", "")  # Deprecated machine-client compatibility only.
+OWNER_SESSION_COOKIE = "autoearn_owner_session"
+OWNER_SESSION_IDLE = timedelta(minutes=30)
+OWNER_SESSION_ABSOLUTE = timedelta(hours=12)
+OWNER_SESSION_SECURE = os.getenv("AUTOEARN_COOKIE_SECURE", "true").casefold() == "true"
+PASSWORD_HASHER = PasswordHasher(time_cost=3, memory_cost=65536, parallelism=2)
 STATIC_DIR = ROOT / "static"
 EVIDENCE_DIR = Path(os.getenv("AUTOEARN_EVIDENCE_DIR", ROOT / "private_evidence"))
 MAX_EVIDENCE_BYTES = 5 * 1024 * 1024
@@ -292,6 +298,15 @@ def init_db() -> None:
         );
         CREATE INDEX IF NOT EXISTS idx_competition_adapter_requests_window
             ON competition_adapter_requests(adapter_id, requested_at);
+        CREATE TABLE IF NOT EXISTS owner_credentials (
+            id INTEGER PRIMARY KEY CHECK (id = 1), password_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL, password_changed_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS owner_sessions (
+            session_hash TEXT PRIMARY KEY, csrf_token TEXT NOT NULL,
+            created_at TEXT NOT NULL, last_seen_at TEXT NOT NULL, expires_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_owner_sessions_expiry ON owner_sessions(expires_at);
         CREATE TABLE IF NOT EXISTS owner_auth_failures (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             source_hash TEXT NOT NULL,
@@ -440,7 +455,9 @@ async def add_security_headers(request, call_next):
     # authentication is still mandatory on every protected route.
     if request.url.path.startswith("/api/") and request.method in {"POST", "PUT", "PATCH", "DELETE"}:
         origin = request.headers.get("origin")
-        if origin is not None:
+        if request.cookies.get(OWNER_SESSION_COOKIE) and origin is None:
+            response = JSONResponse(status_code=403, content={"detail": "Same-origin request required."})
+        elif origin is not None:
             try:
                 supplied = urlparse(origin)
                 expected = urlparse(str(request.base_url))
@@ -713,10 +730,57 @@ def _record_owner_auth_failure(request: Request) -> bool:
     return count > OWNER_AUTH_FAILURE_LIMIT
 
 
+def _session_hash(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _owner_session(request: Request):
+    token = request.cookies.get(OWNER_SESSION_COOKIE, "")
+    if not token:
+        return None
+    current = _owner_auth_now()
+    with connect() as db:
+        row = db.execute("SELECT * FROM owner_sessions WHERE session_hash = ?", (_session_hash(token),)).fetchone()
+        if row is None:
+            return None
+        created = datetime.fromisoformat(row["created_at"])
+        last_seen = datetime.fromisoformat(row["last_seen_at"])
+        expires = datetime.fromisoformat(row["expires_at"])
+        if current >= expires or current - last_seen >= OWNER_SESSION_IDLE or current - created >= OWNER_SESSION_ABSOLUTE:
+            db.execute("DELETE FROM owner_sessions WHERE session_hash = ?", (_session_hash(token),))
+            return None
+        return row
+
+
+def initialize_owner_password(password: str) -> None:
+    if not isinstance(password, str) or len(password) < 12 or len(password) > 256:
+        raise ValueError("Owner password must contain between 12 and 256 characters.")
+    hashed = PASSWORD_HASHER.hash(password)
+    timestamp = _owner_auth_now().isoformat()
+    with connect() as db:
+        db.execute(
+            "INSERT INTO owner_credentials (id, password_hash, created_at, password_changed_at) VALUES (1, ?, ?, ?) "
+            "ON CONFLICT(id) DO UPDATE SET password_hash=excluded.password_hash, password_changed_at=excluded.password_changed_at",
+            (hashed, timestamp, timestamp),
+        )
+        db.execute("DELETE FROM owner_sessions")
+
+
 def require_owner(
     request: Request,
     x_autoearn_owner_token: str | None = Header(default=None),
 ):
+    session = _owner_session(request)
+    if session is not None:
+        if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+            supplied = request.headers.get("x-csrf-token", "")
+            if not supplied or not hmac.compare_digest(supplied.encode("utf-8"), session["csrf_token"].encode("utf-8")):
+                raise HTTPException(403, "CSRF validation failed.")
+        token = request.cookies.get(OWNER_SESSION_COOKIE, "")
+        with connect() as db:
+            db.execute("UPDATE owner_sessions SET last_seen_at = ? WHERE session_hash = ?", (_owner_auth_now().isoformat(), _session_hash(token)))
+        return "owner"
+
     configured = OWNER_TOKEN
     if len(configured) < 32:
         raise HTTPException(503, "Owner actions are disabled: AUTOEARN_OWNER_TOKEN must contain at least 32 characters.")
@@ -731,6 +795,58 @@ def require_owner(
             headers={"Retry-After": "300"},
         )
     raise HTTPException(401, "Owner authentication required.")
+
+
+class OwnerLoginIn(BaseModel):
+    password: str = Field(min_length=1, max_length=256)
+
+
+@app.get("/api/auth/session")
+def owner_session_status(request: Request):
+    session = _owner_session(request)
+    if session is None:
+        return {"authenticated": False}
+    return {"authenticated": True, "csrf_token": session["csrf_token"]}
+
+
+@app.post("/api/auth/login")
+def owner_login(data: OwnerLoginIn, request: Request):
+    with connect() as db:
+        credential = db.execute("SELECT password_hash FROM owner_credentials WHERE id = 1").fetchone()
+    if credential is None:
+        raise HTTPException(503, "Owner password has not been initialized on the server.")
+    try:
+        PASSWORD_HASHER.verify(credential["password_hash"], data.password)
+    except (argon2_exceptions.VerifyMismatchError, argon2_exceptions.VerificationError, argon2_exceptions.InvalidHashError):
+        if _record_owner_auth_failure(request):
+            raise HTTPException(429, "Too many failed login attempts. Try again later.", headers={"Retry-After": "300"})
+        raise HTTPException(401, "Invalid owner password.")
+    if PASSWORD_HASHER.check_needs_rehash(credential["password_hash"]):
+        with connect() as db:
+            db.execute("UPDATE owner_credentials SET password_hash = ? WHERE id = 1", (PASSWORD_HASHER.hash(data.password),))
+    import secrets
+    token, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
+    created = _owner_auth_now()
+    with connect() as db:
+        db.execute("DELETE FROM owner_sessions")
+        db.execute(
+            "INSERT INTO owner_sessions (session_hash, csrf_token, created_at, last_seen_at, expires_at) VALUES (?, ?, ?, ?, ?)",
+            (_session_hash(token), csrf, created.isoformat(), created.isoformat(), (created + OWNER_SESSION_ABSOLUTE).isoformat()),
+        )
+    response = JSONResponse({"authenticated": True, "csrf_token": csrf})
+    response.set_cookie(OWNER_SESSION_COOKIE, token, max_age=int(OWNER_SESSION_ABSOLUTE.total_seconds()),
+                        httponly=True, secure=OWNER_SESSION_SECURE, samesite="strict", path="/")
+    return response
+
+
+@app.post("/api/auth/logout")
+def owner_logout(request: Request, actor: str = Depends(require_owner)):
+    token = request.cookies.get(OWNER_SESSION_COOKIE, "")
+    with connect() as db:
+        db.execute("DELETE FROM owner_sessions WHERE session_hash = ?", (_session_hash(token),))
+    response = JSONResponse({"authenticated": False})
+    response.delete_cookie(OWNER_SESSION_COOKIE, path="/", secure=OWNER_SESSION_SECURE, httponly=True, samesite="strict")
+    return response
 
 
 def row_dict(row: sqlite3.Row) -> dict:

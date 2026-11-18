@@ -1,28 +1,37 @@
 const $ = (id) => document.getElementById(id);
-const ownerToken = () => sessionStorage.getItem("autoearn_owner_token") || "";
-let ownerSessionRejected = false;
+let ownerCsrfToken = "";
+let ownerAuthenticated = false;
 function clearOwnerSession(message) {
-  sessionStorage.removeItem("autoearn_owner_token");
-  const field = $("owner-token");
-  if (field) field.value = "";
+  ownerCsrfToken = "";
+  ownerAuthenticated = false;
+  if ($("owner-password")) $("owner-password").value = "";
+  if ($("owner-login-form")) $("owner-login-form").hidden = false;
+  if ($("logout-owner")) $("logout-owner").hidden = true;
+  if ($("owner-auth-status")) $("owner-auth-status").textContent = "نشست مالک پایان یافته است؛ دوباره وارد شوید.";
   if (message) toast(message);
 }
 const api = async (path, options={}) => {
-  const token = ownerToken();
   const headers = {"Content-Type":"application/json", ...(options.headers || {})};
-  if (token) headers["X-AutoEarn-Owner-Token"] = token;
-  const response = await fetch(path, {...options, headers});
+  if (["POST","PUT","PATCH","DELETE"].includes((options.method||"GET").toUpperCase()) && ownerCsrfToken) headers["X-CSRF-Token"] = ownerCsrfToken;
+  const response = await fetch(path, {...options, headers, credentials:"same-origin"});
   const body = await response.json().catch(()=>({}));
   if (response.status === 401) {
-    if (token && !ownerSessionRejected) {
-      ownerSessionRejected = true;
-      clearOwnerSession("رمز مالک پذیرفته نشد؛ برای ادامه دوباره متصل شوید.");
-    }
-    throw new Error(token ? "دسترسی رد شد؛ رمز مالک را دوباره وارد کنید." : "برای مشاهدهٔ اطلاعات، ابتدا رمز مالک را وارد کنید.");
+    clearOwnerSession("نشست مالک معتبر نیست؛ دوباره وارد شوید.");
+    throw new Error("برای ادامه، دوباره وارد حساب مالک شوید.");
   }
-  if (!response.ok) throw new Error("انجام درخواست با خطا روبه‌رو شد. اطلاعات و دسترسی را بررسی کنید.");
+  if (!response.ok) throw new Error(body.detail || "انجام درخواست با خطا روبه‌رو شد. اطلاعات و دسترسی را بررسی کنید.");
   return body;
 };
+async function loadOwnerSession() {
+  const response = await fetch("/api/auth/session", {credentials:"same-origin", cache:"no-store"});
+  const state = await response.json();
+  ownerAuthenticated = !!state.authenticated;
+  ownerCsrfToken = state.csrf_token || "";
+  $("owner-login-form").hidden = ownerAuthenticated;
+  $("logout-owner").hidden = !ownerAuthenticated;
+  $("owner-auth-status").textContent = ownerAuthenticated ? "نشست امن مالک فعال است." : "برای ورود، رمز مالک را وارد کنید.";
+  return ownerAuthenticated;
+}
 const statusFa = (v) => ({game_rewards:"پاداش بازی",survey_rewards:"پاداش نظرسنجی",microtasks:"کارهای کوچک",freelance_jobs:"کارهای آزاد",digital_products:"محصولات دیجیتال",discovered:"کشف‌شده",reviewing:"در حال بررسی",eligible:"مجاز",ineligible:"غیرمجاز",archived:"بایگانی‌شده",pending:"در انتظار",approved:"تأییدشده",rejected:"ردشده",verified:"تأییدشده",pending_approval:"در انتظار تأیید",confirmed:"تأییدشده",paid:"پرداخت‌شده",estimated:"تخمینی",earned:"کسب‌شده",withdrawable:"قابل برداشت",not_modified:"محتوای خبرخوان تغییری نکرده",submitting:"در حال ارسال؛ نتیجه باید بررسی شود",failed:"ارسال ناموفق؛ نتیجهٔ بیرونی نامشخص",blocked:"مسدودشده",submitted:"ارسال‌شده",manual:"دستی",assist:"با کمک دستیار",official_api:"رابط رسمی برنامه‌نویسی",games_competitions:"بازی و مسابقه",surveys_microtasks:"نظرسنجی و کارهای کوچک",freelancing_services:"فریلنسری و خدمات",ai_content_products:"محتوای هوش مصنوعی و محصولات دیجیتال",other:"سایر","unknown":"نامشخص",logic:"معما و منطق",coding:"برنامه‌نویسی",chess:"شطرنج",strategy:"استراتژی",general:"عمومی"})[v]||"نامشخص";
 const currencyFa = (c) => ({EUR:"یورو",USD:"دلار آمریکا",GBP:"پوند",TRY:"لیر",IRR:"ریال",CAD:"دلار کانادا",AUD:"دلار استرالیا"})[String(c||"").toUpperCase()] || "واحد پول";
 const money = (n,c="EUR") => new Intl.NumberFormat("fa-IR",{maximumFractionDigits:2}).format(Number(n||0))+" "+currencyFa(c);
@@ -403,8 +412,26 @@ $("competition-form").onsubmit=async e=>{
 };
 $("add-opportunity").onclick=()=>$("opportunity-dialog").showModal();
 $("add-source").onclick=()=>$("source-dialog").showModal();
-$("save-owner-token").onclick=()=>{const value=$("owner-token").value.trim();if(!value){clearOwnerSession("رمز مالک برای این نشست پاک شد");return}sessionStorage.setItem("autoearn_owner_token",value);ownerSessionRejected=false;toast("رمز مالک فقط برای این نشست ذخیره شد");refresh().catch(e=>toast(e.message))};
-$("logout-owner").onclick=()=>clearOwnerSession("از نشست مالک خارج شدید؛ برای ادامه دوباره متصل شوید.");
+$("owner-login-form").onsubmit=async event=>{
+  event.preventDefault();
+  try{
+    const response=await fetch("/api/auth/login",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:$("owner-password").value})});
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(result.detail||"ورود ناموفق بود.");
+    ownerCsrfToken=result.csrf_token||"";
+    ownerAuthenticated=true;
+    $("owner-password").value="";
+    $("owner-login-form").hidden=true;
+    $("logout-owner").hidden=false;
+    $("owner-auth-status").textContent="نشست امن مالک فعال است.";
+    toast("ورود موفق بود");
+    refresh().catch(error=>toast(error.message));
+  }catch(error){toast(error.message)}
+};
+$("logout-owner").onclick=async()=>{
+  try{await api("/api/auth/logout",{method:"POST"});clearOwnerSession("با موفقیت خارج شدید.");}
+  catch(error){clearOwnerSession("نشست محلی پاک شد؛ نشست سرور با پایان مهلت منقضی می‌شود.");}
+};
 $("add-discovery-feed").onclick=async()=>{
   const name=prompt("نام این خبرخوان را وارد کنید:");
   if(!name)return;
@@ -524,5 +551,5 @@ $("toggle-execution-pause").onclick=async()=>{
     toast(paused?"توقف اضطراری فعال شد":"توقف اضطراری برداشته شد");
   }catch(error){toast(error.message)}
 };
-refresh().catch(e=>toast(e.message));
-setInterval(()=>refresh().catch(()=>{}),60000);
+loadOwnerSession().then(authenticated=>{if(authenticated)refresh().catch(e=>toast(e.message));}).catch(()=>clearOwnerSession());
+setInterval(()=>{if(ownerAuthenticated)refresh().catch(()=>{});},60000);

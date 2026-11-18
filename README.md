@@ -88,11 +88,11 @@ Run the local dashboard (Linux/macOS shell):
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
-export AUTOEARN_OWNER_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
+python -m app.owner_admin set-password
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Open `http://127.0.0.1:8000` and enter the owner token in the dashboard. Keep the service bound to loopback for local use; do not expose this single-owner-token setup directly to the public internet. The SQLite database defaults to `autoearn.db`; private receipt files default to `private_evidence/`. Set `AUTOEARN_DB` and `AUTOEARN_EVIDENCE_DIR` to change those locations. Both are excluded from Git.
+Open the dashboard over HTTPS and sign in with the owner password. Initialize or change the sole owner password locally with `python -m app.owner_admin set-password`; the command prompts securely and never echoes the password. Browser authentication uses an Argon2id password hash, a revocable server-side SQLite session, an HttpOnly/Secure/SameSite=Strict cookie, a per-session CSRF token, 30-minute idle expiry, and 12-hour absolute expiry. A new login revokes older sessions. The service must be served behind HTTPS. The SQLite database defaults to `autoearn.db`; private receipt files default to `private_evidence/`. Set `AUTOEARN_DB` and `AUTOEARN_EVIDENCE_DIR` to change those locations. Both are excluded from Git.
 
 
 ## Scoring notes
@@ -125,7 +125,7 @@ The SQLite-backed `execution_control` record starts in the paused state on first
 
 ### Owner-authenticated supervision API
 
-Set a cryptographically random `AUTOEARN_OWNER_TOKEN` environment variable of at least 32 characters before starting the service. Send it in the `X-AutoEarn-Owner-Token` header for owner-only operations. If the secret is absent, these operations fail closed with HTTP 503; missing or incorrect tokens receive HTTP 401.
+Initialize the single owner's password with `python -m app.owner_admin set-password`. The password is hashed using Argon2id and never stored in browser storage. Browser requests use an HttpOnly, Secure, SameSite=Strict cookie backed by a revocable SQLite session. State-changing browser requests require a same-origin Origin and session CSRF token. Sessions expire after 30 minutes of inactivity or 12 hours absolutely; signing in again revokes previous sessions. The legacy `AUTOEARN_OWNER_TOKEN` header remains only for existing non-browser API clients during migration; the web dashboard does not use it.
 
 The owner-only endpoints cover opportunity/source intake, source approval/rejection, opportunity eligibility status and verification, task creation/approval/completion, reward-ledger access, dashboard totals, and supervised action creation, approval, rejection, completion, listing, and audit retrieval. A supervised action can only be requested when its opportunity is marked eligible and verified, its source is approved, and the verification timestamp is no older than 30 days. This API records workflow state; it does not execute external platform actions. Deploy only behind HTTPS, keep the token out of source control and logs, and rotate it if exposed. This single-owner token is a basic deployment gate, not a replacement for multi-user identity, session management, CSRF protections, or a secrets manager.
 
@@ -137,7 +137,7 @@ The owner-only endpoints cover opportunity/source intake, source approval/reject
 
 Task creation/approval/completion, reward-ledger writes and reads, and dashboard totals now require the owner token. The same owner authentication applies to source review, opportunity status/verification, and supervised action routes. Public health and public opportunity/source listings remain read-only. Configure `AUTOEARN_OWNER_TOKEN` before using the protected workspace.
 
-The web workspace now includes an owner-token field (kept in the current browser session only) and a **Discover RSS feed** action. Enter the exact feed and listing hostnames in the allowlist prompt. Discovered listings are added to Source candidates as pending; they still require manual review. The owner token must also be configured on the server as `AUTOEARN_OWNER_TOKEN`.
+The web workspace now includes password-based owner sign-in and a **Discover RSS feed** action. Enter the exact feed and listing hostnames in the allowlist prompt. Discovered listings are added to Source candidates as pending; they still require manual review. The owner token must also be configured on the server as `AUTOEARN_OWNER_TOKEN`.
 
 ### Opportunity evaluation API
 
