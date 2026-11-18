@@ -235,3 +235,49 @@ def test_discovered_lead_rejects_insecure_terms_urls(terms_url):
             observed_at="2026-11-17T10:00:00+00:00",
             terms_url=terms_url,
         )
+
+
+@pytest.mark.parametrize("categories", [
+    (),
+    ("unknown_category",),
+    ("other", "other"),
+    ["other"],
+])
+def test_manifest_rejects_invalid_or_duplicate_categories(categories):
+    with pytest.raises(ValueError):
+        AdapterManifest(
+            adapter_id="bad-category",
+            display_name="Bad category",
+            categories=categories,
+            allowed_domains=("example.com",),
+        )
+
+
+@pytest.mark.parametrize("actions", [
+    ("SubmitEntry",),
+    ("submit-entry",),
+    ("submit_entry", "submit_entry"),
+    ("../submit",),
+])
+def test_manifest_rejects_malformed_or_duplicate_actions(actions):
+    with pytest.raises(ValueError):
+        AdapterManifest(
+            adapter_id="bad-action",
+            display_name="Bad action",
+            categories=("games_competitions",),
+            execution_mode="official_api",
+            allowed_domains=("example.com",),
+            allowed_actions=actions,
+            terms_permit_automation=True,
+        )
+
+
+def test_manifest_rejects_unknown_execution_mode():
+    with pytest.raises(ValueError, match="execution_mode"):
+        AdapterManifest(
+            adapter_id="bad-mode",
+            display_name="Bad mode",
+            categories=("other",),
+            execution_mode="browser_automation",
+            allowed_domains=("example.com",),
+        )
