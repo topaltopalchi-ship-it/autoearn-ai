@@ -32,13 +32,17 @@ async function loadData(){
   opportunities=(o.data||[]).filter(item=>DISCOVERY_CATEGORIES.has(item.category));tasks=t.data||[];rewards=r.data||[];
   render();
 }
+function formatRewardTotals(rows){
+  const totals=AutoEarnRewardLedger.sumByCurrency(rows);
+  return Object.entries(totals).sort(([a],[b])=>a.localeCompare(b)).map(([currency,total])=>money(total,currency)).join(" · ")||"—";
+}
 function render(){
   const awaiting=tasks.filter(t=>t.status==="pending_approval").length;
-  const paid=rewards.filter(r=>r.status==="paid"&&(r.reference||"").trim()).reduce((a,r)=>a+Number(r.amount),0);
-  const pending=rewards.filter(r=>r.status==="pending").reduce((a,r)=>a+Number(r.amount),0);
+  const ledger=AutoEarnRewardLedger.summarize(rewards);
   $("stat-opps").textContent=opportunities.length;$("stat-tasks").textContent=tasks.length;
-  $("stat-approval").textContent=awaiting;$("stat-paid").textContent=money(paid);
-  $("stat-pending").textContent="Pending: "+money(pending);
+  $("stat-approval").textContent=awaiting;$("stat-paid").textContent=formatRewardTotals(ledger.paid);
+  $("stat-pending").textContent="Pending: "+formatRewardTotals(ledger.pending);
+  $("stat-confirmed").textContent="Confirmed: "+formatRewardTotals(ledger.confirmed);
   renderOpportunities();renderTasks();renderRewards();fillRewardOptions();
 }
 function renderOpportunities(){
@@ -161,8 +165,9 @@ function bindWorkspace(){
   };
   $("reward-form").onsubmit=async e=>{
     e.preventDefault();const data=Object.fromEntries(new FormData(e.target));
-    data.owner_id=currentUser.id;data.opportunity_id=data.opportunity_id?Number(data.opportunity_id):null;data.amount=Number(data.amount);data.currency=data.currency.toUpperCase();data.reference=(data.reference||"").trim();
-    if(data.status==="paid"&&!data.reference)return toast("To record a reward as paid, enter a transaction reference or other payment evidence. Do not enter full card or account numbers.");
+    data.owner_id=currentUser.id;data.opportunity_id=data.opportunity_id?Number(data.opportunity_id):null;data.amount=Number(data.amount);data.currency=(data.currency||"").trim().toUpperCase();data.reference=(data.reference||"").trim();
+    const validation=AutoEarnRewardLedger.validateReward(data);
+    if(validation)return toast(validation);
     const {error}=await supabase.from("rewards").insert(data);
     if(error)return fail(error);e.target.closest("dialog").close();e.target.reset();toast("Reward recorded");await loadData();
   };
