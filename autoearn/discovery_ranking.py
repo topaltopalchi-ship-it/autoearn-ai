@@ -164,6 +164,7 @@ def prioritize_discovery_leads(records: list[dict[str, Any]]) -> dict[str, Any]:
         item["participation_readiness_rank"],
         order[item["research_priority"]],
         -item["research_priority_score"],
+        item["track_priority"],
         str(item.get("title", "")).casefold(),
         int(item.get("id") or 0),
     ))
