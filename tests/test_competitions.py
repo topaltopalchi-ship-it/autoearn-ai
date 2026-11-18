@@ -397,3 +397,41 @@ def test_registry_pins_manifest_snapshot_at_registration():
     )
     assert receipt.external_entry_id == "pinned-entry"
     assert adapter.calls == 1
+
+@pytest.mark.parametrize("response_body", [
+    [],
+    {"output": {}},
+    {"output": ["not-an-item"]},
+    {"output": [{"type": "message", "content": {}}]},
+    {"output": [{"type": "message", "content": ["not-a-part"]}]},
+])
+def test_configured_ai_provider_rejects_malformed_response_envelopes(
+    monkeypatch, response_body
+):
+    import json
+    from autoearn import competitions
+
+    class FakeResponse:
+        status = 200
+
+        def read(self, limit):
+            return json.dumps(response_body).encode("utf-8")
+
+    class FakeConnection:
+        def __init__(self, host, timeout, context):
+            pass
+
+        def request(self, method, path, body, headers):
+            pass
+
+        def getresponse(self):
+            return FakeResponse()
+
+        def close(self):
+            pass
+
+    monkeypatch.setenv("AUTOEARN_OPENAI_API_KEY", "test-only-secret")
+    monkeypatch.setattr(competitions.http.client, "HTTPSConnection", FakeConnection)
+    with pytest.raises(competitions.AIProviderError, match="invalid response format"):
+        competitions.build_strategy(5, "logic")
+
