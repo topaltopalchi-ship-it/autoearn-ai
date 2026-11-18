@@ -27,8 +27,8 @@ Calculation: sum of (workstream weight × verified completion). Values are conse
 
 ## Latest verification
 
-- Latest verified implementation commit: `f9518932a71c8e7b1e014d726a5d11479ced6e27`. This includes explicit rejection of cyclic competition entry payloads before an adapter can be called, alongside bounded nesting and payload-size validation.
-- GitHub Actions run [44245406089](https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44245406089), on commit `f9518932a71c8e7b1e014d726a5d11479ced6e27`: all three Python matrix jobs (3.10, 3.12 and 3.14) completed successfully. The Python 3.12 test log reports **376 passed, 2 skipped, 1 warning, and 3 subtests passed**. This verifies the covered code paths only; it does not install or validate a real external competition adapter, authorize a live submission, or verify payout.
+- Latest verified implementation commit: `3b5e6eee7b942eb974eb818b961f2850da27c6562a71c8e7b1e014d726a5d11479ced6e27`. This includes explicit rejection of cyclic competition entry payloads before an adapter can be called, alongside bounded nesting and payload-size validation.
+- GitHub Actions run [44247309103](https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44247309103), on commit `3b5e6eee7b942eb974eb818b961f2850da27c6562a71c8e7b1e014d726a5d11479ced6e27`: all three Python matrix jobs (3.10, 3.12 and 3.14) completed successfully. The Python 3.12 test log reports **406 passed, 2 skipped, 1 warning, and 3 subtests passed**. This verifies the covered code paths only; it does not install or validate a real external competition adapter, authorize a live submission, or verify payout.
 - Production deployment controls and sign-off requirements are documented in `docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md`; the checklist is not yet satisfied.
 - Later documentation-only updates must receive their own CI verification before release.
 - `main` remains unchanged; PR #47 remains draft and unmerged; repository visibility remains public.
