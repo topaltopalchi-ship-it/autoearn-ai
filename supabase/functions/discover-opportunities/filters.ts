@@ -9,12 +9,22 @@ const FREE_ENTRY_RE = /\b(no purchase necessary|no purchase required|free entry|
 const PAID_ENTRY_RE = /\b(pay to enter|paid entry|(?<!no )purchase required|buy (a )?(ticket|entry)|(?<!no )entry fee|ticket price|deposit to enter|place (a )?wager|wager required|stake required)\b/i;
 const PAYOUT_CONTEXT_RE = /\b(payout|withdraw|withdrawal|cash.?out|paid to|paid by|payment method|prize paid|winnings paid|bank transfer|bank account|bank card|debit card|credit card|via (paypal|skrill|neteller|payeer|payoneer|webmoney)|through (paypal|skrill|neteller|payeer|payoneer|webmoney)|using (paypal|skrill|neteller|payeer|payoneer|webmoney)|bitcoin|btc|usdt|crypto)\b/i;
 
-export function evaluateCandidate(rawUrl: string, title: string, description: string): CandidateDecision {
+export function normalizePublicHttpsUrl(rawUrl: string): string | null {
   let parsed: URL;
-  try { parsed = new URL(rawUrl); } catch {
-    return { accepted: false, reason: "invalid_url" };
-  }
-  if (parsed.protocol !== "https:") return { accepted: false, reason: "invalid_url" };
+  try { parsed = new URL(rawUrl); } catch { return null; }
+  if (parsed.protocol !== "https:" || parsed.username || parsed.password) return null;
+  if (parsed.port && parsed.port !== "443") return null;
+  const host = parsed.hostname.toLowerCase().replace(/\\.$/, "");
+  if (!host || host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local")) return null;
+  if (host.startsWith("[") || /^\\d{1,3}(?:\\.\\d{1,3}){3}$/.test(host)) return null;
+  const labels = host.split(".");
+  if (labels.length < 2 || labels.some(label => !label || label.length > 63 || !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label))) return null;
+  return parsed.toString();
+}
+
+export function evaluateCandidate(rawUrl: string, title: string, description: string): CandidateDecision {
+  const normalizedUrl = normalizePublicHttpsUrl(rawUrl);
+  if (!normalizedUrl) return { accepted: false, reason: "invalid_url" };
 
   const text = [title, description, rawUrl].join(" ");
   if (EXCLUDED_RESULT_RE.test(text) || !GAME_ACTIVITY_RE.test(text)) {
@@ -43,5 +53,5 @@ export function evaluateCandidate(rawUrl: string, title: string, description: st
     /\b(bank card|debit card|credit card|visa|mastercard)\b/.test(lower) ? "Bank card" : null,
     /bitcoin|\bbtc\b|\busdt\b|ethereum|\beth\b|crypto|cryptocurrency|tether|\busdc\b/.test(lower) ? "Crypto" : null,
   ].filter((value): value is string => Boolean(value));
-  return { accepted: true, url: parsed.toString(), payoutMethods };
+  return { accepted: true, url: normalizedUrl, payoutMethods };
 }
