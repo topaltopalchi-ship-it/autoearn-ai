@@ -74,7 +74,15 @@ function bindWorkspace(){
       if(error) throw error;
       if(data?.needsSetup) throw new Error(data.error);
       if(data?.error) throw new Error(data.error);
-      toast(`Found ${data.saved||0} new candidates. Please review them.`);
+      if ((data.saved || 0) === 0) {
+        const details = Array.isArray(data.searches)
+          ? data.searches.map(item => `${item.query}: ${item.results} results (HTTP ${item.status})`).join("\\n")
+          : "No search diagnostics returned.";
+        const issues = Array.isArray(data.errors) && data.errors.length ? `\\nIssues: ${data.errors.join("; ")}` : "";
+        alert(`No new opportunities were saved. Search diagnostics:\\n${details}${issues}`);
+      } else {
+        toast(`Found ${data.saved} new candidates. Please review them.`);
+      }
       await loadData();
     } catch(error) { fail(error); }
     finally { button.disabled=false;button.textContent="Find new opportunities"; }
