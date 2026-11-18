@@ -931,9 +931,23 @@ def test_earnings_ledger_blocks_invalid_transitions_and_paid_mutation(client):
         json={"state": "paid"},
     )
     assert paid_without_receipt.status_code == 409
-    terminal = client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
+    # A failed paid transition must not mutate the current state;
+    # withdrawable -> pending remains a valid recovery transition.
+    recovery = client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
         json={"state": "pending"})
-    assert terminal.status_code == 409
+    assert recovery.status_code == 200
+    # A pending record cannot jump directly to paid.
+    invalid_paid_jump = client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
+        json={"state": "paid"})
+    assert invalid_paid_jump.status_code == 409
+
+
+def test_earnings_ledger_rejects_initial_paid_state(client):
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    response = client.post("/api/earnings", headers=headers, json={
+        "amount": 3, "currency": "EUR", "state": "paid"
+    })
+    assert response.status_code == 422
 
 
 def test_earnings_ledger_requires_owner_and_valid_opportunity(client):
