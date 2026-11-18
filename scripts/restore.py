@@ -64,6 +64,30 @@ def _is_windows_reserved_component(component: str) -> bool:
     return False
 
 
+def _reject_excessive_json_nesting(payload: str, *, max_depth: int = 128) -> None:
+    """Reject deeply nested JSON before handing it to version-specific parsers."""
+    depth = 0
+    in_string = False
+    escaped = False
+    for character in payload:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif character == "\\\\":
+                escaped = True
+            elif character == '"':
+                in_string = False
+            continue
+        if character == '"':
+            in_string = True
+        elif character in "[{":
+            depth += 1
+            if depth > max_depth:
+                raise ValueError("Backup manifest exceeds parser nesting limits")
+        elif character in "]}":
+            depth -= 1
+
+
 def restore_backup(backup_directory: Path, destination: Path) -> dict:
     """Verify all backup data and restore it into a new, non-existing directory."""
     # Validate the original path components before resolve() follows links.
@@ -91,8 +115,10 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
         return result
 
     try:
+        manifest_text = manifest_path.read_text(encoding="utf-8")
+        _reject_excessive_json_nesting(manifest_text)
         manifest = json.loads(
-            manifest_path.read_text(encoding="utf-8"),
+            manifest_text,
             object_pairs_hook=reject_duplicate_keys,
         )
     except (UnicodeDecodeError, json.JSONDecodeError, RecursionError) as exc:
