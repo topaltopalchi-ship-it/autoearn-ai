@@ -9,14 +9,18 @@ const corsHeaders = {
 // Worldwide discovery: search broadly in English and several major languages.
  // Availability is offer-specific; the UI must not imply every offer works in every country.
 const SEARCHES = [
-  { category: "game", query: 'worldwide global play to earn games reward apps cash payouts available countries' },
-  { category: "game", query: 'juegos aplicaciones ganar dinero recompensas global international payout worldwide' },
-  { category: "paid-task", query: 'worldwide international microtask platforms online tasks earn money global workers payout' },
-  { category: "paid-task", query: 'micro tâches rémunérées travail en ligne international tâches payées partout dans le monde' },
-  { category: "survey", query: 'global paid online surveys worldwide countries international rewards payout' },
-  { category: "survey", query: 'encuestas pagadas internacionales remuneradas disponibles varios países pagos' },
-  { category: "signup-offer", query: 'worldwide international sign up bonus referral rewards promotions countries terms' },
-  { category: "signup-offer", query: 'bonus inscription récompense parrainage offres promotionnelles pays internationaux' },
+  // Short queries work better with a full-text index than long, restrictive phrases.
+  { category: "game", query: 'play to earn' },
+  { category: "game", query: 'paid games rewards' },
+  { category: "game", query: 'juegos ganar dinero' },
+  { category: "paid-task", query: 'microtasks' },
+  { category: "paid-task", query: 'online paid tasks' },
+  { category: "paid-task", query: 'micro tâches rémunérées' },
+  { category: "survey", query: 'paid surveys' },
+  { category: "survey", query: 'encuestas pagadas' },
+  { category: "signup-offer", query: 'signup bonus' },
+  { category: "signup-offer", query: 'referral rewards' },
+  { category: "signup-offer", query: 'bonus parrainage' },
 ];
 
 function json(body: unknown, status = 200) {
@@ -37,6 +41,7 @@ Deno.serve((req: Request) => {
 
     const found: Array<Record<string, unknown>> = [];
     const errors: string[] = [];
+    const searchStats: Array<{ category: string; query: string; results: number; status: number }> = [];
 
     for (let index = 0; index < SEARCHES.length; index++) {
       const search = SEARCHES[index];
@@ -47,11 +52,15 @@ Deno.serve((req: Request) => {
         endpoint.searchParams.set("s", search.query);
         const response = await fetch(endpoint, { headers: { "Accept": "application/json" } });
         if (!response.ok) {
-          errors.push(`${search.category}: Mwmbl returned ${response.status}`);
+          errors.push(`${search.category} (${search.query}): Mwmbl returned ${response.status}`);
+          searchStats.push({ category: search.category, query: search.query, results: 0, status: response.status });
           continue;
         }
         const payload = await response.json();
-        for (const item of (Array.isArray(payload) ? payload : [])) {
+        const results = Array.isArray(payload) ? payload : [];
+        searchStats.push({ category: search.category, query: search.query, results: results.length, status: response.status });
+        if (!Array.isArray(payload)) errors.push(`${search.query}: unexpected response format`);
+        for (const item of results) {
           try {
             const parsed = new URL(item.url);
             if (parsed.protocol !== "https:") continue;
@@ -80,7 +89,7 @@ Deno.serve((req: Request) => {
     }
 
     const unique = [...new Map(found.map((row) => [row.url, row])).values()];
-    if (!unique.length) return json({ saved: 0, scanned: 0, errors, message: "No candidate pages found. Try again later." });
+    if (!unique.length) return json({ saved: 0, scanned: 0, searches: searchStats, errors, message: "No candidate pages found. Search diagnostics are included." });
 
     const { data, error } = await ctx.supabase
       .from("opportunities")
@@ -92,6 +101,7 @@ Deno.serve((req: Request) => {
       saved: data?.length || 0,
       scanned: unique.length,
       categories: [...new Set(SEARCHES.map((item) => item.category))],
+      searches: searchStats,
       errors,
       message: "Candidates saved for your review. They are not verified offers.",
     });
