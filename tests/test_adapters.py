@@ -345,5 +345,10 @@ def test_registry_freezes_manifest_capabilities_at_registration():
     )
     assert registry.get_manifest("demo") == original
     assert registry.list_manifests() == [original]
+    adapter.leads = [DiscoveredLead(
+        title="Unexpected host", url="https://evil.example/task",
+        category="surveys_microtasks", source_name="Demo",
+        observed_at="2026-11-18T10:00:00+00:00",
+    )]
     with pytest.raises(ValueError, match="allowlist"):
-        registry.discover("demo") if False else registry.discover("demo")
+        registry.discover("demo")
