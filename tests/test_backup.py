@@ -648,8 +648,8 @@ def test_backup_rejects_nonportable_database_filename(tmp_path, unsafe_name):
 
 
 @pytest.mark.parametrize("manifest_field,unsafe_name,error_match", [
-    ("database_file", "\\ud800", "Invalid database filename"),
-    ("evidence_files", "\\ud800", "valid Unicode"),
+    ("database_file", "\ud800", "Invalid database filename"),
+    ("evidence_files", "\ud800", "valid Unicode"),
 ])
 def test_restore_rejects_lone_surrogate_filenames_without_creating_destination(
     tmp_path, manifest_field, unsafe_name, error_match
