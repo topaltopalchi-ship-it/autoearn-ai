@@ -335,3 +335,20 @@ def test_restore_rejects_malformed_existing_evidence_schema(tmp_path):
     with pytest.raises(ValueError, match="Invalid earnings_evidence schema"):
         restore_backup(backup, destination)
     assert not destination.exists()
+
+
+def test_backup_and_restore_preserve_quarantine_subdirectory(tmp_path):
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    evidence = tmp_path / "private_evidence"
+    quarantine = evidence / ".quarantine"
+    quarantine.mkdir(parents=True)
+    (quarantine / "orphan.orphan").write_bytes(b"recoverable orphan")
+    backup = tmp_path / "backup"
+    manifest = create_backup(database, evidence, backup)
+
+    assert manifest["evidence_files"][0]["name"] == ".quarantine/orphan.orphan"
+    restored = tmp_path / "restored"
+    restore_backup(backup, restored)
+    assert (restored / "private_evidence" / ".quarantine" / "orphan.orphan").read_bytes() == b"recoverable orphan"
