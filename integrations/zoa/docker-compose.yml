@@ -1,0 +1,11 @@
+services:
+  zoa-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      ZOA_URL: https://play.zoagames.com
+    # No ports are exposed. The agent makes outbound HTTPS/WebSocket connections only.
