@@ -501,12 +501,12 @@ class CompetitionAdapterRegistry:
             or not isinstance(receipt.external_entry_id, str)
             or not receipt.external_entry_id.strip()
             or len(receipt.external_entry_id) > 256
-            or any(unicodedata.category(char) == "Cc" for char in receipt.external_entry_id)
+            or any(unicodedata.category(char) in {"Cc", "Cf"} for char in receipt.external_entry_id)
             or not isinstance(receipt.status, str)
             or not re.fullmatch(r"[a-z][a-z0-9_-]{0,39}", receipt.status)
             or not isinstance(receipt.evidence, str)
             or len(receipt.evidence) > 2000
-            or any(unicodedata.category(char) == "Cc" for char in receipt.evidence)
+            or any(unicodedata.category(char) in {"Cc", "Cf"} for char in receipt.evidence)
         ):
             raise RuntimeError("adapter returned an invalid submission receipt")
         return receipt
