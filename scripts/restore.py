@@ -116,6 +116,7 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
         or database_name_byte_length > 255
         or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in database_name)
         or _is_windows_reserved_component(database_name)
+        or database_name.casefold() in {"manifest.json", "private_evidence"}
     ):
         raise ValueError("Invalid database filename in backup manifest")
     source_database = backup_directory / database_name
