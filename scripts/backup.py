@@ -101,6 +101,8 @@ def create_backup(
     destination = Path(destination).resolve()
 
     _portable_evidence_key(database_path.name)
+    if database_path.name.casefold() in {"manifest.json", "private_evidence"}:
+        raise ValueError("Database filename conflicts with a reserved backup entry")
     if not database_path.is_file():
         raise FileNotFoundError(f"Database file does not exist: {database_path}")
     if destination.exists():
