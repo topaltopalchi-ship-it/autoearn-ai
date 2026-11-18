@@ -1,6 +1,7 @@
-const test=require("node:test");
-const assert=require("node:assert/strict");
-const {sumByCurrency,summarize,validateReward}=require("../static/reward-ledger.js");
+import test from "node:test";
+import assert from "node:assert/strict";
+import "../static/reward-ledger.js";
+const {sumByCurrency,summarize,validateReward}=globalThis.AutoEarnRewardLedger;
 
 test("sums currencies separately without mixing them",()=>{
   assert.deepEqual(sumByCurrency([{amount:10,currency:"USD"},{amount:5,currency:"EUR"},{amount:2,currency:"USD"}]),{USD:12,EUR:5});
