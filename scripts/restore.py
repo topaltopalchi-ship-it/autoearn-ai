@@ -46,6 +46,8 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
     manifest_path = backup_directory / "manifest.json"
     if manifest_path.is_symlink() or not manifest_path.is_file():
         raise ValueError("Backup manifest is missing or unsafe")
+    if manifest_path.stat().st_size > 16 * 1024 * 1024:
+        raise ValueError("Backup manifest exceeds the 16 MiB safety limit")
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
