@@ -1,32 +1,41 @@
 # AutoEarn AI
 
-A transparent opportunity discovery and reward-tracking workspace.
+A private, owner-only opportunity discovery and reward-tracking workspace.
 
-The first release is a local-first MVP. It helps users record opportunity metadata, compare opportunities with an explainable score, and track their own progress. It does not promise income or automate clicks, gameplay, spam, account creation, or platform activity.
+The web interface connects directly to Supabase Auth and the three owner-protected tables. The browser uses only the project's publishable key; Row Level Security remains the database authorization boundary. It does not promise income or automate clicks, gameplay, ad views, referrals, spam, account creation, or platform activity.
 
 ## Current implementation
 
-- HTTP(S)-only URL validation and canonicalization for duplicate detection.
-- Removal of common tracking query parameters and URL fragments.
-- Opportunity metadata validation.
-- Explainable 0–100 scoring using reward clarity, terms clarity, source trust, region fit, and effort fit.
-- Unit tests using Python's standard library.
-- GitHub Actions workflow to run unit tests on pushes and pull requests.
+- Supabase email/password sign-in (no public registration UI).
+- Supabase-backed opportunities, tasks, and rewards.
+- Owner ID is attached to every inserted record; database RLS validates ownership.
+- Human approval is required before a task can be marked completed.
+- Explainable opportunity metadata score; not a guarantee of legitimacy or payment.
+- Python API and unit tests remain available for local development only. Do not expose the legacy SQLite API as a public production service.
+
+## Supabase setup
+
+1. In Supabase Dashboard, open **Authentication → Sign In / Providers** and turn off **Allow new users to sign up**. This makes the project invite-only; existing users can still sign in.
+2. Open **Authentication → Users** and create/invite only your own email address.
+3. Open **Project Settings → API Keys** and copy the **publishable** key (starts with `sb_publishable_`). Never copy a secret or service_role key into the website.
+4. Put that publishable key in `static/config.js` as the value of `publishableKey`.
+5. Deploy the static `static/` directory to a static host over HTTPS. Configure the host to serve `index.html` at the site root.
+
+The Supabase project URL is already configured in `static/config.js`. No database password or service-role key is required in the browser.
 
 ## Development
 
 Requires Python 3.10 or newer.
 
-Run the tests:
-
 ```bash
-python -m unittest discover -s tests -v
+pip install -r requirements.txt
+pytest -q
 ```
 
-## Scoring notes
+## Security
 
-The score is a heuristic based only on metadata supplied to the application. It is not proof that a platform is legitimate or that a reward will be paid. Users must verify eligibility, regional restrictions, and platform terms before participating.
+The `opportunities`, `tasks`, and `rewards` tables have Row Level Security policies that scope rows to `auth.uid()`. Do not weaken or disable these policies. A publishable key is not an authorization mechanism by itself; the authenticated user JWT and RLS policies control access.
 
-## Safety boundaries
+## Scope and risk
 
-AutoEarn AI is an assisted decision-support tool. Website discovery and analysis must respect site terms, robots policies, privacy, and applicable law. The product will not automate gameplay, clicks, ad views, referrals, spam, or other activity intended to manipulate reward systems.
+Scores use only metadata entered by the owner. They are not proof that a platform is legitimate or that a reward will be paid. Verify eligibility, country restrictions, withdrawal thresholds, and platform terms before participating. Website discovery and analysis must respect site terms, robots policies, privacy, and applicable law.
