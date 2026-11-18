@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: autoearn-ci-v7-${{ github.workflow }}-${{ github.ref }}
+  group: autoearn-ci-v8-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -88,10 +88,10 @@ jobs:
           python-version: "3.12"
       - name: Install ClamAV daemon and current signatures
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clamav-daemon clamav-freshclam
+          timeout 300s sudo apt-get update
+          timeout 300s sudo apt-get install -y clamav-daemon clamav-freshclam
           sudo systemctl stop clamav-freshclam.service clamav-daemon.service || true
-          sudo freshclam
+          timeout 240s sudo freshclam
       - name: Configure ClamAV for loopback-only integration testing
         run: |
           sudo sed -i -e '/^Example$/d' -e '/^TCPSocket /d' -e '/^TCPAddr /d' -e '/^Foreground /d' /etc/clamav/clamd.conf
