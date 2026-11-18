@@ -41,9 +41,33 @@ class AdapterManifest:
     def __post_init__(self) -> None:
         if not self.adapter_id.strip() or not self.display_name.strip():
             raise ValueError("adapter id and display name are required")
-        if not self.categories:
-            raise ValueError("at least one supported category is required")
-        if not self.allowed_domains:
+        valid_categories = {
+            "games_competitions",
+            "surveys_microtasks",
+            "freelancing_services",
+            "ai_content_products",
+            "other",
+        }
+        if not isinstance(self.categories, tuple) or not self.categories:
+            raise ValueError("categories must be a non-empty tuple")
+        if any(category not in valid_categories for category in self.categories):
+            raise ValueError("categories contain an unsupported category")
+        if len(set(self.categories)) != len(self.categories):
+            raise ValueError("categories must not contain duplicates")
+        if self.execution_mode not in {"manual", "assist", "official_api"}:
+            raise ValueError("execution_mode is not supported")
+        if not isinstance(self.allowed_domains, tuple) or not self.allowed_domains:
+            raise ValueError("at least one exact allowed domain is required")
+        if not isinstance(self.allowed_actions, tuple):
+            raise ValueError("allowed_actions must be a tuple")
+        if len(set(self.allowed_actions)) != len(self.allowed_actions):
+            raise ValueError("allowed_actions must not contain duplicates")
+        if any(
+            not isinstance(action, str)
+            or not re.fullmatch(r"[a-z][a-z0-9_]{0,39}", action)
+            for action in self.allowed_actions
+        ):
+            raise ValueError("allowed_actions must use safe lowercase action identifiers")
             raise ValueError("at least one exact allowed domain is required")
         if self.requests_per_minute < 1 or self.requests_per_minute > 600:
             raise ValueError("requests_per_minute must be between 1 and 600")
