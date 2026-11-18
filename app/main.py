@@ -45,8 +45,8 @@ MAX_EVIDENCE_BYTES = 5 * 1024 * 1024
 DISCOVERY_FEED_MIN_INTERVAL_SECONDS = 60
 EVIDENCE_TYPES = {
     "application/pdf": (b"%PDF-", ".pdf"),
-    "image/png": (b"\\x89PNG\\r\\n\\x1a\\n", ".png"),
-    "image/jpeg": (b"\\xff\\xd8\\xff", ".jpg"),
+    "image/png": (b"\x89PNG\r\n\x1a\n", ".png"),
+    "image/jpeg": (b"\xff\xd8\xff", ".jpg"),
 }
 competition_adapters = CompetitionAdapterRegistry()
 
