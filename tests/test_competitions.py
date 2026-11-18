@@ -19,6 +19,28 @@ def competition(**changes):
     return Competition(**values)
 
 
+@pytest.mark.parametrize("changes", [
+    {"competition_id": True},
+    {"competition_id": 0},
+    {"title": None},
+    {"title": "  "},
+    {"url": 123},
+    {"rules_url": None},
+    {"task_type": "unknown"},
+    {"country": ""},
+    {"eligibility": "maybe"},
+    {"terms_verified": 1},
+    {"automated_agents_allowed": "yes"},
+    {"official_api": None},
+    {"allowed_actions": ["submit_entry"]},
+    {"allowed_actions": ("submit_entry", "submit_entry")},
+    {"allowed_actions": ("bad action",)},
+])
+def test_competition_rejects_malformed_metadata(changes):
+    with pytest.raises(ValueError):
+        competition(**changes)
+
+
 def test_competition_ready_only_when_all_automation_gates_are_met():
     assert assess_competition(competition()).ready
     result = assess_competition(competition(terms_verified=False))
