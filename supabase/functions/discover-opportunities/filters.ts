@@ -65,7 +65,25 @@ export function domainReviewFlags(rawUrl: string): string[] {
 export type CountryEligibility = "eligible" | "ineligible" | "unknown";
 
 export function classifyCountryEligibility(text: string, country = "Iran"): CountryEligibility {
-  const escaped = country.replace(/[.*+?^${}()|[\]\\]/g, "\\export function evaluateCandidate(rawUrl: string, title: string, description: string): CandidateDecision {");
+  const value = text.toLowerCase().replace(/\s+/g, " ");
+  const name = country.toLowerCase();
+  const excluded = [
+    `not available in ${name}`, `unavailable in ${name}`, `not eligible in ${name}`,
+    `residents of ${name} are not eligible`, `${name} is excluded`, `${name} is restricted`,
+    `participants from ${name} are not eligible`, `does not accept participants from ${name}`,
+  ];
+  if (excluded.some((phrase) => value.includes(phrase))) return "ineligible";
+  const included = [
+    `available in ${name}`, `eligible in ${name}`, `open to residents of ${name}`,
+    `residents of ${name} may participate`, `participants from ${name} are eligible`,
+  ];
+  if (included.some((phrase) => value.includes(phrase))) return "eligible";
+  const allowlist = /eligible countries|available countries|countries supported|only available in|residents of the following countries/i.test(value);
+  if (allowlist) return value.includes(name) ? "eligible" : "ineligible";
+  return "unknown";
+}
+
+export function evaluateCandidate(rawUrl: string, title: string, description: string): CandidateDecision {");
   const countryName = new RegExp(`(?:\\b${escaped}\\b|\\bIslamic Republic of Iran\\b)`, "i");
   const value = text.replace(/\\s+/g, " ");
 
