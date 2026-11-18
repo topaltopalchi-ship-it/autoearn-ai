@@ -92,6 +92,7 @@ def create_backup(
     evidence_dir = Path(evidence_dir).resolve()
     destination = Path(destination).resolve()
 
+    _portable_evidence_key(database_path.name)
     if not database_path.is_file():
         raise FileNotFoundError(f"Database file does not exist: {database_path}")
     if destination.exists():

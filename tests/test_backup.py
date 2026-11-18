@@ -602,3 +602,45 @@ def test_backup_rejects_unicode_normalization_colliding_names_on_posix(tmp_path)
     with pytest.raises(ValueError, match="case-colliding"):
         create_backup(database, evidence, tmp_path / "backup")
     assert not (tmp_path / "backup").exists()
+
+
+@pytest.mark.parametrize("unsafe_name", [
+    "..\\outside.db",
+    "C:\\outside.db",
+    "bad:name.db",
+    "CON",
+    "nul.db",
+    "trailing-dot.",
+    "trailing-space ",
+])
+def test_restore_rejects_nonportable_database_filename(tmp_path, unsafe_name):
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    backup = tmp_path / "backup"
+    create_backup(database, evidence, backup)
+
+    manifest_path = backup / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["database_file"] = unsafe_name
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    destination = tmp_path / "restored"
+    with pytest.raises(ValueError, match="Invalid database filename"):
+        restore_backup(backup, destination)
+    assert not destination.exists()
+
+
+@pytest.mark.parametrize("unsafe_name", ["CON", "nul.db", "bad:name.db", "trailing-dot."])
+def test_backup_rejects_nonportable_database_filename(tmp_path, unsafe_name):
+    database = tmp_path / unsafe_name
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+
+    with pytest.raises(ValueError, match="Unsafe evidence filename"):
+        create_backup(database, evidence, tmp_path / "backup")
+    assert not (tmp_path / "backup").exists()
