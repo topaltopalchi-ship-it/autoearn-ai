@@ -22,6 +22,21 @@ export function normalizePublicHttpsUrl(rawUrl: string): string | null {
   return parsed.toString();
 }
 
+export function canonicalOpportunityUrl(rawUrl: string): string | null {
+  const normalized = normalizePublicHttpsUrl(rawUrl);
+  if (!normalized) return null;
+  const parsed = new URL(normalized);
+  parsed.hash = "";
+  for (const key of [...parsed.searchParams.keys()]) {
+    const lower = key.toLowerCase();
+    if (lower.startsWith("utm_") || ["gclid", "dclid", "fbclid", "msclkid", "mc_cid", "mc_eid"].includes(lower)) {
+      parsed.searchParams.delete(key);
+    }
+  }
+  parsed.searchParams.sort();
+  return parsed.toString();
+}
+
 export function evaluateCandidate(rawUrl: string, title: string, description: string): CandidateDecision {
   const normalizedUrl = normalizePublicHttpsUrl(rawUrl);
   if (!normalizedUrl) return { accepted: false, reason: "invalid_url" };
