@@ -12,7 +12,7 @@ AutoEarn AI is a local-first, single-owner MVP. A passing CI run is not approval
 - [ ] Run the service as a dedicated unprivileged OS identity. Keep the SQLite database, receipt evidence, backups, and temporary files outside the web root with least-privilege permissions.
 - [ ] Define encrypted off-device backup, retention, access control, restore objectives, and scheduled restore drills. Verify recovery of both the database and evidence files together.
 - [ ] Provision and harden ClamAV `clamd` with loopback-only access at `127.0.0.1:3310`, maintained signatures, resource limits, health monitoring, and alerting. The application now fails closed before storing evidence unless it receives an exact clean verdict; scanner provisioning is external and is not performed by the app.
-- [ ] Run live end-to-end scanner tests in an isolated environment (clean fixture accepted, EICAR rejected, scanner outage rejected) and verify no rejected upload is stored.
+- [x] Run live end-to-end scanner tests in an isolated GitHub Actions environment (clean fixture accepted, EICAR rejected, scanner outage rejected) and verify no rejected upload is stored (run 44296723508).
 - [x] Reconcile stale unreferenced evidence files at startup by moving old regular non-symlink orphans into a private `.quarantine` directory without deleting them; referenced and fresh files are skipped.
 - [ ] Define and test quarantine retention, audit/manifest, restore, and cleanup procedures; review the treatment of legacy `unscanned` evidence records. Startup orphan reconciliation is not a malware-quarantine workflow.
 - [ ] Establish dependency update, vulnerability response, log redaction, monitoring, alerting, and incident-response procedures.
