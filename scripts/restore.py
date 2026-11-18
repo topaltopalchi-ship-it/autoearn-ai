@@ -46,9 +46,24 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
     manifest_path = backup_directory / "manifest.json"
     if manifest_path.is_symlink() or not manifest_path.is_file():
         raise ValueError("Backup manifest is missing or unsafe")
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if manifest.get("format_version") != 1 or manifest.get("sqlite_integrity_check") != "ok":
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("Backup manifest is not valid UTF-8 JSON") from exc
+    if not isinstance(manifest, dict):
+        raise ValueError("Backup manifest must be a JSON object")
+    version = manifest.get("format_version")
+    if isinstance(version, bool) or version != 1 or manifest.get("sqlite_integrity_check") != "ok":
         raise ValueError("Unsupported or invalid backup manifest")
+
+    def valid_digest(value: object) -> bool:
+        return isinstance(value, str) and len(value) == 64 and all(c in "0123456789abcdef" for c in value)
+
+    database_size = manifest.get("database_size_bytes")
+    if isinstance(database_size, bool) or not isinstance(database_size, int) or database_size < 0:
+        raise ValueError("Invalid database size in backup manifest")
+    if not valid_digest(manifest.get("database_sha256")):
+        raise ValueError("Invalid database checksum in backup manifest")
 
     database_name = manifest.get("database_file")
     if not isinstance(database_name, str) or not database_name or Path(database_name).name != database_name:
@@ -56,7 +71,7 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
     source_database = backup_directory / database_name
     if source_database.is_symlink() or not source_database.is_file():
         raise ValueError("Backup database is missing or unsafe")
-    if source_database.stat().st_size != manifest.get("database_size_bytes"):
+    if source_database.stat().st_size != database_size:
         raise ValueError("Backup database size does not match manifest")
     if _sha256(source_database) != manifest.get("database_sha256"):
         raise ValueError("Backup database checksum does not match manifest")
@@ -82,6 +97,11 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
             raise ValueError("Unsafe evidence filename in backup manifest")
         if name in expected:
             raise ValueError("Duplicate evidence filename in backup manifest")
+        entry_size = entry.get("size_bytes")
+        if isinstance(entry_size, bool) or not isinstance(entry_size, int) or entry_size < 0:
+            raise ValueError("Invalid evidence size in backup manifest")
+        if not valid_digest(entry.get("sha256")):
+            raise ValueError("Invalid evidence checksum in backup manifest")
         expected[name] = entry
     actual_names = set()
     for item in source_evidence.iterdir():
