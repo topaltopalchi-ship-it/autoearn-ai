@@ -24,7 +24,7 @@ def test_zoa_worker_is_persistent_but_exposes_no_inbound_ports():
 
 
 def test_zoa_setup_documents_human_consent_and_prize_uncertainty():
-    readme = re.sub(r"\\s+", " ", (ZOA / "README.md").read_text().lower())
+    readme = re.sub(r"\s+", " ", (ZOA / "README.md").read_text().lower())
     assert "create a zoa account yourself" in readme
     assert "no prize pool" in readme
     assert "no earnings are guaranteed" in readme
