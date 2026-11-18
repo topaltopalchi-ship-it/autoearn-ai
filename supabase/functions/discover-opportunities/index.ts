@@ -1,5 +1,5 @@
 import { withSupabase } from "npm:@supabase/server@^1";
-import { evaluateCandidate } from "./filters.ts";
+import { canonicalOpportunityUrl, evaluateCandidate } from "./filters.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -105,7 +105,7 @@ Deno.serve((req: Request) => {
             owner_id: ownerId,
             title,
             platform: hostname.slice(0, 100),
-            url: decision.url,
+            url: canonicalOpportunityUrl(decision.url)!,
             category: search.category,
             reward_description: description,
             eligibility: `Payout method hints in search result: ${payoutMethods.join(", ") || "not specified"}. These are not verified; confirm official payment methods and country eligibility.`,
@@ -132,14 +132,41 @@ Deno.serve((req: Request) => {
       return json({
         saved: 0,
         scanned: 0,
+        duplicates: 0,
         ...diagnostics,
         message: "No candidate pages found. Search diagnostics are included.",
       });
     }
 
+    // Compare canonical URLs against this owner's existing rows as well as
+    // this search batch, so tracking links do not create duplicate records.
+    const { data: existingRows, error: existingError } = await ctx.supabase
+      .from("opportunities")
+      .select("url")
+      .eq("owner_id", ownerId);
+    if (existingError) return json({ error: existingError.message }, 500);
+
+    const existingKeys = new Set(
+      (existingRows || [])
+        .map((row: { url: string }) => canonicalOpportunityUrl(String(row.url || "")))
+        .filter((url): url is string => Boolean(url)),
+    );
+    const unseen = unique.filter((row) => !existingKeys.has(String(row.url)));
+    const duplicates = unique.length - unseen.length;
+
+    if (!unseen.length) {
+      return json({
+        saved: 0,
+        scanned: unique.length,
+        duplicates,
+        ...diagnostics,
+        message: "All discovered candidates already exist in your list.",
+      });
+    }
+
     const { data, error } = await ctx.supabase
       .from("opportunities")
-      .upsert(unique, { onConflict: "owner_id,url", ignoreDuplicates: true })
+      .upsert(unseen, { onConflict: "owner_id,url", ignoreDuplicates: true })
       .select("id");
 
     if (error) return json({ error: error.message }, 500);
