@@ -27,6 +27,9 @@ from autoearn.opportunities import normalize_url
 from autoearn.supervision_store import SQLiteSupervisionStore
 from autoearn.supervision import SupervisionError
 from autoearn.rss import PublicRssAdapter
+from autoearn.game_platforms import (
+    GamePlatformError, fetch_lichess_tournaments, fetch_chesscom_tournament, platform_catalog,
+)
 from autoearn.evaluator import OpportunityCandidate, evaluate_candidate
 from autoearn.competitions import (
     AIProviderError, Competition, CompetitionAdapterRegistry, assess_competition, build_strategy,
@@ -2347,6 +2350,32 @@ def competition_from_row(row, allowed_actions=()):
         official_api=bool(row["official_api"]),
         allowed_actions=tuple(allowed_actions),
     )
+
+
+@app.get("/api/games/platforms")
+def list_game_platforms(actor: str = Depends(require_owner)):
+    """List official game data integrations and their strictly read-only capabilities."""
+    return platform_catalog()
+
+
+@app.get("/api/games/lichess/tournaments")
+def list_lichess_tournaments(actor: str = Depends(require_owner)):
+    try:
+        return fetch_lichess_tournaments()
+    except GamePlatformError as exc:
+        status = 503 if "rate limit" in str(exc).lower() else 502
+        raise HTTPException(status, "Lichess public tournament data is temporarily unavailable.") from exc
+
+
+@app.get("/api/games/chesscom/tournaments/{tournament_id}")
+def get_chesscom_tournament(tournament_id: str, actor: str = Depends(require_owner)):
+    try:
+        return fetch_chesscom_tournament(tournament_id)
+    except ValueError as exc:
+        raise HTTPException(422, "Invalid Chess.com tournament identifier.") from exc
+    except GamePlatformError as exc:
+        status = 503 if "rate limit" in str(exc).lower() else 502
+        raise HTTPException(status, "Chess.com public tournament data is temporarily unavailable.") from exc
 
 
 @app.post("/api/competitions", status_code=201)
