@@ -190,3 +190,12 @@ Deno.test("discovers free AI-agent competitions with official prize and payout e
   );
   if (!result.accepted) throw new Error(`Expected AI-agent competition discovery, got: ${result.reason}`);
 });
+
+Deno.test("accepts free AI-agent soccer contest with official prize and payment terms", () => {
+  const result = evaluateCandidate(
+    "https://agenticworldcup.ai/rules",
+    "Agentic World Cup official contest rules",
+    "NO ENTRY FEE. First Place Prize: $500 (US). Second Place Prize: $300 (US). Third Place Prize: $200 (US). All prize payments are subject to the ability of Sponsor's third-party payment processor to process payment to the winner."
+  );
+  if (!result.accepted) throw new Error(`Expected official AI soccer contest to pass discovery, got: ${result.reason}`);
+});
