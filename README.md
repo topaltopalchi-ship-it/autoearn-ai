@@ -39,7 +39,7 @@ Stop the AutoEarn service first, then create a local backup of the SQLite databa
 python scripts/backup.py
 ```
 
-An optional destination directory can be supplied. The command refuses to overwrite an existing backup, uses SQLite's online backup API (including committed WAL data), checks the copied database with `PRAGMA integrity_check`, copies private evidence without following symlinks, and writes a SHA-256 manifest. On POSIX systems, backup directories and sensitive files receive owner-only permissions. Keep backups on encrypted storage, outside the repository and preferably on a separate device.
+An optional destination directory can be supplied. The command refuses to overwrite an existing backup, uses SQLite's online backup API (including committed WAL data), checks the copied database with `PRAGMA integrity_check`, recursively copies private evidence (including nested orphan-quarantine files) without following symlinks, and writes a SHA-256 manifest. Restore preserves quarantined files under `.quarantine`; it does not mark them clean or reactivate them. On POSIX systems, backup directories and sensitive files receive owner-only permissions. Keep backups on encrypted storage, outside the repository and preferably on a separate device.
 
 Verify and restore a backup into a **new directory** (the live database is never overwritten):
 
