@@ -403,12 +403,14 @@ class CompetitionAdapterRegistry:
             raise PermissionError("adapter is not allowed to submit entries")
         if not isinstance(payload, dict):
             raise ValueError("entry payload must be a bounded JSON object")
+        if any(not isinstance(key, str) for key in payload):
+            raise ValueError("entry payload object keys must be strings")
         try:
             encoded_payload = json.dumps(
                 payload, ensure_ascii=False, allow_nan=False, separators=(",", ":")
             ).encode("utf-8")
-        except (TypeError, ValueError, UnicodeEncodeError) as exc:
-            raise ValueError("entry payload must contain valid JSON values") from exc
+        except (TypeError, ValueError, UnicodeEncodeError, RecursionError) as exc:
+            raise ValueError("entry payload must contain valid, bounded JSON values") from exc
         if len(encoded_payload) > 20000:
             raise ValueError("entry payload exceeds the 20000-byte limit")
         # Enforce the manifest's per-adapter rolling-minute limit across
