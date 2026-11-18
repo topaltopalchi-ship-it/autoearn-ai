@@ -6,8 +6,8 @@ let currentUser = null;
 let opportunities = [];
 let tasks = [];
 let rewards = [];
-const DISCOVERY_CATEGORIES = new Set(["game","sweepstakes","wheel","prediction","puzzle","iq-test","instant-win"]);
-const CATEGORY_LABELS = { game:"Game", sweepstakes:"Sweepstakes", wheel:"Spin wheel", prediction:"Prediction contest", puzzle:"Puzzle", "iq-test":"Quiz", "instant-win":"Instant win" };
+const DISCOVERY_CATEGORIES = new Set(["game","sweepstakes","wheel","raffle","prediction","puzzle","iq-test","instant-win"]);
+const CATEGORY_LABELS = { game:"Game", sweepstakes:"Sweepstakes", wheel:"Spin wheel", raffle:"Raffle", prediction:"Prediction contest", puzzle:"Puzzle", "iq-test":"Quiz", "instant-win":"Instant win" };
 function categoryLabel(category){ return CATEGORY_LABELS[category] || category || "Other"; }
 
 const money = (n,c="USD") => new Intl.NumberFormat(undefined,{style:"currency",currency:c}).format(Number(n||0));
