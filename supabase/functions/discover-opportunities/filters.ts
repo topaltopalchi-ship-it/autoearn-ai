@@ -1,16 +1,16 @@
 export type CandidateDecision =
   | { accepted: true; url: string; wallets: string[] }
-  | { accepted: false; reason: "invalid_url" | "excluded_category" | "no_accepted_wallet" };
+  | { accepted: false; reason: "invalid_url" | "excluded_category" | "no_accepted_wallet" | "missing_reward_evidence" | "missing_payout_evidence" };
 
-// Exclude non-game earning categories and editorial/listing pages even when they mention a supported wallet.
-const EXCLUDED_RESULT_RE = /\b(survey|surveys|questionnaire|microtask|micro-task|crowd.?work|freelance job|job opening|career|news|press release|blog post|article|guide|directory|archives?|roundup|review|comparison|cashback|cash back|loyalty program|rewards? program|points redemption|redeem points|affiliate referral|referral bonus|invite friends|sign.?up bonus|registration bonus|paid to register|offerwall)\b/i;
+// Search snippets are noisy. Reject editorial, price, directory, merchant and generic reward pages.
+const EXCLUDED_RESULT_RE = /\b(survey|surveys|questionnaire|microtask|micro-task|crowd.?work|freelance job|job opening|career|news|press release|blog post|article|guide|directory|archives?|roundup|review|comparison|cashback|cash back|loyalty program|rewards? program|points redemption|redeem points|affiliate referral|referral bonus|invite friends|sign.?up bonus|registration bonus|paid to register|offerwall|price chart|token price|market cap|cryptocurrency price|payment gateway|accept payments|merchant account|business payments)\b/i;
 const GAME_ACTIVITY_RE = /\b(game|games|gaming|play|player|puzzle|contest|competition|tournament|sweepstakes|giveaway|spin|wheel|scratch|instant.?win|quiz|trivia|iq test|brain.?test)\b/i;
+const REWARD_EVIDENCE_RE = /\b(cash prize|prize money|win cash|cash reward|prize pool|winner.{0,30}(prize|paid|reward)|paid.{0,30}winner|earn.{0,30}(cash|prize)|withdraw.{0,30}(winnings|prize|reward)|redeem.{0,20}(cash|prize)|payout|paid in|reward.{0,20}(cash|crypto|token))\b/i;
+const PAYOUT_CONTEXT_RE = /\b(payout|withdraw|withdrawal|cash.?out|paid to|payment method|prize paid|winnings paid|receive.{0,20}(paypal|skrill|neteller|payeer|payoneer|webmoney|bitcoin|btc|usdt|crypto))\b/i;
 
 export function evaluateCandidate(rawUrl: string, title: string, description: string): CandidateDecision {
   let parsed: URL;
-  try {
-    parsed = new URL(rawUrl);
-  } catch {
+  try { parsed = new URL(rawUrl); } catch {
     return { accepted: false, reason: "invalid_url" };
   }
   if (parsed.protocol !== "https:") return { accepted: false, reason: "invalid_url" };
@@ -32,5 +32,7 @@ export function evaluateCandidate(rawUrl: string, title: string, description: st
   ].filter((value): value is string => Boolean(value));
 
   if (!wallets.length) return { accepted: false, reason: "no_accepted_wallet" };
+  if (!REWARD_EVIDENCE_RE.test(text)) return { accepted: false, reason: "missing_reward_evidence" };
+  if (!PAYOUT_CONTEXT_RE.test(text)) return { accepted: false, reason: "missing_payout_evidence" };
   return { accepted: true, url: parsed.toString(), wallets };
 }
