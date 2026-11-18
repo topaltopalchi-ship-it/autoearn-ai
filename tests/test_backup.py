@@ -185,7 +185,6 @@ def test_restore_verifies_and_recovers_backup_without_overwriting(tmp_path):
 
 
 
-@pytest.mark.parametrize("database_name", ["manifest.json", "PRIVATE_EVIDENCE"])
 def test_restore_rejects_destination_inside_backup_directory(tmp_path):
     database = tmp_path / "autoearn.db"
     with sqlite3.connect(database) as db:
@@ -201,6 +200,7 @@ def test_restore_rejects_destination_inside_backup_directory(tmp_path):
     assert not destination.exists()
 
 
+@pytest.mark.parametrize("database_name", ["manifest.json", "PRIVATE_EVIDENCE"])
 def test_restore_rejects_database_name_colliding_with_reserved_backup_entry(tmp_path, database_name):
     database = tmp_path / "autoearn.db"
     with sqlite3.connect(database) as db:
