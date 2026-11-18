@@ -78,13 +78,15 @@ class SQLiteSupervisionStore:
     def create(self, *, opportunity_id: int, action: ActionKind, description: str,
                opportunity_eligible: bool, source_approved: bool,
                evidence_fresh: bool, actor: str = "system") -> SupervisedAction:
-        if opportunity_id < 1:
-            raise SupervisionError("opportunity_id must be positive")
-        if action not in _ALLOWED_ACTIONS:
+        if isinstance(opportunity_id, bool) or not isinstance(opportunity_id, int) or opportunity_id < 1:
+            raise SupervisionError("opportunity_id must be a positive integer")
+        if not isinstance(action, str) or action not in _ALLOWED_ACTIONS:
             raise SupervisionError("unsupported action")
-        if not description.strip():
+        if not isinstance(description, str) or not description.strip():
             raise SupervisionError("action description is required")
-        if not (opportunity_eligible and source_approved and evidence_fresh):
+        if not isinstance(actor, str) or not actor.strip():
+            raise SupervisionError("request actor is required")
+        if opportunity_eligible is not True or source_approved is not True or evidence_fresh is not True:
             raise SupervisionError(
                 "opportunity must be eligible, source-approved, and supported by fresh evidence"
             )
@@ -104,8 +106,12 @@ class SQLiteSupervisionStore:
 
     def _transition(self, request_id: str, allowed: set[str], new_status: str,
                     event_type: str, actor: str, details: str = "") -> SupervisedAction:
-        if not actor.strip() or actor.strip().casefold() == "system":
+        if not isinstance(request_id, str) or not request_id.strip():
+            raise SupervisionError("request_id is required")
+        if not isinstance(actor, str) or not actor.strip() or actor.strip().casefold() == "system":
             raise SupervisionError("decision must be attributed to a human actor")
+        if not isinstance(details, str):
+            raise SupervisionError("decision details must be text")
         with self._connect() as db:
             # Serialize transitions before reading status so competing decisions
             # cannot both observe the same pre-transition state.
@@ -136,14 +142,18 @@ class SQLiteSupervisionStore:
                                 actor, "Human approval recorded; no action executed")
 
     def reject(self, request_id: str, *, actor: str, reason: str = "") -> SupervisedAction:
+        if not isinstance(reason, str):
+            raise SupervisionError("rejection reason must be text")
         return self._transition(request_id, {"pending_approval"}, "rejected", "rejected", actor, reason)
 
     def complete(self, request_id: str, *, actor: str, evidence: str) -> SupervisedAction:
-        if not evidence.strip():
+        if not isinstance(evidence, str) or not evidence.strip():
             raise SupervisionError("completion evidence is required")
         return self._transition(request_id, {"approved"}, "completed", "marked_completed", actor, evidence)
 
     def cancel(self, request_id: str, *, actor: str, reason: str = "") -> SupervisedAction:
+        if not isinstance(reason, str):
+            raise SupervisionError("cancellation reason must be text")
         return self._transition(request_id, {"pending_approval", "approved"}, "cancelled",
                                 "cancelled", actor, reason)
 
@@ -155,6 +165,9 @@ class SQLiteSupervisionStore:
             return self._action(row) if row else None
 
     def list(self, status: RequestStatus | None = None) -> list[SupervisedAction]:
+        valid_statuses = {"pending_approval", "approved", "rejected", "completed", "cancelled"}
+        if status is not None and (not isinstance(status, str) or status not in valid_statuses):
+            raise SupervisionError("unsupported request status filter")
         with self._connect() as db:
             if status:
                 rows = db.execute(
