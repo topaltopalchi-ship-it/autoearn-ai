@@ -7,6 +7,7 @@ authenticated approval endpoints are intentionally separate follow-up work.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from threading import RLock
 from datetime import datetime, timezone
 from typing import Literal
 from uuid import uuid4
@@ -69,6 +70,7 @@ class SupervisionQueue:
     def __init__(self) -> None:
         self._requests: dict[str, SupervisedAction] = {}
         self._events: list[AuditEvent] = []
+        self._lock = RLock()
 
     def _event(self, request: SupervisedAction, event_type: str, actor: str, details: str = "") -> None:
         self._events.append(AuditEvent(
@@ -109,62 +111,69 @@ class SupervisionQueue:
             action=action,
             description=description.strip()[:500],
         )
-        self._requests[request.request_id] = request
-        self._event(request, "requested", actor, "Awaiting explicit user approval")
-        return request
+        with self._lock:
+            self._requests[request.request_id] = request
+            self._event(request, "requested", actor, "Awaiting explicit user approval")
+            return request
 
     def approve(self, request_id: str, *, actor: str) -> SupervisedAction:
-        request = self._get(request_id)
-        if request.status != "pending_approval":
-            raise SupervisionError("only pending requests can be approved")
-        if not actor.strip() or actor.strip().casefold() == "system":
-            raise SupervisionError("approval must be attributed to a human actor")
-        request.status = "approved"
-        request.approved_at = _timestamp()
-        self._event(request, "approved", actor, "Human approval recorded; no action executed")
-        return request
+        with self._lock:
+            request = self._get(request_id)
+            if request.status != "pending_approval":
+                raise SupervisionError("only pending requests can be approved")
+            if not isinstance(actor, str) or not actor.strip() or actor.strip().casefold() == "system":
+                raise SupervisionError("approval must be attributed to a human actor")
+            request.status = "approved"
+            request.approved_at = _timestamp()
+            self._event(request, "approved", actor, "Human approval recorded; no action executed")
+            return request
 
     def reject(self, request_id: str, *, actor: str, reason: str = "") -> SupervisedAction:
-        request = self._get(request_id)
-        if request.status != "pending_approval":
-            raise SupervisionError("only pending requests can be rejected")
-        if not actor.strip() or actor.strip().casefold() == "system":
-            raise SupervisionError("decision must be attributed to a human actor")
-        request.status = "rejected"
-        self._event(request, "rejected", actor, reason)
-        return request
+        with self._lock:
+            request = self._get(request_id)
+            if request.status != "pending_approval":
+                raise SupervisionError("only pending requests can be rejected")
+            if not isinstance(actor, str) or not actor.strip() or actor.strip().casefold() == "system":
+                raise SupervisionError("decision must be attributed to a human actor")
+            request.status = "rejected"
+            self._event(request, "rejected", actor, reason)
+            return request
 
     def complete(self, request_id: str, *, actor: str, evidence: str) -> SupervisedAction:
         if not actor.strip() or actor.strip().casefold() == "system":
             raise SupervisionError("decision must be attributed to a human actor")
-        request = self._get(request_id)
-        if request.status != "approved":
-            raise SupervisionError("only approved requests can be marked complete")
-        if not evidence.strip():
-            raise SupervisionError("completion evidence is required")
-        request.status = "completed"
-        request.completed_at = _timestamp()
-        self._event(request, "marked_completed", actor, evidence)
-        return request
+        with self._lock:
+            request = self._get(request_id)
+            if request.status != "approved":
+                raise SupervisionError("only approved requests can be marked complete")
+            if not isinstance(evidence, str) or not evidence.strip():
+                raise SupervisionError("completion evidence is required")
+            request.status = "completed"
+            request.completed_at = _timestamp()
+            self._event(request, "marked_completed", actor, evidence)
+            return request
 
     def cancel(self, request_id: str, *, actor: str, reason: str = "") -> SupervisedAction:
         if not actor.strip() or actor.strip().casefold() == "system":
             raise SupervisionError("decision must be attributed to a human actor")
-        request = self._get(request_id)
-        if request.status in ("completed", "rejected", "cancelled"):
-            raise SupervisionError("terminal requests cannot be cancelled")
-        request.status = "cancelled"
-        self._event(request, "cancelled", actor, reason)
-        return request
+        with self._lock:
+            request = self._get(request_id)
+            if request.status in ("completed", "rejected", "cancelled"):
+                raise SupervisionError("terminal requests cannot be cancelled")
+            request.status = "cancelled"
+            self._event(request, "cancelled", actor, reason)
+            return request
 
     def get(self, request_id: str) -> SupervisedAction | None:
-        return self._requests.get(request_id)
+        with self._lock:
+            return self._requests.get(request_id)
 
     def audit_events(self, request_id: str | None = None) -> tuple[AuditEvent, ...]:
-        events = self._events
-        if request_id is not None:
-            events = [event for event in events if event.request_id == request_id]
-        return tuple(events)
+        with self._lock:
+            events = self._events
+            if request_id is not None:
+                events = [event for event in events if event.request_id == request_id]
+            return tuple(events)
 
     def _get(self, request_id: str) -> SupervisedAction:
         request = self._requests.get(request_id)

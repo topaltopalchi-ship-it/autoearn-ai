@@ -91,3 +91,26 @@ def test_cancellation_requires_human_actor(actor):
     request = create(queue)
     with pytest.raises(SupervisionError, match="human actor"):
         queue.cancel(request.request_id, actor=actor)
+
+
+def test_concurrent_approvals_allow_exactly_one_transition():
+    from concurrent.futures import ThreadPoolExecutor
+
+    queue = SupervisionQueue()
+    request = create(queue)
+
+    def approve(actor):
+        try:
+            queue.approve(request.request_id, actor=actor)
+            return "approved"
+        except SupervisionError:
+            return "rejected"
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        outcomes = list(pool.map(approve, ("owner-a", "owner-b")))
+
+    assert sorted(outcomes) == ["approved", "rejected"]
+    assert queue.get(request.request_id).status == "approved"
+    assert [event.event_type for event in queue.audit_events(request.request_id)] == [
+        "requested", "approved"
+    ]
