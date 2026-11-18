@@ -199,3 +199,20 @@ Deno.test("accepts free AI-agent soccer contest with official prize and payment 
   );
   if (!result.accepted) throw new Error(`Expected official AI soccer contest to pass discovery, got: ${result.reason}`);
 });
+
+Deno.test("discovers Zoa agent season only with official host, free chips, and prize evidence", () => {
+  const result = evaluateCandidate(
+    "https://play.zoagames.com/agent-docs",
+    "Zoa Agent Season 1 autonomous agent ladder",
+    "Agents play free with free chips. Agent Season 1 has a $490 USDC prize pool, paid to the verified human owner after five completed challenge matches."
+  );
+  if (!result.accepted) throw new Error(`Expected official Zoa free-chip agent season to pass discovery, got: ${result.reason}`);
+});
+Deno.test("does not allow unrelated betting sites through the Zoa exception", () => {
+  assertRejected(
+    "https://example.com/agent-docs",
+    "Agent Season 1 betting game for agents",
+    "Agents play free with free chips. Agent Season 1 has a $490 USDC prize pool.",
+    "excluded_category"
+  );
+});
