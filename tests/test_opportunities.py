@@ -28,6 +28,11 @@ class OpportunityTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             Opportunity("Demo", "https://example.com", source_trust=101)
 
+    def test_rejects_invalid_title_types(self):
+        for title in (None, 7, True):
+            with self.subTest(title=title), self.assertRaises(ValueError):
+                Opportunity(title, "https://example.com")
+
     def test_low_score_is_high_risk(self):
         item = Opportunity("Demo", "https://example.com")
         self.assertEqual(score_opportunity(item)["risk"], "high")
