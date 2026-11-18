@@ -552,4 +552,4 @@ $("toggle-execution-pause").onclick=async()=>{
   }catch(error){toast(error.message)}
 };
 loadOwnerSession().then(authenticated=>{if(authenticated)refresh().catch(e=>toast(e.message));}).catch(()=>clearOwnerSession());
-setInterval(()=>{if(ownerAuthenticated)refresh().catch(()=>{});},60000);
+// No background polling: API inactivity can expire the owner session as configured.

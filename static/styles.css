@@ -12,3 +12,5 @@ main{margin-left:0;margin-right:238px}
 .item-actions{justify-content:flex-start}
 dialog form{text-align:right}
 @media(max-width:850px){.sidebar{position:static;width:auto;height:auto;border-left:0}main{margin:0}}
+
+.owner-access form{display:flex;align-items:center;gap:7px;margin:0}.owner-access #owner-auth-status{font-size:10px;color:#aab6ca;white-space:nowrap}
