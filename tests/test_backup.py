@@ -327,7 +327,7 @@ def test_restore_rejects_excessively_nested_manifest_without_creating_destinatio
     backup = tmp_path / "backup"
     create_backup(database, evidence, backup)
 
-    (backup / "manifest.json").write_text("[" * 3000 + "0" + "]" * 3000, encoding="utf-8")
+    (backup / "manifest.json").write_text("[" * 10000 + "0" + "]" * 10000, encoding="utf-8")
     destination = tmp_path / "restored"
     with pytest.raises(ValueError, match="nesting limits"):
         restore_backup(backup, destination)
