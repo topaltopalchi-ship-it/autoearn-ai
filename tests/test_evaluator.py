@@ -194,6 +194,41 @@ def test_non_finite_money_values_are_rejected(field, value):
         complete_candidate(**{field: value})
 
 
+@pytest.mark.parametrize(
+    "field",
+    [
+        "reward_amount", "estimated_cost", "payout_fee_fixed",
+        "payout_fee_percent", "conversion_fee_percent",
+        "minimum_withdrawal_amount",
+    ],
+)
+def test_boolean_money_values_are_rejected(field):
+    with pytest.raises(ValueError, match=field):
+        complete_candidate(**{field: True})
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "estimated_minutes", "payment_probability",
+        "acceptance_probability", "payout_reliability", "risk_score",
+    ],
+)
+def test_boolean_integer_metrics_are_rejected(field):
+    with pytest.raises(ValueError, match=field):
+        complete_candidate(**{field: True})
+
+
+def test_country_and_evidence_age_arguments_require_valid_types():
+    with pytest.raises(ValueError, match="country"):
+        evaluate_candidate(complete_candidate(), True, now=NOW)
+    with pytest.raises(ValueError, match="max_evidence_age_days"):
+        evaluate_candidate(
+            complete_candidate(), "Germany", now=NOW,
+            max_evidence_age_days=True,
+        )
+
+
 def test_unknown_execution_mode_is_rejected():
     with pytest.raises(ValueError, match="execution mode"):
         complete_candidate(execution_mode="browser_bot")
