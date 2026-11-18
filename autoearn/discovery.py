@@ -31,11 +31,22 @@ class SourceCandidate:
     def __post_init__(self) -> None:
         if not isinstance(self.name, str) or not self.name.strip():
             raise ValueError("source name is required")
+        if not isinstance(self.url, str) or not self.url.strip():
+            raise ValueError("url must be a non-empty string")
         normalize_url(self.url)
-        if self.terms_url:
+        if self.terms_url is not None:
+            if not isinstance(self.terms_url, str) or not self.terms_url.strip():
+                raise ValueError("terms_url must be a non-empty string or None")
             normalize_url(self.terms_url)
         if not isinstance(self.category, str) or not self.category.strip():
             raise ValueError("category is required")
+        for field_name in ("country_notes", "payment_notes", "discovered_at", "track_key"):
+            if not isinstance(getattr(self, field_name), str):
+                raise ValueError(f"{field_name} must be a string")
+        if not isinstance(self.status, str) or self.status not in ("pending", "approved", "rejected"):
+            raise ValueError("status must be pending, approved, or rejected")
+        if not isinstance(self.track_review_status, str) or self.track_review_status not in ("matched", "needs_review"):
+            raise ValueError("track_review_status must be matched or needs_review")
         if self.status not in ("pending", "approved", "rejected"):
             raise ValueError("status must be pending, approved, or rejected")
         if self.track_review_status not in ("matched", "needs_review"):
