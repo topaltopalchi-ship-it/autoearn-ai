@@ -40,3 +40,8 @@ The `opportunities`, `tasks`, and `rewards` tables have Row Level Security polic
 ## Scope and risk
 
 Scores use only metadata entered by the owner. They are not proof that a platform is legitimate or that a reward will be paid. Verify eligibility, country restrictions, withdrawal thresholds, and platform terms before participating. Website discovery and analysis must respect site terms, robots policies, privacy, and applicable law.
+
+
+## Opportunity eligibility gate
+
+Guided sessions are available only after the owner reviews the official terms URL and confirms country eligibility, an accepted digital-wallet payout, no required deposit or purchase, and explicit permission for automated gameplay. This is an owner attestation, not an independent verification by AutoEarn; do not mark an opportunity eligible unless every item is confirmed from official sources. Guided sessions still open the platform for manual participation only.
