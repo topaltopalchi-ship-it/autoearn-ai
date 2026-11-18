@@ -7,7 +7,7 @@ let opportunities = [];
 let tasks = [];
 let rewards = [];
 const DISCOVERY_CATEGORIES = new Set(["game","sweepstakes","wheel","puzzle","iq-test","instant-win"]);
-const ACCEPTED_WALLET_RE = /paypal|skrill|neteller|payeer|bitcoin|\\bbtc\\b|\\busdt\\b|ethereum|\\beth\\b|crypto|cryptocurrency/i;
+const ACCEPTED_WALLET_RE = /paypal|skrill|neteller|payeer|payoneer|webmoney|bitcoin|\bbtc\b|\busdt\b|ethereum|\beth\b|crypto|cryptocurrency|tether|\busdc\b/i;
 function hasAcceptedWallet(item){ return ACCEPTED_WALLET_RE.test([item.title,item.reward_description,item.eligibility,item.notes].join(" ")); }
 
 const money = (n,c="USD") => new Intl.NumberFormat(undefined,{style:"currency",currency:c}).format(Number(n||0));
