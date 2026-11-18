@@ -864,7 +864,10 @@ def test_evaluation_history_returns_404_for_unknown_opportunity(client):
     assert response.status_code == 404
 
 
-def test_earnings_ledger_records_state_and_audit_history(client):
+def test_earnings_ledger_records_state_and_audit_history(client, monkeypatch, tmp_path):
+    from app import main
+    monkeypatch.setattr(main, "EVIDENCE_DIR", tmp_path / "paid-receipt-evidence")
+    monkeypatch.setattr(main, "scan_bytes", lambda payload: "stream: OK")
     headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
     opp = opportunity(client)
     created = client.post("/api/earnings", headers=headers, json={
@@ -889,6 +892,11 @@ def test_earnings_ledger_records_state_and_audit_history(client):
     withdrawable = client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
         json={"state": "withdrawable"})
     assert withdrawable.status_code == 200
+    receipt = client.post(
+        f"/api/earnings/{item['id']}/evidence", headers=headers,
+        files={"upload": ("receipt.pdf", b"%PDF-1.4\\nverified receipt\\n", "application/pdf")},
+    )
+    assert receipt.status_code == 201
     paid = client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
         json={"state": "paid", "note": "Payment received"})
     assert paid.status_code == 200
@@ -918,8 +926,11 @@ def test_earnings_ledger_blocks_invalid_transitions_and_paid_mutation(client):
         json={"state": "pending"})
     client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
         json={"state": "withdrawable"})
-    client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
-        json={"state": "paid"})
+    paid_without_receipt = client.patch(
+        f"/api/earnings/{item['id']}/state", headers=headers,
+        json={"state": "paid"},
+    )
+    assert paid_without_receipt.status_code == 409
     terminal = client.patch(f"/api/earnings/{item['id']}/state", headers=headers,
         json={"state": "pending"})
     assert terminal.status_code == 409
