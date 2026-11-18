@@ -61,3 +61,16 @@ Deno.test("rejects a paid raffle with no free entry route", () => {
 Deno.test("rejects a spin wheel with no real prize or payout evidence", () => {
   assertRejected("https://example.com/wheel", "Lucky spin wheel game", "Spin for fun and collect points.", "missing_reward_evidence");
 });
+
+Deno.test("accepts a free sports prediction contest with a real prize payout", () => {
+  const result = evaluateCandidate("https://example.com/predictor", "Free football match prediction contest cash prize", "No purchase required. Predict match scores for free; top players receive a cash prize paid by bank transfer.");
+  if (!result.accepted) throw new Error(`Expected free prediction contest to be accepted, got: ${result.reason}`);
+  assertEquals(result.payoutMethods, ["Bank transfer"]);
+});
+Deno.test("rejects a sports prediction page that requires a wager", () => {
+  assertRejected("https://example.com/predict", "Football prediction contest cash prize", "Stake required on each match. Winners receive cash payout by bank transfer.", "excluded_category");
+});
+Deno.test("accepts explicit no-entry-fee wording", () => {
+  const result = evaluateCandidate("https://example.com/free-picks", "Free score prediction contest prize money", "No entry fee and no purchase necessary. Winners receive prize payout by bank transfer.");
+  if (!result.accepted) throw new Error(`Expected no-entry-fee contest to be accepted, got: ${result.reason}`);
+});
