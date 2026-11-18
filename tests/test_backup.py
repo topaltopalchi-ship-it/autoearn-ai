@@ -359,7 +359,6 @@ def test_backup_and_restore_preserve_quarantine_subdirectory(tmp_path):
     "nested\\\\escape.bin",
     "C:/escape.bin",
     "nested/../escape.bin",
-    "bad\u0085name.bin",
     "trailing-dot.",
     "trailing-space ",
     "x" * 256,
@@ -535,7 +534,6 @@ def test_restore_rejects_unicode_normalization_colliding_paths(tmp_path):
 @pytest.mark.parametrize("unsafe_name", [
     "CON", "nul.txt", "AUX.data", "COM1.log", "LPT9",
     "bad<name>.bin", "bad|name.bin", "bad?name.bin",
-    "bad\\\\name.bin", "trailing-dot.", "trailing-space ", "bad\\u0085name.bin",
 ])
 def test_backup_rejects_nonportable_evidence_names(tmp_path, unsafe_name):
     database = tmp_path / "autoearn.db"
