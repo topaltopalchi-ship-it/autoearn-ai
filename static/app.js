@@ -167,7 +167,7 @@ function bindWorkspace(){
     if(!opportunity)return toast("Opportunity not found. Refresh and try again.");
     for(const key of ["terms_url","payout_source","automation_source"]){
       try{const safe=safePublicHttpsUrl(data[key]);if(!safe)throw new Error();data[key]=safe}
-      catch(_){return toast("Both evidence links must be valid HTTPS URLs.")}
+      catch(_){return toast("All three official evidence links must be valid public HTTPS URLs.")}
     }
     const passed=data.country.trim()&&data.country_allowed==="yes"&&data.payment_method&&data.payment_method!=="Other / not specified"&&data.payment_confirmed==="yes"&&data.minimum.trim()&&data.fees.trim()&&data.kyc!=="unknown"&&data.free_entry==="yes"&&data.automation==="yes";
     const report={reviewed_at:new Date().toISOString(),country:data.country.trim(),country_allowed:data.country_allowed,payment_method:data.payment_method,payment_confirmed:data.payment_confirmed,minimum_withdrawal:data.minimum.trim(),fees:data.fees.trim(),kyc:data.kyc,free_entry:data.free_entry,automation_explicitly_allowed:data.automation,payout_source:data.payout_source,automation_source:data.automation_source};
