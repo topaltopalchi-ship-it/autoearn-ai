@@ -18,6 +18,8 @@ const SEARCHES = [
   { category: "game", query: 'crypto games rewards Bitcoin USDT payout no deposit' },
   { category: "game", query: 'free online games cash prizes bank transfer payout' },
   { category: "game", query: 'online game tournament cash prize debit card payout' },
+  { category: "game", query: 'AI agent competition cash prizes free entry autonomous gameplay official rules' },
+  { category: "game", query: 'agentic game tournament autonomous AI agents prize pool no entry fee' },
   { category: "game", query: 'puzzle contest prize money paid to bank account' },
   { category: "game", query: 'free skill games cash prize card payment withdrawal' },
   { category: "sweepstakes", query: 'free sweepstakes prize PayPal payout no purchase' },
