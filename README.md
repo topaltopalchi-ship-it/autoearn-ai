@@ -56,7 +56,9 @@ The restore command verifies the manifest, database integrity and every evidence
 - `PATCH /api/earnings/{id}/state` applies only allowed forward state transitions. Paid records are terminal.
 - `GET /api/earnings/{id}/history` returns the append-only state-change audit trail, including actor, prior state, new state, note, and timestamp.
 - Every ledger route requires the owner token. The ledger records claims and evidence supplied by the owner; it does not independently verify payments or initiate withdrawals.
-- Owner-only receipt uploads accept PDF, PNG, and JPEG files up to 5 MiB (maximum 10 per earning record), verify file signatures, store files outside the public static directory, and retain SHA-256 metadata. Uploaded evidence is not independently authenticated as proof of payment.
+- Owner-only receipt uploads accept PDF, PNG, and JPEG files up to 5 MiB (maximum 10 per earning record), verify file signatures, store files outside the public static directory, and retain SHA-256 metadata. Uploads require an exact clean verdict from the local ClamAV INSTREAM scanner before storage; positive detections and scanner outages fail closed. The app does not install or supervise ClamAV, so production must provision a loopback-only daemon and current signatures. Uploaded evidence is not independently authenticated as proof of payment.
+
+See [Evidence malware scanning](docs/EVIDENCE_MALWARE_SCANNING.md) for deployment requirements and limitations, including live scanner verification and the current treatment of legacy unscanned files.
 
 ## Discovery adapter contract
 
