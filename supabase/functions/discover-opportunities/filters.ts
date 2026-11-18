@@ -27,6 +27,7 @@ export function evaluateCandidate(rawUrl: string, title: string, description: st
     return { accepted: false, reason: "excluded_category" };
   }
 
+  if (!FREE_ENTRY_RE.test(text)) return { accepted: false, reason: "missing_free_entry_evidence" };
   if (!REWARD_EVIDENCE_RE.test(text)) return { accepted: false, reason: "missing_reward_evidence" };
   if (!PAYOUT_CONTEXT_RE.test(text)) return { accepted: false, reason: "missing_payout_evidence" };
 
