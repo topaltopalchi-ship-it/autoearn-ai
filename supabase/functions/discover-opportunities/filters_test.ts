@@ -75,7 +75,7 @@ Deno.test("accepts explicit no-entry-fee wording", () => {
   if (!result.accepted) throw new Error(`Expected no-entry-fee contest to be accepted, got: ${result.reason}`);
 });
 
-Deno.test("accepts a prediction contest that explicitly says no wager is required", () => {
+Deno.test("rejects a prize game with payout but no evidence that entry is free", () => {\n  assertRejected("https://example.com/game", "Online game cash prize", "Winners receive cash prize payout by bank transfer.", "missing_free_entry_evidence");\n});\n\nDeno.test("accepts a free-to-play contest with no deposit required", () => {\n  const result = evaluateCandidate("https://example.com/free-play", "Free-to-play puzzle contest cash prize", "No deposit required. Winners receive prize payout by bank transfer.");\n  if (!result.accepted) throw new Error(`Expected no-deposit contest to be accepted, got: ${result.reason}`);\n});\n\nDeno.test("accepts a prediction contest that explicitly says no wager is required", () => {
   const result = evaluateCandidate("https://example.com/no-wager-picks", "Free match prediction contest cash prize", "No wager or deposit is required. Winners receive prize payout by bank transfer.");
   if (!result.accepted) throw new Error(`Expected no-wager contest to be accepted, got: ${result.reason}`);
 });
