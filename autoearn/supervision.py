@@ -167,6 +167,8 @@ class SupervisionQueue:
             return request
 
     def get(self, request_id: str) -> SupervisedAction | None:
+        if not isinstance(request_id, str) or not request_id.strip():
+            raise SupervisionError("request_id is required")
         with self._lock:
             return self._requests.get(request_id)
 
