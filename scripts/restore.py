@@ -82,8 +82,19 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
         raise ValueError("Backup manifest is missing or unsafe")
     if manifest_path.stat().st_size > 16 * 1024 * 1024:
         raise ValueError("Backup manifest exceeds the 16 MiB safety limit")
+    def reject_duplicate_keys(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError(f"Duplicate key in backup manifest: {key}")
+            result[key] = value
+        return result
+
     try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest = json.loads(
+            manifest_path.read_text(encoding="utf-8"),
+            object_pairs_hook=reject_duplicate_keys,
+        )
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("Backup manifest is not valid UTF-8 JSON") from exc
     if not isinstance(manifest, dict):
