@@ -74,7 +74,7 @@
     }
     while(bound<=maxBound) {
       const result=dfs(state.indexOf("0"),0,"",bound);
-      if(result===true)return path.slice();
+      if(result===true){const answer=path.slice();state=start.split("");return answer;}
       if(!Number.isFinite(result))break;
       bound=result;
     }
