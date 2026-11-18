@@ -60,7 +60,6 @@ function renderOpportunities(){
   const q=$("search").value.toLowerCase(),status=$("filter").value;
   const rows=opportunities.filter(o=>(!status||o.status===status)&&[o.title,o.platform,o.category].some(x=>(x||"").toLowerCase().includes(q)));
   $("opportunity-list").innerHTML=rows.length?rows.map(o=>`<div class="item"><div><h3>${esc(o.title)} <span class="pill">${esc(o.status==="eligible"?"Owner-cleared · not independently verified":o.status)}</span></h3><p>${esc(o.platform)} · ${esc(categoryLabel(o.category))} · Review score ${o.score}/60<br><a href="${esc(o.url)}" target="_blank" rel="noopener noreferrer">Open platform ↗</a> ${o.terms_url?'· <a href="'+esc(o.terms_url)+'" target="_blank" rel="noopener noreferrer">Terms ↗</a>':''}<br>${esc(o.reward_description||"No reward details entered")}<br><strong>Eligibility review:</strong> ${esc(o.eligibility||"Not reviewed; country and payout eligibility unknown.")}</p></div><div class="item-actions">${'<button class="secondary" data-review="'+o.id+'">Review eligibility</button>'}<button class="secondary" data-status="${o.id}" data-next="reviewing">Mark reviewing</button></div></div>`).join(""):'<div class="empty">No matching opportunities.</div>';
-  $("opportunity-list").querySelectorAll("[data-task]").forEach(b=>b.onclick=()=>createTask(Number(b.dataset.task)));
   $("opportunity-list").querySelectorAll("[data-review]").forEach(b=>b.onclick=()=>verifyEligibility(Number(b.dataset.review)));
   $("opportunity-list").querySelectorAll("[data-status]").forEach(b=>b.onclick=()=>setStatus(Number(b.dataset.status),b.dataset.next));
 }
@@ -68,10 +67,10 @@ async function verifyEligibility(id){
   const opportunity=opportunities.find(item=>Number(item.id)===Number(id));
   if(!opportunity)return toast("Opportunity not found. Refresh and try again.");
   if(!safePublicHttpsUrl(opportunity.url))return toast("The platform link must be a public HTTPS website.");
-  if(!safePublicHttpsUrl(opportunity.terms_url))return toast("Add a valid public HTTPS official terms URL before eligibility review.");
   $("eligibility-opportunity-id").value=String(id);
   $("eligibility-form").reset();
   $("eligibility-opportunity-id").value=String(id);
+  $("eligibility-form").elements.terms_url.value=opportunity.terms_url||"";
   $("eligibility-dialog").showModal();
 }
 async function createTask(id){
@@ -166,14 +165,14 @@ function bindWorkspace(){
     const id=Number(data.opportunity_id);
     const opportunity=opportunities.find(item=>Number(item.id)===id);
     if(!opportunity)return toast("Opportunity not found. Refresh and try again.");
-    for(const key of ["payout_source","automation_source"]){
+    for(const key of ["terms_url","payout_source","automation_source"]){
       try{const safe=safePublicHttpsUrl(data[key]);if(!safe)throw new Error();data[key]=safe}
       catch(_){return toast("Both evidence links must be valid HTTPS URLs.")}
     }
     const passed=data.country.trim()&&data.country_allowed==="yes"&&data.payment_method&&data.payment_method!=="Other / not specified"&&data.payment_confirmed==="yes"&&data.minimum.trim()&&data.fees.trim()&&data.kyc!=="unknown"&&data.free_entry==="yes"&&data.automation==="yes";
     const report={reviewed_at:new Date().toISOString(),country:data.country.trim(),country_allowed:data.country_allowed,payment_method:data.payment_method,payment_confirmed:data.payment_confirmed,minimum_withdrawal:data.minimum.trim(),fees:data.fees.trim(),kyc:data.kyc,free_entry:data.free_entry,automation_explicitly_allowed:data.automation,payout_source:data.payout_source,automation_source:data.automation_source};
     const note="\n\n[OWNER OFFICIAL ELIGIBILITY REVIEW]\n"+JSON.stringify(report,null,2);
-    const {error}=await supabase.from("opportunities").update({status:passed?"reviewing":"ineligible",notes:(opportunity.notes||"")+note}).eq("id",id);
+    const {error}=await supabase.from("opportunities").update({status:passed?"reviewing":"ineligible",terms_url:data.terms_url,notes:(opportunity.notes||"")+note}).eq("id",id);
     if(error)return fail(error);
     e.target.closest("dialog").close();
     toast(passed?"Owner checklist saved. This remains under review until official evidence is independently verified; guided sessions are not enabled.":"Review saved: this opportunity is not cleared.");
