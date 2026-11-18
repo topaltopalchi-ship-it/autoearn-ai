@@ -243,3 +243,45 @@ def test_backup_fails_when_sqlite_references_missing_receipt(tmp_path):
     with pytest.raises(RuntimeError, match="stop the app and retry"):
         create_backup(database, evidence, destination)
     assert not destination.exists()
+
+
+@pytest.mark.parametrize("manifest_payload", [
+    "[]",
+    "{",
+    '{"format_version": true, "sqlite_integrity_check": "ok"}',
+    '{"format_version": 1, "sqlite_integrity_check": "ok", "database_size_bytes": true, "database_sha256": "bad"}',
+])
+def test_restore_rejects_malformed_manifest_without_creating_destination(tmp_path, manifest_payload):
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    backup = tmp_path / "backup"
+    create_backup(database, evidence, backup)
+    (backup / "manifest.json").write_text(manifest_payload, encoding="utf-8")
+    destination = tmp_path / "recovered"
+
+    with pytest.raises(ValueError):
+        restore_backup(backup, destination)
+    assert not destination.exists()
+
+
+def test_restore_rejects_invalid_evidence_manifest_digest(tmp_path):
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    (evidence / "receipt.bin").write_bytes(b"proof")
+    backup = tmp_path / "backup"
+    create_backup(database, evidence, backup)
+    manifest_path = backup / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["evidence_files"][0]["sha256"] = "not-a-sha256"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    destination = tmp_path / "recovered"
+
+    with pytest.raises(ValueError, match="checksum"):
+        restore_backup(backup, destination)
+    assert not destination.exists()
