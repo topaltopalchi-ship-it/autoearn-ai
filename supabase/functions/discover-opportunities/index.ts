@@ -173,6 +173,7 @@ Deno.serve((req: Request) => {
     return json({
       saved: data?.length || 0,
       scanned: unique.length,
+      duplicates,
       ...diagnostics,
       categories: [...new Set(SEARCHES.map((item) => item.category))],
       message: "Candidates saved for your review. They are not verified offers.",
