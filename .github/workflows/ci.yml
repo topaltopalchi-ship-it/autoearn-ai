@@ -24,3 +24,5 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
       - run: pytest -q
+      - name: Build pinned Zoa agent worker (no API key required)
+        run: docker build --tag autoearn-zoa-agent:ci integrations/zoa
