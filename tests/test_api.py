@@ -1054,7 +1054,7 @@ def test_oversized_competition_payload_is_rejected_before_submission_intent(clie
 
     monkeypatch.setattr(main, "competition_adapters", ManifestOnlyRegistry())
     headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
-    created = client.post(" /api/competitions".strip(), headers=headers, json={
+    created = client.post("/api/competitions", headers=headers, json={
         "title": "Open coding contest",
         "url": "https://contest.example.com/event",
         "rules_url": "https://contest.example.com/rules",
