@@ -229,6 +229,34 @@ def test_country_and_evidence_age_arguments_require_valid_types():
         )
 
 
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("title", None),
+        ("reward_currency", None),
+        ("observed_at", 123),
+        ("eligible_countries", ["Germany"]),
+        ("eligible_countries", ("Germany", 7)),
+        ("excluded_countries", (" ",)),
+        ("evidence", ["official terms"]),
+        ("evidence", ("",)),
+        ("payout_supported", "yes"),
+        ("payout_route_configured", 1),
+        ("supports_balance_accumulation", "true"),
+    ],
+)
+def test_candidate_rejects_invalid_evidence_and_payout_field_types(field, value):
+    with pytest.raises(ValueError):
+        complete_candidate(**{field: value})
+
+
+def test_evaluator_rejects_invalid_candidate_and_now_types():
+    with pytest.raises(ValueError, match="candidate"):
+        evaluate_candidate(None, "Germany", now=NOW)
+    with pytest.raises(ValueError, match="now"):
+        evaluate_candidate(complete_candidate(), "Germany", now="2026-11-17")
+
+
 def test_unknown_execution_mode_is_rejected():
     with pytest.raises(ValueError, match="execution mode"):
         complete_candidate(execution_mode="browser_bot")
