@@ -377,8 +377,8 @@ def test_submission_rejects_excessively_nested_payload_without_calling_adapter()
     SubmissionReceipt("entry-1", "accepted\nforged"),
     SubmissionReceipt("entry-1\x7f", "accepted"),
     SubmissionReceipt("entry-1", "accepted", "evidence\x85text"),
-    SubmissionReceipt("entry-\\u202e1", "accepted"),
-    SubmissionReceipt("entry-1", "accepted", "evidence\\u202etext"),
+    SubmissionReceipt("entry-\u202e1", "accepted"),
+    SubmissionReceipt("entry-1", "accepted", "evidence\u202etext"),
     SubmissionReceipt("entry-1", "accepted", "x" * 2001),
 ])
 def test_submission_rejects_malformed_adapter_receipts(receipt):
