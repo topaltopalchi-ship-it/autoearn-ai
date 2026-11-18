@@ -80,7 +80,10 @@ Deno.serve((req: Request) => {
             const title = String(Array.isArray(item.title) ? item.title.map((part: { value?: string }) => part.value || "").join("") : item.title || hostname).trim().slice(0, 160);
             const description = String(Array.isArray(item.extract) ? item.extract.map((part: { value?: string }) => part.value || "").join("") : item.extract || "No reward details provided by search result.").trim().slice(0, 900);
             if (title.length < 2) continue;
-            const combinedText = title + " " + description + " " + item.url;\n            // Reject unrelated earning formats even when their snippets mention an accepted wallet.\n            if (EXCLUDED_RESULT_RE.test(combinedText)) continue;\n            const payoutText = combinedText.toLowerCase();
+            const combinedText = title + " " + description + " " + item.url;
+            // Reject unrelated earning formats even when their snippets mention an accepted wallet.
+            if (EXCLUDED_RESULT_RE.test(combinedText)) continue;
+            const payoutText = combinedText.toLowerCase();
             const walletMatches = [
               /\bpaypal\b/.test(payoutText) ? "PayPal" : null,
               /\bskrill\b/.test(payoutText) ? "Skrill" : null,
