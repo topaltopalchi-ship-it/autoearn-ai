@@ -73,9 +73,13 @@ def test_live_clamav_outage_rejects_evidence_upload_without_storage(tmp_path, mo
                 )},
             )
             assert upload.status_code == 503
-            # App startup may create the private directory for reconciliation;
-            # an unavailable scanner must leave it without any evidence files.
-            assert not evidence_dir.exists() or not any(evidence_dir.iterdir())
+            # Startup reconciliation creates only its reserved quarantine folder.
+            # The failed upload must create neither an evidence file nor a quarantine item.
+            assert evidence_dir.is_dir()
+            assert {entry.name for entry in evidence_dir.iterdir()} == {".quarantine"}
+            quarantine_dir = evidence_dir / ".quarantine"
+            assert quarantine_dir.is_dir()
+            assert not any(quarantine_dir.iterdir())
 
             listed = client.get(
                 f"/api/earnings/{earning_id}/evidence", headers=headers
