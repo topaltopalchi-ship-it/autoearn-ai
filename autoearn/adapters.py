@@ -39,8 +39,14 @@ class AdapterManifest:
     requires_user_approval: bool = True
 
     def __post_init__(self) -> None:
-        if not self.adapter_id.strip() or not self.display_name.strip():
-            raise ValueError("adapter id and display name are required")
+        if (
+            not isinstance(self.adapter_id, str)
+            or not re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", self.adapter_id)
+            or not isinstance(self.display_name, str)
+            or not self.display_name.strip()
+            or len(self.display_name) > 120
+        ):
+            raise ValueError("adapter id and display name must be valid")
         valid_categories = {
             "games_competitions",
             "surveys_microtasks",
@@ -48,29 +54,38 @@ class AdapterManifest:
             "ai_content_products",
             "other",
         }
-        if not isinstance(self.categories, tuple) or not self.categories:
-            raise ValueError("categories must be a non-empty tuple")
-        if any(category not in valid_categories for category in self.categories):
-            raise ValueError("categories contain an unsupported category")
+        if (
+            not isinstance(self.categories, tuple)
+            or not self.categories
+            or any(not isinstance(category, str) or category not in valid_categories for category in self.categories)
+        ):
+            raise ValueError("categories must be a non-empty tuple of supported categories")
         if len(set(self.categories)) != len(self.categories):
             raise ValueError("categories must not contain duplicates")
         if self.execution_mode not in {"manual", "assist", "official_api"}:
             raise ValueError("execution_mode is not supported")
-        if not isinstance(self.allowed_domains, tuple) or not self.allowed_domains:
-            raise ValueError("at least one exact allowed domain is required")
-        if not isinstance(self.allowed_actions, tuple):
-            raise ValueError("allowed_actions must be a tuple")
-        if len(set(self.allowed_actions)) != len(self.allowed_actions):
-            raise ValueError("allowed_actions must not contain duplicates")
-        if any(
+        if (
+            not isinstance(self.allowed_domains, tuple)
+            or not self.allowed_domains
+            or any(not isinstance(domain, str) for domain in self.allowed_domains)
+        ):
+            raise ValueError("allowed_domains must be a non-empty tuple of hostnames")
+        if not isinstance(self.allowed_actions, tuple) or any(
             not isinstance(action, str)
             or not re.fullmatch(r"[a-z][a-z0-9_]{0,39}", action)
             for action in self.allowed_actions
         ):
             raise ValueError("allowed_actions must use safe lowercase action identifiers")
-            raise ValueError("at least one exact allowed domain is required")
-        if self.requests_per_minute < 1 or self.requests_per_minute > 600:
-            raise ValueError("requests_per_minute must be between 1 and 600")
+        if len(set(self.allowed_actions)) != len(self.allowed_actions):
+            raise ValueError("allowed_actions must not contain duplicates")
+        if (
+            isinstance(self.requests_per_minute, bool)
+            or not isinstance(self.requests_per_minute, int)
+            or not 1 <= self.requests_per_minute <= 600
+        ):
+            raise ValueError("requests_per_minute must be an integer between 1 and 600")
+        if not isinstance(self.terms_permit_automation, bool) or not isinstance(self.requires_user_approval, bool):
+            raise ValueError("automation permission and approval flags must be booleans")
         if self.execution_mode != "official_api" and self.allowed_actions:
             raise ValueError("only official_api adapters may declare platform actions")
         if self.allowed_actions and not self.terms_permit_automation:
@@ -78,7 +93,7 @@ class AdapterManifest:
         if self.allowed_actions and not self.requires_user_approval:
             raise ValueError("platform actions must retain user approval")
         for domain in self.allowed_domains:
-            labels = domain.split(".") if isinstance(domain, str) else []
+            labels = domain.split(".")
             valid_labels = all(
                 re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label)
                 for label in labels
