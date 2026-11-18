@@ -134,7 +134,7 @@ def fetch_lichess_tournaments() -> list[dict[str, Any]]:
 def fetch_chesscom_tournament(tournament_id: str) -> dict[str, Any]:
     """Fetch one Chess.com tournament by its public URL identifier."""
     if not isinstance(tournament_id, str) or not re.fullmatch(
-        r"[a-zA-Z0-9][a-zA-Z0-9-]{0,119}", tournament_id
+        r"[-a-zA-Z0-9][a-zA-Z0-9-]{0,119}", tournament_id
     ):
         raise ValueError("Invalid Chess.com tournament identifier.")
     data = _get_json(

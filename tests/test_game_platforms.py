@@ -37,6 +37,17 @@ def test_chesscom_tournament_is_read_only_and_unknown_eligibility(monkeypatch):
     assert event["participation_mode"] == "manual_review_only"
 
 
+def test_chesscom_accepts_leading_hyphen_identifier(monkeypatch):
+    requested = []
+    monkeypatch.setattr(gp, "_get_json", lambda host, path: (
+        requested.append((host, path)) or {"name": "Hyphen Arena"}
+    ))
+    event = gp.fetch_chesscom_tournament("-arena-2026")
+    assert requested == [("api.chess.com", "/pub/tournament/-arena-2026")]
+    assert event["event_id"] == "-arena-2026"
+    assert event["url"] == "https://www.chess.com/tournament/-arena-2026"
+
+
 @pytest.mark.parametrize("identifier", [
     "../private", "x/y", "https://evil.example", "a?next=evil", "x" * 121, "",
 ])
