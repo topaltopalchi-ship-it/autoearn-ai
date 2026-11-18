@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from scripts.backup import create_backup
-from scripts.restore import restore_backup
+from scripts.restore import _reject_excessive_json_nesting, restore_backup
 
 
 def test_backup_captures_sqlite_snapshot_and_private_evidence(tmp_path):
@@ -785,3 +785,10 @@ def test_backup_rejects_undecodable_posix_evidence_filename(tmp_path):
     with pytest.raises(ValueError, match="valid Unicode"):
         create_backup(database, evidence, tmp_path / "backup")
     assert not (tmp_path / "backup").exists()
+
+
+def test_json_nesting_guard_ignores_braces_and_escaped_quotes_inside_strings():
+    payload = json.dumps({
+        "note": 'escaped quote: " and backslash: \\ followed by braces ' + "{" * 200 + "}" * 200
+    })
+    _reject_excessive_json_nesting(payload)
