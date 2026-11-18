@@ -170,7 +170,7 @@ def test_audit_events_follow_commit_order_when_wall_clock_moves_backwards(tmp_pa
     import autoearn.supervision_store as store_module
 
     store = make_store(tmp_path)
-    stamps = iter(("2026-11-18T12:00:00+00:00", "2026-11-18T12:00:02+00:00", "2026-11-18T12:00:03+00:00", "2026-11-18T12:00:01+00:00"))
+    stamps = iter(("2026-11-18T12:00:02+00:00", "2026-11-18T12:00:03+00:00", "2026-11-18T12:00:01+00:00"))
     monkeypatch.setattr(store_module, "_timestamp", lambda: next(stamps))
 
     request = create(store)
