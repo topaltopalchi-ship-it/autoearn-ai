@@ -644,3 +644,57 @@ def test_backup_rejects_nonportable_database_filename(tmp_path, unsafe_name):
     with pytest.raises(ValueError, match="Unsafe evidence filename"):
         create_backup(database, evidence, tmp_path / "backup")
     assert not (tmp_path / "backup").exists()
+
+
+
+@pytest.mark.parametrize("manifest_field,unsafe_name,error_match", [
+    ("database_file", "\\ud800", "Invalid database filename"),
+    ("evidence_files", "\\ud800", "valid Unicode"),
+])
+def test_restore_rejects_lone_surrogate_filenames_without_creating_destination(
+    tmp_path, manifest_field, unsafe_name, error_match
+):
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    (evidence / "receipt.bin").write_bytes(b"receipt")
+    backup = tmp_path / "backup"
+    create_backup(database, evidence, backup)
+
+    manifest_path = backup / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest_field == "database_file":
+        manifest[manifest_field] = unsafe_name
+    else:
+        manifest[manifest_field][0]["name"] = unsafe_name
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    destination = tmp_path / "restored"
+    with pytest.raises(ValueError, match=error_match):
+        restore_backup(backup, destination)
+    assert not destination.exists()
+
+
+def test_backup_rejects_undecodable_posix_evidence_filename(tmp_path):
+    import os
+
+    if os.name != "posix":
+        pytest.skip("Undecodable filesystem names use POSIX surrogateescape")
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    bad_name = os.fsdecode(b"receipt_\\xff.bin")
+    bad_path = evidence / bad_name
+    try:
+        descriptor = os.open(os.fsencode(bad_path), os.O_CREAT | os.O_WRONLY, 0o600)
+        os.close(descriptor)
+    except (OSError, UnicodeError):
+        pytest.skip("Filesystem does not support undecodable byte filenames")
+
+    with pytest.raises(ValueError, match="valid Unicode"):
+        create_backup(database, evidence, tmp_path / "backup")
+    assert not (tmp_path / "backup").exists()
