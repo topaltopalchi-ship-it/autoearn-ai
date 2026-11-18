@@ -318,10 +318,6 @@ def test_restore_rejects_malformed_manifest_without_creating_destination(tmp_pat
     assert not destination.exists()
 
 
-@pytest.mark.parametrize("manifest_payload", [
-    '{"format_version": 1, "format_version": 1, "sqlite_integrity_check": "ok"}',
-    '{"format_version": 1, "sqlite_integrity_check": "ok", "nested": {"x": 1, "x": 2}}',
-])
 def test_restore_rejects_excessively_nested_manifest_without_creating_destination(tmp_path):
     database = tmp_path / "autoearn.db"
     with sqlite3.connect(database) as db:
@@ -338,6 +334,10 @@ def test_restore_rejects_excessively_nested_manifest_without_creating_destinatio
     assert not destination.exists()
 
 
+@pytest.mark.parametrize("manifest_payload", [
+    '{"format_version": 1, "format_version": 1, "sqlite_integrity_check": "ok"}',
+    '{"format_version": 1, "sqlite_integrity_check": "ok", "nested": {"x": 1, "x": 2}}',
+])
 def test_restore_rejects_duplicate_manifest_keys(tmp_path, manifest_payload):
     database = tmp_path / "autoearn.db"
     with sqlite3.connect(database) as db:
