@@ -44,6 +44,23 @@ class Readiness:
     blockers: tuple[str, ...]
 
 
+def _is_safe_https_url(value: str) -> bool:
+    try:
+        parsed = urlsplit(value)
+        # Credentials, nonstandard ports, and fragments are unnecessary for
+        # public competition/rules links and can confuse host-based controls.
+        return (
+            parsed.scheme == "https"
+            and bool(parsed.hostname)
+            and parsed.username is None
+            and parsed.password is None
+            and parsed.port in (None, 443)
+            and not parsed.fragment
+        )
+    except (TypeError, ValueError):
+        return False
+
+
 def assess_competition(item: Competition) -> Readiness:
     blockers: list[str] = []
     if item.eligibility != "eligible":
@@ -56,13 +73,10 @@ def assess_competition(item: Competition) -> Readiness:
         blockers.append("an official competition API is not available")
     if "submit_entry" not in item.allowed_actions:
         blockers.append("adapter does not declare the submit_entry capability")
-    parsed = urlsplit(item.url)
-    if parsed.scheme != "https" or not parsed.hostname:
-        blockers.append("competition URL must use HTTPS")
-    if item.rules_url:
-        rules = urlsplit(item.rules_url)
-        if rules.scheme != "https" or not rules.hostname:
-            blockers.append("rules URL must use HTTPS")
+    if not _is_safe_https_url(item.url):
+        blockers.append("competition URL must use HTTPS without credentials, fragments, or nonstandard ports")
+    if item.rules_url and not _is_safe_https_url(item.rules_url):
+        blockers.append("rules URL must use HTTPS without credentials, fragments, or nonstandard ports")
     return Readiness(ready=not blockers, blockers=tuple(blockers))
 
 
@@ -357,8 +371,16 @@ class CompetitionAdapterRegistry:
             raise PermissionError("competition host is outside the adapter's exact allowlist")
         if "submit_entry" not in manifest.allowed_actions:
             raise PermissionError("adapter is not allowed to submit entries")
-        if not isinstance(payload, dict) or len(str(payload)) > 20000:
-            raise ValueError("entry payload must be a bounded object")
+        if not isinstance(payload, dict):
+            raise ValueError("entry payload must be a bounded JSON object")
+        try:
+            encoded_payload = json.dumps(
+                payload, ensure_ascii=False, allow_nan=False, separators=(",", ":")
+            ).encode("utf-8")
+        except (TypeError, ValueError, UnicodeEncodeError) as exc:
+            raise ValueError("entry payload must contain valid JSON values") from exc
+        if len(encoded_payload) > 20000:
+            raise ValueError("entry payload exceeds the 20000-byte limit")
         # Enforce the manifest's per-adapter rolling-minute limit across
         # concurrent requests in this process. Reserve before the network call
         # so failed attempts are also throttled and cannot create retry storms.
@@ -373,6 +395,16 @@ class CompetitionAdapterRegistry:
                 )
             requests.append(current)
         receipt = adapter.submit_entry(competition, payload)
-        if not isinstance(receipt, SubmissionReceipt) or not receipt.external_entry_id.strip():
+        if (
+            not isinstance(receipt, SubmissionReceipt)
+            or not isinstance(receipt.external_entry_id, str)
+            or not receipt.external_entry_id.strip()
+            or len(receipt.external_entry_id) > 256
+            or any(ord(char) < 32 for char in receipt.external_entry_id)
+            or not isinstance(receipt.status, str)
+            or not re.fullmatch(r"[a-z][a-z0-9_-]{0,39}", receipt.status)
+            or not isinstance(receipt.evidence, str)
+            or len(receipt.evidence) > 2000
+        ):
             raise RuntimeError("adapter returned an invalid submission receipt")
         return receipt
