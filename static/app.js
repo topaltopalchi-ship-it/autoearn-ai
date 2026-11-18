@@ -91,7 +91,7 @@ async function boot(){
     e.preventDefault();$("auth-submit").disabled=true;
     const {data,error}=await supabase.auth.signInWithPassword({email:$("auth-email").value.trim(),password:$("auth-password").value});
     $("auth-submit").disabled=false;
-    if(error){$("auth-message").textContent="Login failed. Check your email and password.";return}
+    if(error){console.error("Supabase sign-in failed:",error);$("auth-message").textContent="Login failed: "+(error.message||"Unknown authentication error");return}
     currentUser=data.user;showWorkspace();try{await loadData()}catch(err){fail(err)}
   };
   const {data,error}=await supabase.auth.getSession();
