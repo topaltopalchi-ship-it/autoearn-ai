@@ -497,15 +497,24 @@ def test_restore_rejects_case_colliding_evidence_paths_on_posix(tmp_path):
     evidence = tmp_path / "evidence"
     evidence.mkdir()
     (evidence / "Receipt.bin").write_bytes(b"first")
-    (evidence / "receipt.bin").write_bytes(b"second")
     backup = tmp_path / "backup"
     create_backup(database, evidence, backup)
+
+    extra = backup / "private_evidence" / "receipt.bin"
+    extra.write_bytes(b"second")
+    manifest_path = backup / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["evidence_files"].append({
+        "name": "receipt.bin",
+        "size_bytes": extra.stat().st_size,
+        "sha256": hashlib.sha256(extra.read_bytes()).hexdigest(),
+    })
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
     destination = tmp_path / "restored"
     with pytest.raises(ValueError, match="case-colliding"):
         restore_backup(backup, destination)
     assert not destination.exists()
-
 
 
 def test_restore_rejects_unicode_normalization_colliding_paths(tmp_path):
@@ -519,11 +528,21 @@ def test_restore_rejects_unicode_normalization_colliding_paths(tmp_path):
     evidence = tmp_path / "evidence"
     evidence.mkdir()
     composed = "caf\u00e9.txt"
-    decomposed = "cafe\u0301.txt"
     (evidence / composed).write_bytes(b"first")
-    (evidence / decomposed).write_bytes(b"second")
     backup = tmp_path / "backup"
     create_backup(database, evidence, backup)
+
+    decomposed = "cafe\u0301.txt"
+    extra = backup / "private_evidence" / decomposed
+    extra.write_bytes(b"second")
+    manifest_path = backup / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["evidence_files"].append({
+        "name": decomposed,
+        "size_bytes": extra.stat().st_size,
+        "sha256": hashlib.sha256(extra.read_bytes()).hexdigest(),
+    })
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
     destination = tmp_path / "restored"
     with pytest.raises(ValueError, match="case-colliding"):
