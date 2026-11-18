@@ -119,7 +119,7 @@ function bindWorkspace(){
       if(data?.needsSetup) throw new Error(data.error);
       if(data?.error) throw new Error(data.error);
       const rejected = data.rejected || {};
-      const summary = `Filter summary: ${data.accepted_candidates || 0} accepted candidates; ${rejected.invalid_url || 0} invalid URLs; ${rejected.excluded_category || 0} excluded categories; ${rejected.missing_reward_evidence || 0} without clear prize evidence; ${rejected.missing_payout_evidence || 0} without clear payout evidence.`;
+      const summary = `Filter summary: ${data.accepted_candidates || 0} accepted candidates; ${rejected.invalid_url || 0} invalid URLs; ${rejected.excluded_category || 0} excluded categories; ${rejected.missing_free_entry_evidence || 0} without proof of free entry; ${rejected.missing_reward_evidence || 0} without clear prize evidence; ${rejected.missing_payout_evidence || 0} without clear payout evidence.`;
       if ((data.saved || 0) === 0) {
         const details = Array.isArray(data.searches)
           ? data.searches.map(item => `${item.query}: ${item.results} results (HTTP ${item.status})`).join("\\n")
