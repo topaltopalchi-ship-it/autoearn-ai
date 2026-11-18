@@ -95,3 +95,37 @@ def test_blocked_country_or_unavailable_payout_is_demoted():
     assert result["items"][1]["participation_readiness_rank"] < result["items"][2]["participation_readiness_rank"]
     assert result["items"][2]["participation_readiness"] == "blocked_payout"
     assert all(item["execution_authorized"] is False for item in result["items"])
+
+
+
+def test_reviewed_track_priority_breaks_equal_quality_ties():
+    puzzle = lead(
+        id=2, category="games_competitions", track_key="puzzle_solving",
+        track_review_status="matched",
+    )
+    iq = lead(
+        id=1, category="games_competitions", track_key="iq_reasoning",
+        track_review_status="matched",
+    )
+    result = prioritize_discovery_leads([iq, puzzle])
+    assert [item["track_key"] for item in result["items"]] == [
+        "puzzle_solving", "iq_reasoning"
+    ]
+    assert result["items"][0]["track_label"] == "حل پازل"
+    assert result["items"][0]["track_priority"] == 2
+    assert result["items"][0]["track_execution_guidance"] == "assist_if_permitted"
+
+
+def test_unreviewed_or_category_mismatched_track_never_gets_priority():
+    unreviewed = lead(
+        id=1, category="games_competitions", track_key="puzzle_solving",
+        track_review_status="needs_review",
+    )
+    mismatched = lead(
+        id=2, category="surveys_microtasks", track_key="puzzle_solving",
+        track_review_status="matched",
+    )
+    result = prioritize_discovery_leads([unreviewed, mismatched])
+    assert all(item["track_priority"] == 999 for item in result["items"])
+    assert all(item["track_execution_guidance"] == "unreviewed" for item in result["items"])
+    assert all(item["execution_authorized"] is False for item in result["items"])
