@@ -65,21 +65,29 @@ export function domainReviewFlags(rawUrl: string): string[] {
 export type CountryEligibility = "eligible" | "ineligible" | "unknown";
 
 export function classifyCountryEligibility(text: string, country = "Iran"): CountryEligibility {
-  const value = text.toLowerCase().replace(/\s+/g, " ");
-  const name = country.toLowerCase();
+  const value = text.toLowerCase().replace(/\\s+/g, " ");
+  const name = country.toLowerCase().replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&");
   const excluded = [
-    `not available in ${name}`, `unavailable in ${name}`, `not eligible in ${name}`,
-    `residents of ${name} are not eligible`, `${name} is excluded`, `${name} is restricted`,
-    `participants from ${name} are not eligible`, `does not accept participants from ${name}`,
+    `not available in ${country.toLowerCase()}`, `unavailable in ${country.toLowerCase()}`, `not eligible in ${country.toLowerCase()}`,
+    `residents of ${country.toLowerCase()} are not eligible`, `${country.toLowerCase()} is excluded`, `${country.toLowerCase()} is restricted`,
+    `participants from ${country.toLowerCase()} are not eligible`, `does not accept participants from ${country.toLowerCase()}`,
   ];
   if (excluded.some((phrase) => value.includes(phrase))) return "ineligible";
+
+  // Official rules often put sanctioned / void / excluded countries in a comma-separated list.
+  const excludedList = new RegExp(
+    `(?:void\\s+in|except(?:\\s+for)?|excluding|prohibited\\s+jurisdictions?\\s*:|restricted\\s+countries?\\s*:|not\\s+available\\s+in)[^.!?]{0,500}\\b${name}\\b`,
+    "i",
+  );
+  if (excludedList.test(value)) return "ineligible";
+
   const included = [
-    `available in ${name}`, `eligible in ${name}`, `open to residents of ${name}`,
-    `residents of ${name} may participate`, `participants from ${name} are eligible`,
+    `available in ${country.toLowerCase()}`, `eligible in ${country.toLowerCase()}`, `open to residents of ${country.toLowerCase()}`,
+    `residents of ${country.toLowerCase()} may participate`, `participants from ${country.toLowerCase()} are eligible`,
   ];
   if (included.some((phrase) => value.includes(phrase))) return "eligible";
   const allowlist = /eligible countries|available countries|countries supported|only available in|residents of the following countries/i.test(value);
-  if (allowlist) return value.includes(name) ? "eligible" : "ineligible";
+  if (allowlist) return value.includes(country.toLowerCase()) ? "eligible" : "ineligible";
   return "unknown";
 }
 
