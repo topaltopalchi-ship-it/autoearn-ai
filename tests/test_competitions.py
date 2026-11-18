@@ -404,6 +404,18 @@ def test_competition_manifest_rejects_malformed_fields(changes):
         CompetitionAdapterManifest(**values)
 
 
+@pytest.mark.parametrize("host", ["127.0.0.1", "10.0.0.8", "192.168.1.1"])
+def test_competition_manifest_rejects_ip_address_hosts(host):
+    with pytest.raises(ValueError, match="public DNS hostname"):
+        CompetitionAdapterManifest(
+            adapter_id="ip-host",
+            exact_host=host,
+            official_api=True,
+            automated_agents_allowed=True,
+            allowed_actions=("submit_entry",),
+        )
+
+
 def test_competition_manifest_accepts_valid_bounded_configuration():
     manifest = CompetitionAdapterManifest(
         adapter_id="safe_adapter-1",

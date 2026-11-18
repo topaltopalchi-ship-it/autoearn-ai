@@ -8,6 +8,7 @@ executes competition-provided code.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import ipaddress
 import json
 import os
 import re
@@ -345,6 +346,12 @@ class CompetitionAdapterManifest:
             or len(self.exact_host) > 253
         ):
             raise ValueError("adapter host must be an exact lowercase public hostname")
+        try:
+            ipaddress.ip_address(self.exact_host)
+        except ValueError:
+            pass
+        else:
+            raise ValueError("adapter host must be a public DNS hostname, not an IP address")
         labels = self.exact_host.split(".")
         if (
             len(labels) < 2
