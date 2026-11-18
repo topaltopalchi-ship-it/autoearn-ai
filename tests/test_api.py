@@ -2322,6 +2322,9 @@ def test_startup_reconciliation_quarantines_only_old_unreferenced_regular_files(
     assert moved == 1
     quarantine = evidence_dir / ".quarantine"
     quarantined = list(quarantine.iterdir())
+    if os.name == "posix":
+        assert evidence_dir.stat().st_mode & 0o777 == 0o700
+        assert quarantine.stat().st_mode & 0o777 == 0o700
     assert len(quarantined) == 1
     # A second startup pass must be idempotent: quarantined files stay put.
     assert main.reconcile_evidence_files(grace_period_seconds=300) == 0
