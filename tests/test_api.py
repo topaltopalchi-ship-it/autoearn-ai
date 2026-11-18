@@ -1040,6 +1040,46 @@ def test_competition_submission_is_blocked_without_registered_official_adapter(c
     assert "adapter" in response.json()["detail"].lower()
 
 
+def test_oversized_competition_payload_is_rejected_before_submission_intent(client, monkeypatch):
+    from types import SimpleNamespace
+    from app import main
+
+    class ManifestOnlyRegistry:
+        def get_manifest(self, adapter_id):
+            return SimpleNamespace(
+                exact_host="contest.example.com",
+                allowed_actions=("submit_entry",),
+                requests_per_minute=10,
+            )
+
+    monkeypatch.setattr(main, "competition_adapters", ManifestOnlyRegistry())
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    created = client.post(" /api/competitions".strip(), headers=headers, json={
+        "title": "Open coding contest",
+        "url": "https://contest.example.com/event",
+        "rules_url": "https://contest.example.com/rules",
+        "task_type": "coding",
+        "country": "Germany",
+        "eligibility": "eligible",
+        "terms_verified": True,
+        "automated_agents_allowed": True,
+        "official_api": True,
+    })
+    assert created.status_code == 201
+    competition_id = created.json()["id"]
+
+    response = client.post(
+        f"/api/competitions/{competition_id}/submit",
+        headers=headers,
+        json={"adapter_id": "official", "payload": {"answer": "x" * 20001},
+              "owner_confirmed": True},
+    )
+    assert response.status_code == 422
+    history = client.get(f"/api/competitions/{competition_id}/history", headers=headers)
+    assert history.status_code == 200
+    assert history.json() == []
+
+
 def test_competition_adapter_host_mismatch_is_rejected_before_submission_intent(client, monkeypatch):
     from types import SimpleNamespace
     from app import main
