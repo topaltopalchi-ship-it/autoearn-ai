@@ -1084,6 +1084,19 @@ def upload_earning_evidence(
     magic, extension = allowed
     if not payload.startswith(magic):
         raise HTTPException(415, "File content does not match its declared evidence type.")
+    # Reject invalid ledger references and exhausted evidence quotas before
+    # spending scanner resources. Recheck both conditions inside the write
+    # transaction below to remain safe if concurrent requests race.
+    with connect() as db:
+        if not db.execute(
+            "SELECT id FROM earnings_ledger WHERE id = ?", (ledger_id,)
+        ).fetchone():
+            raise HTTPException(404, "Earning record not found.")
+        existing_count = db.execute(
+            "SELECT COUNT(*) FROM earnings_evidence WHERE ledger_id = ?", (ledger_id,)
+        ).fetchone()[0]
+        if existing_count >= 10:
+            raise HTTPException(409, "An earning record can have at most 10 evidence files.")
     try:
         scan_verdict = scan_bytes(payload)
     except MalwareDetected:
