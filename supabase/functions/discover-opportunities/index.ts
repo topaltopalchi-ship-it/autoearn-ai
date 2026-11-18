@@ -8,7 +8,7 @@ const corsHeaders = {
 
 // Worldwide discovery is limited to online games and prize-based entertainment.
  // Availability is offer-specific; the UI must not imply every offer works in every country.
-const SEARCHES = [
+const EXCLUDED_RESULT_RE = /\\b(survey|surveys|questionnaire|microtask|micro-task|crowd.?work|freelance job|job opening|career|news|press release|blog post|article|affiliate referral|referral bonus|invite friends|sign.?up bonus|registration bonus|paid to register|offerwall)\\b/i;\n\nconst SEARCHES = [
   { category: "game", query: 'online games prizes paid via PayPal' },
   { category: "game", query: 'play to earn games PayPal rewards withdrawal' },
   { category: "game", query: 'online games prizes Skrill payout' },
@@ -78,7 +78,7 @@ Deno.serve((req: Request) => {
             const title = String(Array.isArray(item.title) ? item.title.map((part: { value?: string }) => part.value || "").join("") : item.title || hostname).trim().slice(0, 160);
             const description = String(Array.isArray(item.extract) ? item.extract.map((part: { value?: string }) => part.value || "").join("") : item.extract || "No reward details provided by search result.").trim().slice(0, 900);
             if (title.length < 2) continue;
-            const payoutText = (title + " " + description + " " + item.url).toLowerCase();
+            const combinedText = title + " " + description + " " + item.url;\n            // Reject unrelated earning formats even when their snippets mention an accepted wallet.\n            if (EXCLUDED_RESULT_RE.test(combinedText)) continue;\n            const payoutText = combinedText.toLowerCase();
             const walletMatches = [
               /\bpaypal\b/.test(payoutText) ? "PayPal" : null,
               /\bskrill\b/.test(payoutText) ? "Skrill" : null,
