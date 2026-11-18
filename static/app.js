@@ -44,13 +44,27 @@ function render(){
 function renderOpportunities(){
   const q=$("search").value.toLowerCase(),status=$("filter").value;
   const rows=opportunities.filter(o=>(!status||o.status===status)&&[o.title,o.platform,o.category].some(x=>(x||"").toLowerCase().includes(q)));
-  $("opportunity-list").innerHTML=rows.length?rows.map(o=>`<div class="item"><div><h3>${esc(o.title)} <span class="pill">${esc(o.status)}</span></h3><p>${esc(o.platform)} · ${esc(o.category)} · Review score ${o.score}/60<br><a href="${esc(o.url)}" target="_blank" rel="noopener noreferrer">Open platform ↗</a> ${o.terms_url?'· <a href="'+esc(o.terms_url)+'" target="_blank" rel="noopener noreferrer">Terms ↗</a>':''}<br>${esc(o.reward_description||"No reward details entered")}</p></div><div class="item-actions"><button class="secondary" data-task="${o.id}">Start guided session</button><button class="secondary" data-status="${o.id}" data-next="reviewing">Review</button></div></div>`).join(""):'<div class="empty">No matching opportunities.</div>';
+  $("opportunity-list").innerHTML=rows.length?rows.map(o=>`<div class="item"><div><h3>${esc(o.title)} <span class="pill">${esc(o.status)}</span></h3><p>${esc(o.platform)} · ${esc(o.category)} · Review score ${o.score}/60<br><a href="${esc(o.url)}" target="_blank" rel="noopener noreferrer">Open platform ↗</a> ${o.terms_url?'· <a href="'+esc(o.terms_url)+'" target="_blank" rel="noopener noreferrer">Terms ↗</a>':''}<br>${esc(o.reward_description||"No reward details entered")}</p></div><div class="item-actions">${o.status==="eligible"?'<button class="primary" data-task="'+o.id+'">Start guided session</button>':'<button class="secondary" data-review="'+o.id+'">Review eligibility</button>'}<button class="secondary" data-status="${o.id}" data-next="reviewing">Mark reviewing</button></div></div>`).join(""):'<div class="empty">No matching opportunities.</div>';
   $("opportunity-list").querySelectorAll("[data-task]").forEach(b=>b.onclick=()=>createTask(Number(b.dataset.task)));
+  $("opportunity-list").querySelectorAll("[data-review]").forEach(b=>b.onclick=()=>verifyEligibility(Number(b.dataset.review)));
   $("opportunity-list").querySelectorAll("[data-status]").forEach(b=>b.onclick=()=>setStatus(Number(b.dataset.status),b.dataset.next));
+}
+async function verifyEligibility(id){
+  const opportunity=opportunities.find(item=>Number(item.id)===Number(id));
+  if(!opportunity)return toast("Opportunity not found. Refresh and try again.");
+  if(!opportunity.terms_url)return toast("Add the official terms URL before eligibility review.");
+  if(!hasAcceptedWallet(opportunity))return toast("Add the exact supported digital wallet to the reward or notes field.");
+  const message="Have you personally checked the platform's official terms and confirmed: your actual country is eligible; the reward is withdrawable to an accepted wallet; no deposit or purchase is required; and automated gameplay is explicitly permitted?\\n\\nOnly choose OK if every item is confirmed from official sources.";
+  if(!confirm(message))return;
+  const {error}=await supabase.from("opportunities").update({status:"eligible"}).eq("id",id);
+  if(error)return fail(error);
+  toast("Marked eligible based on your official-source review.");
+  await loadData();
 }
 async function createTask(id){
   const opportunity=opportunities.find(item=>Number(item.id)===Number(id));
   if(!opportunity)return toast("Opportunity not found. Refresh and try again.");
+  if(opportunity.status!=="eligible"||!opportunity.terms_url||!hasAcceptedWallet(opportunity))return toast("This opportunity is not cleared. Review official terms, country eligibility and wallet payout first.");
   let target;
   try {
     target=new URL(opportunity.url);
