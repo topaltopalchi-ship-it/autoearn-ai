@@ -2703,3 +2703,47 @@ def test_earning_evidence_accepts_valid_png_and_jpeg_signatures(client, tmp_path
         assert response.status_code == 201, response.text
         assert response.json()["media_type"] == media_type
         assert response.json()["scan_status"] == "clean"
+
+
+def test_earning_evidence_missing_ledger_does_not_invoke_scanner(client, monkeypatch):
+    from app import main
+
+    calls = []
+    monkeypatch.setattr(main, "scan_bytes", lambda payload: calls.append(payload))
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    response = client.post(
+        "/api/earnings/999999/evidence",
+        headers=headers,
+        files={"upload": ("receipt.pdf", b"%PDF-1.4\\nreceipt\\n", "application/pdf")},
+    )
+    assert response.status_code == 404
+    assert calls == []
+
+
+def test_earning_evidence_quota_is_checked_before_scanning(client, monkeypatch, tmp_path):
+    from app import main
+
+    monkeypatch.setattr(main, "EVIDENCE_DIR", tmp_path / "quota-evidence")
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    earning = client.post(
+        "/api/earnings", headers=headers,
+        json={"amount": 5, "currency": "EUR", "state": "earned"},
+    ).json()
+    payload = b"%PDF-1.4\\nreceipt\\n"
+    for _ in range(10):
+        response = client.post(
+            f"/api/earnings/{earning['id']}/evidence",
+            headers=headers,
+            files={"upload": ("receipt.pdf", payload, "application/pdf")},
+        )
+        assert response.status_code == 201, response.text
+
+    calls = []
+    monkeypatch.setattr(main, "scan_bytes", lambda value: calls.append(value))
+    response = client.post(
+        f"/api/earnings/{earning['id']}/evidence",
+        headers=headers,
+        files={"upload": ("eleventh.pdf", payload, "application/pdf")},
+    )
+    assert response.status_code == 409
+    assert calls == []
