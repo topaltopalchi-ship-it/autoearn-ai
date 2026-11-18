@@ -85,9 +85,15 @@ class DiscoveredLead:
     def __post_init__(self) -> None:
         if not self.title.strip() or not self.source_name.strip():
             raise ValueError("lead title and source_name are required")
-        normalize_url(self.url)
-        if self.terms_url:
-            normalize_url(self.terms_url)
+        for field_name, value in (("lead", self.url), ("terms", self.terms_url)):
+            if not value and field_name == "terms":
+                continue
+            normalize_url(value)
+            parsed = urlsplit(value.strip())
+            if parsed.scheme.casefold() != "https" or parsed.port not in (None, 443):
+                raise ValueError(f"{field_name} URL must use HTTPS on the standard port")
+            if parsed.fragment:
+                raise ValueError(f"{field_name} URL must not contain a fragment")
         if not self.observed_at.strip():
             raise ValueError("observed_at timestamp is required")
         if self.track_key and not track_matches_category(self.track_key, self.category):
