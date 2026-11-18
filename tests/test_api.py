@@ -195,15 +195,19 @@ def test_owner_routes_fail_closed_when_server_token_is_too_short(client, monkeyp
     assert "at least 32 characters" in response.json()["detail"]
 
 
-def test_owner_logout_control_is_wired_to_clear_session_storage():
+def test_owner_logout_control_uses_server_side_session_and_csrf():
     from pathlib import Path
 
     root = Path(__file__).resolve().parent.parent
     html = (root / "static" / "index.html").read_text(encoding="utf-8")
     script = (root / "static" / "app.js").read_text(encoding="utf-8")
+    assert 'id="owner-login-form"' in html
     assert 'id="logout-owner"' in html
     assert '$("logout-owner").onclick' in script
-    assert 'sessionStorage.removeItem("autoearn_owner_token")' in script
+    assert 'fetch("/api/auth/login"' in script
+    assert 'fetch("/api/auth/session"' in script
+    assert '"X-CSRF-Token"' in script
+    assert "sessionStorage" not in script
     assert 'response.status === 401' in script
 
 
