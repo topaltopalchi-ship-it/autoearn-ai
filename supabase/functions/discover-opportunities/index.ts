@@ -1,4 +1,5 @@
 import { withSupabase } from "npm:@supabase/server@^1";
+import { evaluateCandidate } from "./filters.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -53,6 +54,8 @@ Deno.serve((req: Request) => {
 
     const found: Array<Record<string, unknown>> = [];
     const errors: string[] = [];
+    const rejected = { invalid_url: 0, excluded_category: 0, no_accepted_wallet: 0 };
+    let acceptedCandidates = 0;
     const searchStats: Array<{ category: string; query: string; results: number; status: number }> = [];
 
     for (let index = 0; index < SEARCHES.length; index++) {
@@ -98,7 +101,7 @@ Deno.serve((req: Request) => {
               owner_id: ownerId,
               title,
               platform: hostname.slice(0, 100),
-              url: parsed.toString(),
+              url: decision.url,
               category: search.category,
               reward_description: description,
               eligibility: `Payout wallet mentioned in search result: ${walletMatches.join(", ")}. This is NOT confirmation that withdrawals are supported in your country; verify on the official payout and terms pages.`,
@@ -115,7 +118,7 @@ Deno.serve((req: Request) => {
     }
 
     const unique = [...new Map(found.map((row) => [row.url, row])).values()];
-    if (!unique.length) return json({ saved: 0, scanned: 0, searches: searchStats, errors, message: "No candidate pages found. Search diagnostics are included." });
+    if (!unique.length) return json({ saved: 0, scanned: 0, accepted_candidates: acceptedCandidates, rejected, searches: searchStats, errors, message: "No candidate pages found. Search diagnostics are included." });
 
     const { data, error } = await ctx.supabase
       .from("opportunities")
@@ -125,7 +128,7 @@ Deno.serve((req: Request) => {
     if (error) return json({ error: error.message }, 500);
     return json({
       saved: data?.length || 0,
-      scanned: unique.length,
+      scanned: unique.length,\n      accepted_candidates: acceptedCandidates,\n      rejected,
       categories: [...new Set(SEARCHES.map((item) => item.category))],
       searches: searchStats,
       errors,
