@@ -2,14 +2,14 @@
 
 A private, owner-only opportunity discovery and reward-tracking workspace.
 
-The web interface connects directly to Supabase Auth and the three owner-protected tables. The browser uses only the project's publishable key; Row Level Security remains the database authorization boundary. It does not promise income or automate clicks, gameplay, ad views, referrals, spam, account creation, or platform activity.
+The web interface connects directly to Supabase Auth and the three owner-protected tables. The browser uses only the project's publishable key; Row Level Security remains the database authorization boundary. It does not promise income or automate clicks, gameplay, ad views, referrals, spam, account creation, or platform activity. The guided-session button only opens the official HTTPS page in a new tab and records that the owner started a session.
 
 ## Current implementation
 
 - Supabase email/password sign-in (no public registration UI).
 - Supabase-backed opportunities, tasks, and rewards.
 - Owner ID is attached to every inserted record; database RLS validates ownership.
-- Human approval is required before a task can be marked completed.
+- Owner-started guided sessions open the official HTTPS page and are recorded as approved tasks; gameplay remains manual.\n- No automatic login, signup, personal-data submission, purchases, deposits, or gameplay. Any future platform-specific assistance must respect the platform terms and request consent before sensitive actions.\n- Human approval is required before a task can be marked completed.
 - Explainable opportunity metadata score; not a guarantee of legitimacy or payment.
 - The FastAPI host serves the static app and a health endpoint only; no unauthenticated SQLite CRUD API is exposed. User data is stored in Supabase.
 
