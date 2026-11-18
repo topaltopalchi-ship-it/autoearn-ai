@@ -93,17 +93,19 @@ class SupervisionQueue:
         source_approved: bool,
         evidence_fresh: bool,
     ) -> SupervisedAction:
-        if opportunity_id < 1:
-            raise SupervisionError("opportunity_id must be positive")
-        if action not in {
+        if isinstance(opportunity_id, bool) or not isinstance(opportunity_id, int) or opportunity_id < 1:
+            raise SupervisionError("opportunity_id must be a positive integer")
+        if not isinstance(action, str) or action not in {
             "read_public_info", "prepare_draft", "submit_application",
             "accept_terms", "publish_content", "share_personal_data",
             "spend_money", "withdraw_funds",
         }:
             raise SupervisionError("unsupported action")
-        if not description.strip():
+        if not isinstance(description, str) or not description.strip():
             raise SupervisionError("action description is required")
-        if not opportunity_eligible or not source_approved or not evidence_fresh:
+        if not isinstance(actor, str) or not actor.strip():
+            raise SupervisionError("request actor is required")
+        if any(value is not True for value in (opportunity_eligible, source_approved, evidence_fresh)):
             raise SupervisionError("opportunity must be eligible, source-approved, and supported by fresh evidence")
         request = SupervisedAction(
             request_id=str(uuid4()),
@@ -140,7 +142,7 @@ class SupervisionQueue:
             return request
 
     def complete(self, request_id: str, *, actor: str, evidence: str) -> SupervisedAction:
-        if not actor.strip() or actor.strip().casefold() == "system":
+        if not isinstance(actor, str) or not actor.strip() or actor.strip().casefold() == "system":
             raise SupervisionError("decision must be attributed to a human actor")
         with self._lock:
             request = self._get(request_id)
@@ -176,6 +178,8 @@ class SupervisionQueue:
             return tuple(events)
 
     def _get(self, request_id: str) -> SupervisedAction:
+        if not isinstance(request_id, str) or not request_id.strip():
+            raise SupervisionError("request_id is required")
         request = self._requests.get(request_id)
         if request is None:
             raise SupervisionError("action request not found")

@@ -114,3 +114,39 @@ def test_concurrent_approvals_allow_exactly_one_transition():
     assert [event.event_type for event in queue.audit_events(request.request_id)] == [
         "requested", "approved"
     ]
+
+
+@pytest.mark.parametrize("opportunity_id", [True, False, 0, -1, "12", 1.5])
+def test_create_rejects_non_positive_integer_opportunity_ids(opportunity_id):
+    queue = SupervisionQueue()
+    with pytest.raises(SupervisionError, match="positive integer"):
+        queue.create(
+            opportunity_id=opportunity_id, action="prepare_draft", description="Draft",
+            opportunity_eligible=True, source_approved=True, evidence_fresh=True,
+        )
+
+
+@pytest.mark.parametrize("actor", ["", "   ", None, 7])
+def test_create_requires_valid_actor(actor):
+    queue = SupervisionQueue()
+    with pytest.raises(SupervisionError, match="actor"):
+        queue.create(
+            opportunity_id=1, action="prepare_draft", description="Draft", actor=actor,
+            opportunity_eligible=True, source_approved=True, evidence_fresh=True,
+        )
+
+
+@pytest.mark.parametrize("flag", [1, "true", None])
+def test_create_requires_actual_boolean_readiness_flags(flag):
+    queue = SupervisionQueue()
+    with pytest.raises(SupervisionError, match="eligible"):
+        queue.create(
+            opportunity_id=1, action="prepare_draft", description="Draft",
+            opportunity_eligible=flag, source_approved=True, evidence_fresh=True,
+        )
+
+
+def test_get_rejects_invalid_request_id_type():
+    queue = SupervisionQueue()
+    with pytest.raises(SupervisionError, match="request_id"):
+        queue.get([])
