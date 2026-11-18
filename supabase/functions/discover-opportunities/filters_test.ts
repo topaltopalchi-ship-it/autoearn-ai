@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert";
-import { evaluateCandidate, normalizePublicHttpsUrl } from "./filters.ts";
+import { canonicalOpportunityUrl, evaluateCandidate, normalizePublicHttpsUrl } from "./filters.ts";
 
 function assertRejected(url: string, title: string, description: string, reason: string) {
   const result = evaluateCandidate(url, title, description);
@@ -111,4 +111,20 @@ Deno.test("rejects credentialed, local, IP literal and non-standard-port URLs", 
 });
 Deno.test("normalizes a public HTTPS URL and permits the default HTTPS port", () => {
   assertEquals(normalizePublicHttpsUrl("https://Example.com:443/game"), "https://example.com/game");
+});
+
+Deno.test("canonicalizes tracking parameters and fragments for duplicate detection", () => {
+  assertEquals(
+    canonicalOpportunityUrl("https://Example.com/game?utm_source=newsletter&level=2#top"),
+    "https://example.com/game?level=2",
+  );
+});
+Deno.test("preserves functional query parameters while sorting them", () => {
+  assertEquals(
+    canonicalOpportunityUrl("https://example.com/game?z=9&level=2&a=1"),
+    "https://example.com/game?a=1&level=2&z=9",
+  );
+});
+Deno.test("rejects unsafe URLs during canonicalization", () => {
+  assertEquals(canonicalOpportunityUrl("http://example.com/game?utm_source=x"), null);
 });
