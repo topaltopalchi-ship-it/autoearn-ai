@@ -18,6 +18,7 @@ from typing import Literal, Protocol
 from urllib.parse import urlsplit
 import http.client
 import ssl
+import unicodedata
 
 Eligibility = Literal["eligible", "ineligible", "unknown"]
 TaskType = Literal["logic", "coding", "chess", "strategy", "general"]
@@ -432,11 +433,12 @@ class CompetitionAdapterRegistry:
             or not isinstance(receipt.external_entry_id, str)
             or not receipt.external_entry_id.strip()
             or len(receipt.external_entry_id) > 256
-            or any(ord(char) < 32 for char in receipt.external_entry_id)
+            or any(unicodedata.category(char) == "Cc" for char in receipt.external_entry_id)
             or not isinstance(receipt.status, str)
             or not re.fullmatch(r"[a-z][a-z0-9_-]{0,39}", receipt.status)
             or not isinstance(receipt.evidence, str)
             or len(receipt.evidence) > 2000
+            or any(unicodedata.category(char) == "Cc" for char in receipt.evidence)
         ):
             raise RuntimeError("adapter returned an invalid submission receipt")
         return receipt
