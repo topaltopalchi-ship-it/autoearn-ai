@@ -2280,6 +2280,56 @@ def test_earning_evidence_commit_failure_removes_uncommitted_file(client, tmp_pa
     assert listed.status_code == 200
     assert listed.json() == []
 
+
+def test_startup_reconciliation_quarantines_only_old_unreferenced_regular_files(client, tmp_path, monkeypatch):
+    import os
+    import time
+    from app import main
+
+    evidence_dir = tmp_path / "reconciliation-evidence"
+    monkeypatch.setattr(main, "EVIDENCE_DIR", evidence_dir)
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    earning = client.post(
+        "/api/earnings", headers=headers,
+        json={"amount": 7, "currency": "EUR", "state": "earned"},
+    ).json()
+    uploaded = client.post(
+        f"/api/earnings/{earning['id']}/evidence", headers=headers,
+        files={"upload": ("receipt.pdf", b"%PDF-1.4\\nvalid receipt\\n", "application/pdf")},
+    )
+    assert uploaded.status_code == 201, uploaded.text
+    with main.connect() as db:
+        stored_name = db.execute(
+            "SELECT stored_name FROM earnings_evidence WHERE id = ?",
+            (uploaded.json()["id"],),
+        ).fetchone()["stored_name"]
+
+    orphan = evidence_dir / "orphaned-receipt.pdf"
+    orphan.write_bytes(b"old orphan")
+    old_time = time.time() - 3600
+    os.utime(orphan, (old_time, old_time))
+    fresh = evidence_dir / "fresh-upload.tmp"
+    fresh.write_bytes(b"possibly in-flight")
+    symlink = evidence_dir / "untrusted-link.pdf"
+    outside = tmp_path / "outside.pdf"
+    outside.write_bytes(b"outside storage")
+    try:
+        symlink.symlink_to(outside)
+    except (NotImplementedError, OSError):
+        symlink = None
+
+    moved = main.reconcile_evidence_files(grace_period_seconds=300)
+    assert moved == 1
+    quarantine = evidence_dir / ".quarantine"
+    quarantined = list(quarantine.iterdir())
+    assert len(quarantined) == 1
+    assert quarantined[0].read_bytes() == b"old orphan"
+    assert (evidence_dir / stored_name).read_bytes() == b"%PDF-1.4\\nvalid receipt\\n"
+    assert fresh.read_bytes() == b"possibly in-flight"
+    if symlink is not None:
+        assert symlink.is_symlink()
+        assert outside.read_bytes() == b"outside storage"
+
 def test_earning_evidence_rejects_malware_before_storage(client, tmp_path, monkeypatch):
     from app import main
     from autoearn.evidence_scanning import MalwareDetected
