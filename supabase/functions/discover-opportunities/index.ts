@@ -8,7 +8,9 @@ const corsHeaders = {
 
 // Worldwide discovery is limited to online games and prize-based entertainment.
  // Availability is offer-specific; the UI must not imply every offer works in every country.
-const EXCLUDED_RESULT_RE = /\\b(survey|surveys|questionnaire|microtask|micro-task|crowd.?work|freelance job|job opening|career|news|press release|blog post|article|affiliate referral|referral bonus|invite friends|sign.?up bonus|registration bonus|paid to register|offerwall)\\b/i;\n\nconst SEARCHES = [
+const EXCLUDED_RESULT_RE = /\b(survey|surveys|questionnaire|microtask|micro-task|crowd.?work|freelance job|job opening|career|news|press release|blog post|article|affiliate referral|referral bonus|invite friends|sign.?up bonus|registration bonus|paid to register|offerwall)\b/i;
+
+const SEARCHES = [
   { category: "game", query: 'online games prizes paid via PayPal' },
   { category: "game", query: 'play to earn games PayPal rewards withdrawal' },
   { category: "game", query: 'online games prizes Skrill payout' },
