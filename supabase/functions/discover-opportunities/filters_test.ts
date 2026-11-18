@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert";
-import { canonicalOpportunityUrl, classifyCountryEligibility, domainReviewFlags, evaluateCandidate, normalizePublicHttpsUrl } from "./filters.ts";
+import { canonicalOpportunityUrl, domainReviewFlags, evaluateCandidate, normalizePublicHttpsUrl } from "./filters.ts";
 
 function assertRejected(url: string, title: string, description: string, reason: string) {
   const result = evaluateCandidate(url, title, description);
@@ -144,19 +144,6 @@ Deno.test("flags punycode and unusually deep subdomains", () => {
 Deno.test("ordinary HTTPS domains have no heuristic warning", () => {
   assertEquals(domainReviewFlags("https://example.com/game"), []);
 });
-Deno.test("country eligibility stays unknown without explicit rules evidence", () => {
-  assertEquals(classifyCountryEligibility("Free game with cash prize and payout."), "unknown");
-});
-Deno.test("explicitly excluded Iran is marked ineligible", () => {
-  assertEquals(classifyCountryEligibility("This contest is not available in Iran."), "ineligible");
-});
-Deno.test("explicitly eligible Iran is recognized", () => {
-  assertEquals(classifyCountryEligibility("The contest is open to residents of Iran."), "eligible");
-});
-Deno.test("country allowlist excluding Iran is not eligible", () => {
-  assertEquals(classifyCountryEligibility("Eligible countries: Canada, Germany, Japan."), "ineligible");
-});
-
 Deno.test("rejects a wheel game that requires a deposit", () => {
   assertRejected("https://example.com/wheel", "Lucky wheel cash prize", "Deposit $5 to unlock daily spins. Winners receive payout by PayPal.", "excluded_category");
 });
@@ -189,12 +176,8 @@ Deno.test("rejects entertainment-only spin promotions with misleading winner pay
   assertRejected("https://example.com/spin", "Daily free spin win cash prize", "Free spin for entertainment only. No monetary reward is provided, although the page describes a payout process.", "missing_reward_evidence");
 });
 
-Deno.test("detects Iran in a comma-separated void-in country list", () => {
-  assertEquals(classifyCountryEligibility("Contest is void in: Afghanistan, Iran, Syria and North Korea."), "ineligible");
-});
-Deno.test("detects Iran in a prohibited-jurisdictions clause", () => {
-  assertEquals(classifyCountryEligibility("Residents of prohibited jurisdictions, including Iran, may not participate."), "ineligible");
-});
-Deno.test("detects Iran in an except-for country list", () => {
-  assertEquals(classifyCountryEligibility("Open worldwide except for Iran and Syria."), "ineligible");
+
+Deno.test("country restrictions are not used as a discovery filter", () => {
+  const result = evaluateCandidate("https://example.com/game", "Free game with cash prize", "No purchase necessary. Winner receives payout by PayPal. Not available in Iran.");
+  if (!result.accepted) throw new Error(`Country wording must not filter discovery, got: ${result.reason}`);
 });
