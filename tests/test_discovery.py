@@ -36,6 +36,23 @@ class SourceCandidateTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             SourceCandidate(" ", "https://example.com")
 
+    def test_rejects_invalid_field_types(self):
+        invalid = [
+            {"url": 123},
+            {"terms_url": True},
+            {"terms_url": ""},
+            {"country_notes": None},
+            {"payment_notes": 1},
+            {"status": []},
+            {"track_review_status": {}},
+            {"track_key": None},
+            {"discovered_at": 123},
+        ]
+        for changes in invalid:
+            with self.subTest(changes=changes):
+                with self.assertRaises(ValueError):
+                    SourceCandidate("Example", "https://example.com", **changes)
+
 
 if __name__ == "__main__":
     unittest.main()
