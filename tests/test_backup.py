@@ -329,7 +329,7 @@ def test_restore_rejects_excessively_nested_manifest_without_creating_destinatio
 
     (backup / "manifest.json").write_text("{\"nested\":" * 10000 + "0" + "}" * 10000, encoding="utf-8")
     destination = tmp_path / "restored"
-    with pytest.raises(ValueError, match="Unsupported or invalid backup manifest"):
+    with pytest.raises(ValueError, match="exceeds parser nesting limits"):
         restore_backup(backup, destination)
     assert not destination.exists()
 
