@@ -218,11 +218,23 @@ def _openai_strategy(
     finally:
         if connection is not None:
             connection.close()
+    if not isinstance(response_data, dict):
+        raise AIProviderError("The AI provider returned an invalid response format.")
+    output = response_data.get("output", [])
+    if not isinstance(output, list):
+        raise AIProviderError("The AI provider returned an invalid response format.")
     chunks = []
-    for item in response_data.get("output", []):
+    for item in output:
+        if not isinstance(item, dict):
+            raise AIProviderError("The AI provider returned an invalid response format.")
         if item.get("type") != "message":
             continue
-        for part in item.get("content", []):
+        content = item.get("content", [])
+        if not isinstance(content, list):
+            raise AIProviderError("The AI provider returned an invalid response format.")
+        for part in content:
+            if not isinstance(part, dict):
+                raise AIProviderError("The AI provider returned an invalid response format.")
             if part.get("type") == "output_text" and isinstance(part.get("text"), str):
                 chunks.append(part["text"])
     try:
