@@ -1144,46 +1144,67 @@ def upload_earning_evidence(
     target = (EVIDENCE_DIR / stored_name).resolve()
     if target.parent != EVIDENCE_DIR.resolve():
         raise HTTPException(400, "Invalid evidence storage path.")
-    with connect() as db:
-        # Acquire the SQLite write reservation before the authoritative quota
-        # check. Without this, concurrent uploads can both observe the last
-        # available slot and exceed the per-ledger evidence limit.
-        db.execute("BEGIN IMMEDIATE")
-        if not db.execute(
-            "SELECT id FROM earnings_ledger WHERE id = ?", (ledger_id,)
-        ).fetchone():
-            raise HTTPException(404, "Earning record not found.")
-        count = db.execute(
-            "SELECT COUNT(*) FROM earnings_evidence WHERE ledger_id = ?", (ledger_id,)
-        ).fetchone()[0]
-        if count >= 10:
-            raise HTTPException(409, "An earning record can have at most 10 evidence files.")
-        file_descriptor = None
+    try:
+        with connect() as db:
+            # Acquire the SQLite write reservation before the authoritative quota
+            # check. Without this, concurrent uploads can both observe the last
+            # available slot and exceed the per-ledger evidence limit.
+            db.execute("BEGIN IMMEDIATE")
+            if not db.execute(
+                "SELECT id FROM earnings_ledger WHERE id = ?", (ledger_id,)
+            ).fetchone():
+                raise HTTPException(404, "Earning record not found.")
+            count = db.execute(
+                "SELECT COUNT(*) FROM earnings_evidence WHERE ledger_id = ?", (ledger_id,)
+            ).fetchone()[0]
+            if count >= 10:
+                raise HTTPException(409, "An earning record can have at most 10 evidence files.")
+            file_descriptor = None
+            try:
+                flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+                file_descriptor = os.open(target, flags, 0o600)
+                with os.fdopen(file_descriptor, "wb") as evidence_file:
+                    file_descriptor = None
+                    evidence_file.write(payload)
+                cur = db.execute(
+                    """INSERT INTO earnings_evidence
+                       (ledger_id, stored_name, media_type, size_bytes, sha256, created_at,
+                        scan_status, scanner_name, scanned_at)
+                       VALUES (?, ?, ?, ?, ?, ?, 'clean', 'ClamAV INSTREAM', ?)""",
+                    (ledger_id, stored_name, upload.content_type, len(payload), digest, scanned_at, scanned_at),
+                )
+            except Exception:
+                if file_descriptor is not None:
+                    os.close(file_descriptor)
+                target.unlink(missing_ok=True)
+                raise
+            return {
+                "id": cur.lastrowid, "ledger_id": ledger_id,
+                "media_type": upload.content_type, "size_bytes": len(payload),
+                "sha256": digest, "created_at": scanned_at,
+                "scan_status": "clean", "scanner_name": "ClamAV INSTREAM",
+                "scanned_at": scanned_at,
+            }    except Exception:
+        # SQLite may fail while committing after the file has been written.
+        # Delete only after a fresh read proves no committed row references it.
+        # If the database is unavailable, preserve the file: the commit outcome
+        # is uncertain and deleting valid financial evidence would be unsafe.
         try:
-            flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
-            file_descriptor = os.open(target, flags, 0o600)
-            with os.fdopen(file_descriptor, "wb") as evidence_file:
-                file_descriptor = None
-                evidence_file.write(payload)
-            cur = db.execute(
-                """INSERT INTO earnings_evidence
-                   (ledger_id, stored_name, media_type, size_bytes, sha256, created_at,
-                    scan_status, scanner_name, scanned_at)
-                   VALUES (?, ?, ?, ?, ?, ?, 'clean', 'ClamAV INSTREAM', ?)""",
-                (ledger_id, stored_name, upload.content_type, len(payload), digest, scanned_at, scanned_at),
-            )
+            with connect() as recovery_db:
+                committed = recovery_db.execute(
+                    "SELECT 1 FROM earnings_evidence WHERE stored_name = ? LIMIT 1",
+                    (stored_name,),
+                ).fetchone() is not None
         except Exception:
-            if file_descriptor is not None:
-                os.close(file_descriptor)
-            target.unlink(missing_ok=True)
-            raise
-        return {
-            "id": cur.lastrowid, "ledger_id": ledger_id,
-            "media_type": upload.content_type, "size_bytes": len(payload),
-            "sha256": digest, "created_at": scanned_at,
-            "scan_status": "clean", "scanner_name": "ClamAV INSTREAM",
-            "scanned_at": scanned_at,
-        }
+            committed = True
+        if not committed:
+            try:
+                target.unlink(missing_ok=True)
+            except OSError:
+                # Leave it for an explicit reconciliation process.
+                pass
+        raise
+
 
 
 @app.get("/api/earnings/{ledger_id}/evidence")
