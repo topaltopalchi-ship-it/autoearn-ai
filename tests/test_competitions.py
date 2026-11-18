@@ -26,6 +26,7 @@ def competition(**changes):
     {"title": "  "},
     {"url": 123},
     {"rules_url": None},
+    {"rules_url": "  "},
     {"task_type": "unknown"},
     {"country": ""},
     {"eligibility": "maybe"},
