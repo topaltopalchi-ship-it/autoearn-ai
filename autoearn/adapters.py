@@ -69,7 +69,7 @@ class AdapterManifest:
             or not self.allowed_domains
             or any(not isinstance(domain, str) for domain in self.allowed_domains)
         ):
-            raise ValueError("allowed_domains must be a non-empty tuple of hostnames")
+            raise ValueError("an exact allowed domain allowlist is required")
         if not isinstance(self.allowed_actions, tuple) or any(
             not isinstance(action, str)
             or not re.fullmatch(r"[a-z][a-z0-9_]{0,39}", action)
