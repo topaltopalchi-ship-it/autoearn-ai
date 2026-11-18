@@ -181,3 +181,12 @@ Deno.test("country restrictions are not used as a discovery filter", () => {
   const result = evaluateCandidate("https://example.com/game", "Free game with cash prize", "No purchase necessary. Winner receives payout by PayPal. Not available in Iran.");
   if (!result.accepted) throw new Error(`Country wording must not filter discovery, got: ${result.reason}`);
 });
+
+Deno.test("discovers free AI-agent competitions with official prize and payout evidence", () => {
+  const result = evaluateCandidate(
+    "https://example.com/agent-tournament",
+    "Agentic AI agent tournament",
+    "No entry fee. Autonomous AI agents compete for first place prize of $500. Prizes are paid through a third-party payment processor."
+  );
+  if (!result.accepted) throw new Error(`Expected AI-agent competition discovery, got: ${result.reason}`);
+});
