@@ -34,6 +34,7 @@ from autoearn.task_suitability import TaskProfile, assess_task_suitability
 from autoearn.ranking import rank_evaluations
 from autoearn.discovery_ranking import prioritize_discovery_leads
 from autoearn.tracks import get_track, infer_track_from_text, track_matches_category, tracks_for_category
+from autoearn.evidence_scanning import MalwareDetected, ScannerUnavailable, scan_bytes
 
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.getenv("AUTOEARN_DB", ROOT / "autoearn.db"))
@@ -229,7 +230,10 @@ def init_db() -> None:
             media_type TEXT NOT NULL,
             size_bytes INTEGER NOT NULL CHECK(size_bytes > 0 AND size_bytes <= 5242880),
             sha256 TEXT NOT NULL,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            scan_status TEXT NOT NULL DEFAULT 'unscanned',
+            scanner_name TEXT NOT NULL DEFAULT '',
+            scanned_at TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_earnings_evidence_ledger
             ON earnings_evidence(ledger_id, created_at, id);
@@ -336,6 +340,15 @@ def init_db() -> None:
         for name, definition in feed_migrations.items():
             if name not in feed_columns:
                 db.execute(f"ALTER TABLE discovery_feeds ADD COLUMN {name} {definition}")
+        evidence_columns = {row["name"] for row in db.execute("PRAGMA table_info(earnings_evidence)")}
+        evidence_migrations = {
+            "scan_status": "TEXT NOT NULL DEFAULT 'unscanned'",
+            "scanner_name": "TEXT NOT NULL DEFAULT ''",
+            "scanned_at": "TEXT",
+        }
+        for name, definition in evidence_migrations.items():
+            if name not in evidence_columns:
+                db.execute(f"ALTER TABLE earnings_evidence ADD COLUMN {name} {definition}")
 
 
 async def _discovery_scheduler_loop() -> None:
@@ -1071,6 +1084,15 @@ def upload_earning_evidence(
     magic, extension = allowed
     if not payload.startswith(magic):
         raise HTTPException(415, "File content does not match its declared evidence type.")
+    try:
+        scan_verdict = scan_bytes(payload)
+    except MalwareDetected:
+        raise HTTPException(422, "Evidence file was rejected by malware scanning.")
+    except ScannerUnavailable:
+        raise HTTPException(503, "Evidence scanning is unavailable; the file was not stored.")
+    if scan_verdict != "stream: OK":
+        raise HTTPException(503, "Evidence scanner did not return a definitive clean verdict.")
+    scanned_at = now()
     digest = hashlib.sha256(payload).hexdigest()
     stored_name = f"{uuid.uuid4().hex}{extension}"
     # Do not follow a pre-existing symlink for private financial evidence.
@@ -1118,9 +1140,10 @@ def upload_earning_evidence(
                 evidence_file.write(payload)
             cur = db.execute(
                 """INSERT INTO earnings_evidence
-                   (ledger_id, stored_name, media_type, size_bytes, sha256, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                (ledger_id, stored_name, upload.content_type, len(payload), digest, now()),
+                   (ledger_id, stored_name, media_type, size_bytes, sha256, created_at,
+                    scan_status, scanner_name, scanned_at)
+                   VALUES (?, ?, ?, ?, ?, ?, 'clean', 'ClamAV INSTREAM', ?)""",
+                (ledger_id, stored_name, upload.content_type, len(payload), digest, scanned_at),
             )
         except Exception:
             if file_descriptor is not None:
@@ -1130,7 +1153,9 @@ def upload_earning_evidence(
         return {
             "id": cur.lastrowid, "ledger_id": ledger_id,
             "media_type": upload.content_type, "size_bytes": len(payload),
-            "sha256": digest, "created_at": now(),
+            "sha256": digest, "created_at": scanned_at,
+            "scan_status": "clean", "scanner_name": "ClamAV INSTREAM",
+            "scanned_at": scanned_at,
         }
 
 
@@ -1142,8 +1167,10 @@ def list_earning_evidence(ledger_id: int, actor: str = Depends(require_owner)):
         ).fetchone():
             raise HTTPException(404, "Earning record not found.")
         rows = db.execute(
-            """SELECT id, ledger_id, media_type, size_bytes, sha256, created_at
-               FROM earnings_evidence WHERE ledger_id = ? ORDER BY created_at, id""",
+            """SELECT id, ledger_id, media_type, size_bytes, sha256, created_at,
+                      scan_status, scanner_name, scanned_at
+               FROM earnings_evidence WHERE ledger_id = ? AND scan_status = 'clean'
+               ORDER BY created_at, id""",
             (ledger_id,),
         ).fetchall()
         return [row_dict(row) for row in rows]
@@ -1156,7 +1183,7 @@ def download_earning_evidence(
     with connect() as db:
         row = db.execute(
             """SELECT stored_name, media_type FROM earnings_evidence
-               WHERE id = ? AND ledger_id = ?""",
+               WHERE id = ? AND ledger_id = ? AND scan_status = 'clean'""",
             (evidence_id, ledger_id),
         ).fetchone()
         if row is None:
