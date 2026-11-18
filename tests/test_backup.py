@@ -322,6 +322,22 @@ def test_restore_rejects_malformed_manifest_without_creating_destination(tmp_pat
     '{"format_version": 1, "format_version": 1, "sqlite_integrity_check": "ok"}',
     '{"format_version": 1, "sqlite_integrity_check": "ok", "nested": {"x": 1, "x": 2}}',
 ])
+def test_restore_rejects_excessively_nested_manifest_without_creating_destination(tmp_path):
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    backup = tmp_path / "backup"
+    create_backup(database, evidence, backup)
+
+    (backup / "manifest.json").write_text("[" * 3000 + "0" + "]" * 3000, encoding="utf-8")
+    destination = tmp_path / "restored"
+    with pytest.raises(ValueError, match="nesting limits"):
+        restore_backup(backup, destination)
+    assert not destination.exists()
+
+
 def test_restore_rejects_duplicate_manifest_keys(tmp_path, manifest_payload):
     database = tmp_path / "autoearn.db"
     with sqlite3.connect(database) as db:

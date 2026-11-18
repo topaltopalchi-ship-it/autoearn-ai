@@ -95,8 +95,8 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
             manifest_path.read_text(encoding="utf-8"),
             object_pairs_hook=reject_duplicate_keys,
         )
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise ValueError("Backup manifest is not valid UTF-8 JSON") from exc
+    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError) as exc:
+        raise ValueError("Backup manifest is not valid UTF-8 JSON or exceeds parser nesting limits") from exc
     if not isinstance(manifest, dict):
         raise ValueError("Backup manifest must be a JSON object")
     version = manifest.get("format_version")
