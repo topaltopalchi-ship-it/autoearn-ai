@@ -1,7 +1,9 @@
 """Fail-closed client for a local ClamAV daemon using the INSTREAM protocol.
 
-This module is not wired into the evidence endpoint yet. Uploads must not be
-represented as malware-scanned until quarantine and download gating land.
+The evidence upload route invokes this client before persisting an upload. A
+definitive clean verdict is required; scanner errors and positive detections
+prevent storage. Production still requires a separately managed ClamAV daemon
+with current signatures bound only to loopback.
 """
 from __future__ import annotations
 import socket
