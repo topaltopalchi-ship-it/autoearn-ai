@@ -337,6 +337,24 @@ def test_submission_rejects_cyclic_payload_without_calling_adapter():
     assert adapter.calls == 0
 
 
+def test_submission_checks_depth_for_shared_containers_on_every_path():
+    registry = CompetitionAdapterRegistry()
+    adapter = FakeAdapter()
+    registry.register(adapter)
+
+    shared = {}
+    deep = shared
+    for _ in range(65):
+        deep = {"nested": deep}
+    payload = {"deep": deep, "shallow": shared}
+
+    with pytest.raises(ValueError, match="64-level limit"):
+        registry.submit(
+            "example-official", competition(), payload, owner_confirmed=True
+        )
+    assert adapter.calls == 0
+
+
 def test_submission_rejects_excessively_nested_payload_without_calling_adapter():
     registry = CompetitionAdapterRegistry()
     adapter = FakeAdapter()

@@ -456,19 +456,24 @@ class CompetitionAdapterRegistry:
         if any(not isinstance(key, str) for key in payload):
             raise ValueError("entry payload object keys must be strings")
         # Bound nesting before JSON encoding, independent of interpreter limits.
-        pending = [(payload, 0)]
-        visited_containers = set()
+        pending = [(payload, 0, frozenset())]
+        visited_nodes = 0
         while pending:
-            value, depth = pending.pop()
+            value, depth, ancestors = pending.pop()
             if depth > 64:
                 raise ValueError("entry payload nesting exceeds the 64-level limit")
             if isinstance(value, (dict, list)):
                 identity = id(value)
-                if identity in visited_containers:
-                    continue
-                visited_containers.add(identity)
+                if identity in ancestors:
+                    raise ValueError("entry payload must not contain cyclic containers")
+                visited_nodes += 1
+                if visited_nodes > 10000:
+                    raise ValueError("entry payload contains too many nested values")
+                next_ancestors = ancestors | {identity}
                 children = value.values() if isinstance(value, dict) else value
-                pending.extend((child, depth + 1) for child in children)
+                pending.extend(
+                    (child, depth + 1, next_ancestors) for child in children
+                )
         try:
             encoded_payload = json.dumps(
                 payload, ensure_ascii=False, allow_nan=False, separators=(",", ":")
