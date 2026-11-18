@@ -265,6 +265,20 @@ def test_submission_rejects_non_json_or_oversized_payload(payload):
     assert adapter.calls == 0
 
 
+def test_submission_rejects_cyclic_payload_without_calling_adapter():
+    registry = CompetitionAdapterRegistry()
+    adapter = FakeAdapter()
+    registry.register(adapter)
+    cyclic = []
+    cyclic.append(cyclic)
+
+    with pytest.raises(ValueError, match="payload"):
+        registry.submit(
+            "example-official", competition(), {"answer": cyclic}, owner_confirmed=True
+        )
+    assert adapter.calls == 0
+
+
 def test_submission_rejects_excessively_nested_payload_without_calling_adapter():
     registry = CompetitionAdapterRegistry()
     adapter = FakeAdapter()
