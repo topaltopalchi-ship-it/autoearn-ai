@@ -411,3 +411,43 @@ def test_restore_preserves_owner_only_permissions_on_posix(tmp_path):
     assert stat.S_IMODE((restored / "private_evidence" / ".quarantine").stat().st_mode) == 0o700
     assert stat.S_IMODE((restored / "private_evidence" / ".quarantine" / "nested").stat().st_mode) == 0o700
     assert stat.S_IMODE((restored / "private_evidence" / ".quarantine" / "nested" / "orphan.orphan").stat().st_mode) == 0o600
+
+
+def test_restore_rejects_unlisted_extra_evidence_file(tmp_path):
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    (evidence / "receipt.bin").write_bytes(b"expected receipt")
+    backup = tmp_path / "backup"
+    create_backup(database, evidence, backup)
+    (backup / "private_evidence" / "unlisted.bin").write_bytes(b"not in manifest")
+
+    destination = tmp_path / "restored"
+    with pytest.raises(ValueError, match="do not match the manifest"):
+        restore_backup(backup, destination)
+    assert not destination.exists()
+
+
+def test_restore_rejects_symlink_inside_evidence_tree(tmp_path):
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    (evidence / "receipt.bin").write_bytes(b"expected receipt")
+    backup = tmp_path / "backup"
+    create_backup(database, evidence, backup)
+
+    outside = tmp_path / "outside.bin"
+    outside.write_bytes(b"must not be followed")
+    try:
+        (backup / "private_evidence" / "linked.bin").symlink_to(outside)
+    except (OSError, NotImplementedError):
+        pytest.skip("Symlinks are unavailable on this platform")
+
+    destination = tmp_path / "restored"
+    with pytest.raises(ValueError, match="unsafe entry"):
+        restore_backup(backup, destination)
+    assert not destination.exists()
