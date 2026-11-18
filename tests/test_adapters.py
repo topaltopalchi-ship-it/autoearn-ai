@@ -202,3 +202,36 @@ def test_explicit_valid_track_is_preserved_as_matched():
     source = source_candidate_from_lead(lead)
     assert source.track_key == "puzzle_solving"
     assert source.track_review_status == "matched"
+
+
+@pytest.mark.parametrize("url", [
+    "http://example.com/task",
+    "https://example.com:8443/task",
+    "https://example.com/task#fragment",
+])
+def test_discovered_lead_rejects_insecure_or_noncanonical_urls(url):
+    with pytest.raises(ValueError):
+        DiscoveredLead(
+            title="Unsafe lead",
+            url=url,
+            category="surveys_microtasks",
+            source_name="Demo",
+            observed_at="2026-11-17T10:00:00+00:00",
+        )
+
+
+@pytest.mark.parametrize("terms_url", [
+    "http://example.com/terms",
+    "https://example.com:9443/terms",
+    "https://example.com/terms#section",
+])
+def test_discovered_lead_rejects_insecure_terms_urls(terms_url):
+    with pytest.raises(ValueError):
+        DiscoveredLead(
+            title="Terms lead",
+            url="https://example.com/task",
+            category="surveys_microtasks",
+            source_name="Demo",
+            observed_at="2026-11-17T10:00:00+00:00",
+            terms_url=terms_url,
+        )
