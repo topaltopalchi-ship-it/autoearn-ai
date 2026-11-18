@@ -26,7 +26,7 @@ def scan_bytes(payload: bytes, *, port: int = DEFAULT_PORT, timeout: float = DEF
     try:
         with socket.create_connection(("127.0.0.1", port), timeout=timeout) as conn:
             conn.settimeout(timeout)
-            conn.sendall(b"zINSTREAM\\0")
+            conn.sendall(b"zINSTREAM\0")
             for offset in range(0, len(payload), CHUNK_BYTES):
                 chunk = payload[offset:offset + CHUNK_BYTES]
                 conn.sendall(len(chunk).to_bytes(4, "big"))
@@ -38,13 +38,13 @@ def scan_bytes(payload: bytes, *, port: int = DEFAULT_PORT, timeout: float = DEF
                 if not part:
                     break
                 response.extend(part)
-                if b"\\0" in part or b"\\n" in part:
+                if b"\0" in part or b"\n" in part:
                     break
     except (OSError, TimeoutError) as exc:
         raise ScannerUnavailable("Local malware scanner did not provide a verdict.") from exc
     if len(response) > MAX_RESPONSE_BYTES:
         raise ScannerUnavailable("Local malware scanner response exceeded its limit.")
-    verdict = bytes(response).strip(b"\\0\\r\\n")
+    verdict = bytes(response).strip(b"\0\r\n")
     if verdict == b"stream: OK":
         return verdict.decode("ascii")
     if verdict.startswith(b"stream: ") and verdict.endswith(b" FOUND"):
