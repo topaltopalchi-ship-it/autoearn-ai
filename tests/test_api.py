@@ -85,7 +85,7 @@ def test_normalizes_duplicate_urls(client):
     assert duplicate.status_code == 409
 
 
-def test_opportunity_score_is_out_of_100(client):
+def test_opportunity_score_reflects_only_supported_metadata(client):
     response = client.post("/api/opportunities", json={
         "title": "Fully documented", "platform": "Example",
         "url": "https://example.com/game",
@@ -95,4 +95,4 @@ def test_opportunity_score_is_out_of_100(client):
         "notes": "Reviewed manually",
     })
     assert response.status_code == 201
-    assert response.json()["score"] == 100
+    assert response.json()["score"] == 60
