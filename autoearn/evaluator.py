@@ -219,25 +219,40 @@ def evaluate_candidate(
     if candidate.risk_score is None:
         flags.append("risk assessment is missing")
 
-    # Determine whether the estimated net reward clears the withdrawal
-    # threshold before using that result in the execution gate.
-    withdrawal_reachable = None
+    # Calculate net reward once; all withdrawal and execution decisions use
+    # this same rounded estimate to avoid divergent threshold comparisons.
+    net_reward = None
+    hourly_net = None
+    expected_net_reward = None
+    expected_hourly_net = None
+    if candidate.reward_amount is not None:
+        gross_after_cost = max(0.0, candidate.reward_amount - candidate.estimated_cost)
+        payout_fee = candidate.payout_fee_fixed + gross_after_cost * candidate.payout_fee_percent / 100
+        conversion_fee = gross_after_cost * candidate.conversion_fee_percent / 100
+        net_reward = round(max(0.0, gross_after_cost - payout_fee - conversion_fee), 2)
+        if (candidate.payment_probability is not None
+                and candidate.acceptance_probability is not None
+                and candidate.payout_reliability is not None):
+            combined_probability = (
+                candidate.payment_probability
+                * candidate.acceptance_probability
+                * candidate.payout_reliability / 10000
+            )
+            expected_net_reward = round(net_reward * combined_probability / 100, 2)
+        if candidate.estimated_minutes and candidate.estimated_minutes > 0:
+            hourly_net = round(net_reward / (candidate.estimated_minutes / 60), 2)
+            if expected_net_reward is not None:
+                expected_hourly_net = round(expected_net_reward / (candidate.estimated_minutes / 60), 2)
+
     withdrawal_currency_matches = (
         candidate.minimum_withdrawal_currency is None
         or candidate.minimum_withdrawal_currency.upper() == candidate.reward_currency.upper()
     )
-    if (candidate.reward_amount is not None
+    withdrawal_reachable = None
+    if (net_reward is not None
             and candidate.minimum_withdrawal_amount is not None
             and withdrawal_currency_matches):
-        gross_after_cost = max(0.0, candidate.reward_amount - candidate.estimated_cost)
-        estimated_net = max(
-            0.0,
-            gross_after_cost
-            - candidate.payout_fee_fixed
-            - gross_after_cost * candidate.payout_fee_percent / 100
-            - gross_after_cost * candidate.conversion_fee_percent / 100,
-        )
-        withdrawal_reachable = round(estimated_net, 2) >= candidate.minimum_withdrawal_amount
+        withdrawal_reachable = net_reward >= candidate.minimum_withdrawal_amount
 
     execution_allowed = (
         eligibility == "eligible"
@@ -289,32 +304,6 @@ def evaluate_candidate(
         candidate.risk_score is not None,
     ))
     confidence = round(confidence_inputs / 13 * 100)
-
-    net_reward = None
-    hourly_net = None
-    expected_net_reward = None
-    expected_hourly_net = None
-    withdrawal_reachable = None
-    if candidate.reward_amount is not None:
-        gross_after_cost = max(0.0, candidate.reward_amount - candidate.estimated_cost)
-        payout_fee = candidate.payout_fee_fixed + gross_after_cost * candidate.payout_fee_percent / 100
-        conversion_fee = gross_after_cost * candidate.conversion_fee_percent / 100
-        net_reward = round(max(0.0, gross_after_cost - payout_fee - conversion_fee), 2)
-        if candidate.minimum_withdrawal_amount is not None and withdrawal_currency_matches:
-            withdrawal_reachable = net_reward >= candidate.minimum_withdrawal_amount
-        if (candidate.payment_probability is not None
-                and candidate.acceptance_probability is not None
-                and candidate.payout_reliability is not None):
-            combined_probability = (
-                candidate.payment_probability
-                * candidate.acceptance_probability
-                * candidate.payout_reliability / 10000
-            )
-            expected_net_reward = round(net_reward * combined_probability / 100, 2)
-        if candidate.estimated_minutes and candidate.estimated_minutes > 0:
-            hourly_net = round(net_reward / (candidate.estimated_minutes / 60), 2)
-            if expected_net_reward is not None:
-                expected_hourly_net = round(expected_net_reward / (candidate.estimated_minutes / 60), 2)
 
     score = 0
     if eligibility == "eligible":
