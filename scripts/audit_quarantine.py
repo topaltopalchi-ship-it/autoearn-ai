@@ -30,8 +30,11 @@ def audit_quarantine(
     if isinstance(review_after_days, bool) or not isinstance(review_after_days, int) or review_after_days < 1:
         raise ValueError("review_after_days must be a positive integer")
     quarantine_dir = Path(os.path.abspath(Path(quarantine_dir).expanduser()))
-    if quarantine_dir.is_symlink() or not quarantine_dir.is_dir():
-        raise ValueError("Quarantine path must be an existing, non-symlink directory")
+    for component in (quarantine_dir, *quarantine_dir.parents):
+        if component.is_symlink():
+            raise ValueError("Quarantine path must not contain symbolic links")
+    if not quarantine_dir.is_dir():
+        raise ValueError("Quarantine path must be an existing directory")
     current = now or datetime.now(timezone.utc)
     if current.tzinfo is None:
         raise ValueError("now must be timezone-aware")
@@ -84,9 +87,15 @@ def main() -> int:
     report = audit_quarantine(Path(args.quarantine_directory), args.review_after_days)
     rendered = json.dumps(report, ensure_ascii=False, indent=2) + "\n"
     if args.output:
-        output = Path(args.output)
-        if output.exists() or output.is_symlink():
-            parser.error("output path must be new and must not be a symlink")
+        output = Path(os.path.abspath(Path(args.output).expanduser()))
+        quarantine_root = Path(os.path.abspath(Path(args.quarantine_directory).expanduser()))
+        if output == quarantine_root or quarantine_root in output.parents:
+            parser.error("output path must be outside the quarantine directory")
+        for component in (output, *output.parents):
+            if component.is_symlink():
+                parser.error("output path must not contain symbolic links")
+        if output.exists():
+            parser.error("output path must be new")
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(rendered, encoding="utf-8")
         if os.name == "posix":
