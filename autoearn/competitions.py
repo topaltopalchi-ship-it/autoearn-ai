@@ -426,8 +426,12 @@ class CompetitionAdapterRegistry:
         *,
         owner_confirmed: bool,
     ) -> SubmissionReceipt:
-        if not owner_confirmed:
+        if owner_confirmed is not True:
             raise PermissionError("explicit owner confirmation is required")
+        if not isinstance(adapter_id, str) or not adapter_id.strip():
+            raise ValueError("adapter_id must be a non-empty string")
+        if not isinstance(competition, Competition):
+            raise TypeError("competition must be a validated Competition instance")
         readiness = assess_competition(competition)
         if not readiness.ready:
             raise PermissionError("; ".join(readiness.blockers))
