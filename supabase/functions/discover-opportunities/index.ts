@@ -7,10 +7,6 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// Worldwide discovery is limited to online games and prize-based entertainment.
- // Availability is offer-specific; the UI must not imply every offer works in every country.
-const EXCLUDED_RESULT_RE = /\b(survey|surveys|questionnaire|microtask|micro-task|crowd.?work|freelance job|job opening|career|news|press release|blog post|article|affiliate referral|referral bonus|invite friends|sign.?up bonus|registration bonus|paid to register|offerwall)\b/i;
-
 const SEARCHES = [
   { category: "game", query: 'online games prizes paid via PayPal' },
   { category: "game", query: 'play to earn games PayPal rewards withdrawal' },
@@ -48,7 +44,6 @@ Deno.serve((req: Request) => {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   return withSupabase({ auth: "user" }, async (_req, ctx) => {
-    // @supabase/server exposes the authenticated user ID as userClaims.id.
     const ownerId = ctx.userClaims?.id;
     if (!ownerId) return json({ error: "Authenticated user identity is missing." }, 401);
 
@@ -61,7 +56,6 @@ Deno.serve((req: Request) => {
     for (let index = 0; index < SEARCHES.length; index++) {
       const search = SEARCHES[index];
       try {
-        // Anonymous Mwmbl access is limited to one request per second per IP.
         if (index > 0) await new Promise((resolve) => setTimeout(resolve, 1100));
         const endpoint = new URL("https://api.mwmbl.org/api/v1/search/");
         endpoint.searchParams.set("s", search.query);
@@ -71,46 +65,44 @@ Deno.serve((req: Request) => {
           searchStats.push({ category: search.category, query: search.query, results: 0, status: response.status });
           continue;
         }
+
         const payload = await response.json();
         const results = Array.isArray(payload) ? payload : [];
         searchStats.push({ category: search.category, query: search.query, results: results.length, status: response.status });
         if (!Array.isArray(payload)) errors.push(`${search.query}: unexpected response format`);
+
         for (const item of results) {
-          try {
-            const parsed = new URL(item.url);
-            if (parsed.protocol !== "https:") continue;
-            const hostname = parsed.hostname.replace(/^www\./, "");
-            const title = String(Array.isArray(item.title) ? item.title.map((part: { value?: string }) => part.value || "").join("") : item.title || hostname).trim().slice(0, 160);
-            const description = String(Array.isArray(item.extract) ? item.extract.map((part: { value?: string }) => part.value || "").join("") : item.extract || "No reward details provided by search result.").trim().slice(0, 900);
-            if (title.length < 2) continue;
-            const combinedText = title + " " + description + " " + item.url;
-            // Reject unrelated earning formats even when their snippets mention an accepted wallet.
-            if (EXCLUDED_RESULT_RE.test(combinedText)) continue;
-            const payoutText = combinedText.toLowerCase();
-            const walletMatches = [
-              /\bpaypal\b/.test(payoutText) ? "PayPal" : null,
-              /\bskrill\b/.test(payoutText) ? "Skrill" : null,
-              /\bneteller\b/.test(payoutText) ? "Neteller" : null,
-              /\bpayeer\b/.test(payoutText) ? "Payeer" : null,
-              /\bpayoneer\b/.test(payoutText) ? "Payoneer" : null,
-              /\bwebmoney\b/.test(payoutText) ? "WebMoney" : null,
-              /bitcoin|\bbtc\b|\busdt\b|ethereum|\beth\b|crypto|cryptocurrency|tether|\busdc\b/.test(payoutText) ? "Crypto" : null,
-            ].filter((value): value is string => Boolean(value));
-            if (walletMatches.length === 0) continue;
-            found.push({
-              owner_id: ownerId,
-              title,
-              platform: hostname.slice(0, 100),
-              url: decision.url,
-              category: search.category,
-              reward_description: description,
-              eligibility: `Payout wallet mentioned in search result: ${walletMatches.join(", ")}. This is NOT confirmation that withdrawals are supported in your country; verify on the official payout and terms pages.`,
-              terms_url: "",
-              status: "discovered",
-              score: 0,
-              notes: `Accepted wallet keyword(s) found in search snippet: ${walletMatches.join(", ")}. Wallet support and country eligibility are unverified. Confirm minimum withdrawal, fees, KYC and official rules. Never deposit or pay to unlock a prize.`,
-            });
-          } catch { /* Ignore malformed result URLs. */ }
+          const rawUrl = String(item?.url || "");
+          const title = String(Array.isArray(item?.title)
+            ? item.title.map((part: { value?: string }) => part.value || "").join("")
+            : item?.title || "").trim().slice(0, 160);
+          const description = String(Array.isArray(item?.extract)
+            ? item.extract.map((part: { value?: string }) => part.value || "").join("")
+            : item?.extract || "No reward details provided by search result.").trim().slice(0, 900);
+          if (title.length < 2) continue;
+
+          const decision = evaluateCandidate(rawUrl, title, description);
+          if (!decision.accepted) {
+            rejected[decision.reason]++;
+            continue;
+          }
+
+          acceptedCandidates++;
+          const hostname = new URL(decision.url).hostname.replace(/^www\./, "");
+          const walletMatches = decision.wallets;
+          found.push({
+            owner_id: ownerId,
+            title,
+            platform: hostname.slice(0, 100),
+            url: decision.url,
+            category: search.category,
+            reward_description: description,
+            eligibility: `Payout wallet mentioned in search result: ${walletMatches.join(", ")}. This is NOT confirmation that withdrawals are supported in your country; verify on the official payout and terms pages.`,
+            terms_url: "",
+            status: "discovered",
+            score: 0,
+            notes: `Accepted wallet keyword(s) found in search snippet: ${walletMatches.join(", ")}. Wallet support and country eligibility are unverified. Confirm minimum withdrawal, fees, KYC and official rules. Never deposit or pay to unlock a prize.`,
+          });
         }
       } catch (error) {
         errors.push(`${search.category}: ${String(error).slice(0, 180)}`);
@@ -118,7 +110,21 @@ Deno.serve((req: Request) => {
     }
 
     const unique = [...new Map(found.map((row) => [row.url, row])).values()];
-    if (!unique.length) return json({ saved: 0, scanned: 0, accepted_candidates: acceptedCandidates, rejected, searches: searchStats, errors, message: "No candidate pages found. Search diagnostics are included." });
+    const diagnostics = {
+      accepted_candidates: acceptedCandidates,
+      rejected,
+      searches: searchStats,
+      errors,
+    };
+
+    if (!unique.length) {
+      return json({
+        saved: 0,
+        scanned: 0,
+        ...diagnostics,
+        message: "No candidate pages found. Search diagnostics are included.",
+      });
+    }
 
     const { data, error } = await ctx.supabase
       .from("opportunities")
@@ -128,10 +134,9 @@ Deno.serve((req: Request) => {
     if (error) return json({ error: error.message }, 500);
     return json({
       saved: data?.length || 0,
-      scanned: unique.length,\n      accepted_candidates: acceptedCandidates,\n      rejected,
+      scanned: unique.length,
+      ...diagnostics,
       categories: [...new Set(SEARCHES.map((item) => item.category))],
-      searches: searchStats,
-      errors,
       message: "Candidates saved for your review. They are not verified offers.",
     });
   })(req);
