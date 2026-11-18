@@ -387,6 +387,8 @@ class CompetitionAdapterRegistry:
         manifest = adapter.manifest
         if not isinstance(manifest, CompetitionAdapterManifest):
             raise TypeError("adapter must expose a CompetitionAdapterManifest")
+        if not callable(getattr(adapter, "submit_entry", None)):
+            raise TypeError("adapter must implement a callable submit_entry method")
         if manifest.adapter_id in self._adapters:
             raise ValueError("adapter id is already registered")
         self._adapters[manifest.adapter_id] = adapter
