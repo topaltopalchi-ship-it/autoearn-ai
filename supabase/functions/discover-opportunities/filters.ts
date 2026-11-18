@@ -108,6 +108,8 @@ export function evaluateCandidate(rawUrl: string, title: string, description: st
   }
 
   if (!FREE_ENTRY_RE.test(text)) return { accepted: false, reason: "missing_free_entry_evidence" };
+  // Reject misleading promotional language even when payout keywords appear elsewhere.
+  if (NO_REAL_REWARD_RE.test(text)) return { accepted: false, reason: "missing_reward_evidence" };
   if (!REWARD_EVIDENCE_RE.test(text)) return { accepted: false, reason: "missing_reward_evidence" };
   if (!PAYOUT_CONTEXT_RE.test(text)) return { accepted: false, reason: "missing_payout_evidence" };
 
