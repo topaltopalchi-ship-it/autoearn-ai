@@ -40,6 +40,14 @@ def _sha256(path: Path) -> str:
 
 
 
+def _utf8_byte_length(value: str) -> int:
+    """Return strict UTF-8 length, rejecting lone surrogate code points."""
+    try:
+        return len(value.encode("utf-8"))
+    except UnicodeEncodeError as exc:
+        raise ValueError("Filename is not valid Unicode for portable backup") from exc
+
+
 def _portable_evidence_key(name: str) -> str:
     """Validate a portable evidence path and return its collision key."""
     relative_name = Path(name)
@@ -47,10 +55,10 @@ def _portable_evidence_key(name: str) -> str:
         not name or relative_name.is_absolute()
         or relative_name.as_posix() != name
         or "\\" in name or any(char in name for char in '<>:"|?*')
-        or len(name.encode("utf-8")) > 1024
+        or _utf8_byte_length(name) > 1024
         or any(
             not part or part in {".", ".."} or part.endswith((" ", "."))
-            or len(part.encode("utf-8")) > 255
+            or _utf8_byte_length(part) > 255
             or part.split(".", 1)[0].upper() in {"CON", "PRN", "AUX", "NUL"}
             or (
                 len(part.split(".", 1)[0]) == 4
