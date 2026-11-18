@@ -68,7 +68,7 @@ function bindWorkspace(){
   $("add-opportunity").onclick=()=> $("opportunity-dialog").showModal();
   $("discover-opportunities").onclick=async()=>{
     const button=$("discover-opportunities");
-    button.disabled=true;button.textContent="Searching Germany…";
+    button.disabled=true;button.textContent="Searching worldwide…";
     try {
       const {data,error}=await supabase.functions.invoke("discover-opportunities",{body:{}});
       if(error) throw error;
