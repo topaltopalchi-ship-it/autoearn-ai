@@ -2677,3 +2677,29 @@ def test_discovery_feed_persists_conditional_request_validators(client, monkeypa
             (feed_id,),
         ).fetchone()
     assert row["etag"] == '"cache-v2"'
+
+
+def test_earning_evidence_accepts_valid_png_and_jpeg_signatures(client, tmp_path, monkeypatch):
+    from app import main
+
+    monkeypatch.setattr(main, "EVIDENCE_DIR", tmp_path / "private-image-evidence")
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    earning = client.post(
+        "/api/earnings", headers=headers,
+        json={"amount": 4, "currency": "EUR", "state": "earned"},
+    )
+    assert earning.status_code == 201
+
+    fixtures = [
+        ("receipt.png", b"\x89PNG\r\n\x1a\nimage-data", "image/png"),
+        ("receipt.jpg", b"\xff\xd8\xffimage-data", "image/jpeg"),
+    ]
+    for filename, payload, media_type in fixtures:
+        response = client.post(
+            f"/api/earnings/{earning.json()['id']}/evidence",
+            headers=headers,
+            files={"upload": (filename, payload, media_type)},
+        )
+        assert response.status_code == 201, response.text
+        assert response.json()["media_type"] == media_type
+        assert response.json()["scan_status"] == "clean"
