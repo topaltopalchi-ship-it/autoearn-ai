@@ -37,6 +37,31 @@ export function canonicalOpportunityUrl(rawUrl: string): string | null {
   return parsed.toString();
 }
 
+const SHORTENER_HOSTS = new Set([
+  "bit.ly", "t.co", "tinyurl.com", "ow.ly", "is.gd", "buff.ly",
+  "cutt.ly", "rebrand.ly", "rb.gy", "lnkd.in", "shorturl.at",
+]);
+const COMMON_HOSTING_SUFFIXES = [
+  ".pages.dev", ".netlify.app", ".vercel.app", ".github.io",
+  ".web.app", ".firebaseapp.com", ".blogspot.com", ".wordpress.com",
+];
+
+export function domainReviewFlags(rawUrl: string): string[] {
+  const normalized = normalizePublicHttpsUrl(rawUrl);
+  if (!normalized) return ["invalid_public_https_url"];
+  const host = new URL(normalized).hostname.toLowerCase();
+  const flags: string[] = [];
+  if (host.split(".").some((label) => label.startsWith("xn--"))) {
+    flags.push("internationalized_or_punycode_domain");
+  }
+  if (SHORTENER_HOSTS.has(host)) flags.push("link_shortener_domain");
+  if (COMMON_HOSTING_SUFFIXES.some((suffix) => host.endsWith(suffix))) {
+    flags.push("shared_hosting_subdomain");
+  }
+  if (host.split(".").length >= 5) flags.push("deep_subdomain");
+  return flags;
+}
+
 export function evaluateCandidate(rawUrl: string, title: string, description: string): CandidateDecision {
   const normalizedUrl = normalizePublicHttpsUrl(rawUrl);
   if (!normalizedUrl) return { accepted: false, reason: "invalid_url" };
