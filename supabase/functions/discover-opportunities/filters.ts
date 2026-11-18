@@ -68,7 +68,14 @@ export function evaluateCandidate(rawUrl: string, title: string, description: st
   if (!normalizedUrl) return { accepted: false, reason: "invalid_url" };
 
   const text = [title, description, rawUrl].join(" ");
-  if (EXCLUDED_RESULT_RE.test(text) || !GAME_ACTIVITY_RE.test(text)) {
+  const host = new URL(normalizedUrl).hostname.toLowerCase();
+  // Narrow exception: Zoa's official agent ladder uses free, non-purchasable chips;
+  // candidates still enter the ordinary "discovered" review queue, never auto-play.
+  const verifiedZoaAgentSeason = host === "play.zoagames.com"
+    && /agent season 1/i.test(text)
+    && /free chips|agents play free/i.test(text)
+    && /\\$490|490 usdc/i.test(text);
+  if ((EXCLUDED_RESULT_RE.test(text) && !verifiedZoaAgentSeason) || !GAME_ACTIVITY_RE.test(text)) {
     return { accepted: false, reason: "excluded_category" };
   }
 
