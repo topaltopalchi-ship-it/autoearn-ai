@@ -63,3 +63,78 @@ def test_platform_catalog_disables_participation():
 def test_api_client_rejects_unapproved_hosts_without_network():
     with pytest.raises(gp.GamePlatformError, match="Unapproved"):
         gp._get_json("evil.example", "/api")
+
+
+def test_lichess_429_enforces_full_minute_before_next_request(monkeypatch):
+    class Response:
+        def __init__(self, status, payload=b"{}"):
+            self.status = status
+            self.payload = payload
+
+        def getheader(self, name):
+            return None
+
+        def read(self, limit):
+            return self.payload
+
+    responses = [Response(429), Response(200, b'{"created": []}')]
+    sleeps = []
+    requests = []
+
+    class Connection:
+        def __init__(self, host, timeout, context):
+            self.host = host
+
+        def request(self, method, path, headers):
+            requests.append((self.host, method, path, headers))
+
+        def getresponse(self):
+            return responses.pop(0)
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(gp.http.client, "HTTPSConnection", Connection)
+    monkeypatch.setattr(gp.time, "monotonic", lambda: 100.0)
+    monkeypatch.setattr(gp.time, "sleep", sleeps.append)
+    gp._COOLDOWN_UNTIL["lichess.org"] = 0.0
+
+    with pytest.raises(gp.GamePlatformError, match="wait 60 seconds"):
+        gp._get_json("lichess.org", "/api/tournament")
+    assert gp._get_json("lichess.org", "/api/tournament") == {"created": []}
+    assert sleeps == [60.0]
+    assert requests[0][3]["User-Agent"].startswith("AutoEarn-AI/")
+    assert "contact: https://github.com/topaltopalchi-ship-it/autoearn-ai" in requests[0][3]["User-Agent"]
+    gp._COOLDOWN_UNTIL["lichess.org"] = 0.0
+
+
+def test_chesscom_rate_limit_uses_retry_after_when_larger(monkeypatch):
+    class Response:
+        status = 429
+
+        def getheader(self, name):
+            return "90"
+
+        def read(self, limit):
+            return b""
+
+    class Connection:
+        def __init__(self, host, timeout, context):
+            pass
+
+        def request(self, method, path, headers):
+            pass
+
+        def getresponse(self):
+            return Response()
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(gp.http.client, "HTTPSConnection", Connection)
+    monkeypatch.setattr(gp.time, "monotonic", lambda: 10.0)
+    gp._COOLDOWN_UNTIL["api.chess.com"] = 0.0
+    with pytest.raises(gp.GamePlatformError, match="wait 90 seconds"):
+        gp._get_json("api.chess.com", "/pub/tournament/open")
+    assert gp._COOLDOWN_UNTIL["api.chess.com"] == 100.0
+    gp._COOLDOWN_UNTIL["api.chess.com"] = 0.0

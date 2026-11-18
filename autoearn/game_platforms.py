@@ -9,6 +9,7 @@ import http.client
 import json
 import re
 import ssl
+import time
 from threading import Lock
 from typing import Any
 from urllib.parse import quote
@@ -20,7 +21,9 @@ class GamePlatformError(RuntimeError):
 
 _REQUEST_LOCK = Lock()
 _MAX_RESPONSE_BYTES = 512 * 1024
-_USER_AGENT = "AutoEarn-AI/0.1 (read-only game discovery)"
+_USER_AGENT = "AutoEarn-AI/0.1 (read-only game discovery; contact: https://github.com/topaltopalchi-ship-it/autoearn-ai)"
+_COOLDOWN_UNTIL = {"lichess.org": 0.0, "api.chess.com": 0.0}
+_COOLDOWN_SECONDS = {"lichess.org": 60, "api.chess.com": 30}
 
 
 def _get_json(host: str, path: str) -> dict[str, Any] | list[Any]:
@@ -31,6 +34,9 @@ def _get_json(host: str, path: str) -> dict[str, Any] | list[Any]:
     connection = None
     # Both providers ask clients to avoid parallel bursts. Serialize requests.
     with _REQUEST_LOCK:
+        wait_seconds = _COOLDOWN_UNTIL[host] - time.monotonic()
+        if wait_seconds > 0:
+            time.sleep(wait_seconds)
         try:
             connection = http.client.HTTPSConnection(
                 host, timeout=12, context=ssl.create_default_context()
@@ -44,7 +50,16 @@ def _get_json(host: str, path: str) -> dict[str, Any] | list[Any]:
             )
             response = connection.getresponse()
             if response.status == 429:
-                raise GamePlatformError("Provider rate limit reached; retry later.")
+                retry_after = response.getheader("Retry-After")
+                try:
+                    requested_wait = int(retry_after) if retry_after else 0
+                except (TypeError, ValueError):
+                    requested_wait = 0
+                wait_seconds = max(_COOLDOWN_SECONDS[host], requested_wait)
+                _COOLDOWN_UNTIL[host] = time.monotonic() + wait_seconds
+                raise GamePlatformError(
+                    f"Provider rate limit reached; wait {wait_seconds} seconds before retrying."
+                )
             if response.status != 200:
                 raise GamePlatformError("Provider returned a non-success response.")
             payload = response.read(_MAX_RESPONSE_BYTES + 1)
