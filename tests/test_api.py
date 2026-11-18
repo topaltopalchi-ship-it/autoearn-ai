@@ -3042,3 +3042,23 @@ def test_startup_reconciliation_rejects_negative_grace_period(tmp_path, monkeypa
         main.reconcile_evidence_files(grace_period_seconds=-1)
 
     assert not evidence_dir.exists()
+
+def test_startup_reconciliation_rejects_symlinked_parent_directory(tmp_path, monkeypatch):
+    import os
+    import pytest
+    from app import main
+
+    if os.name != "posix":
+        pytest.skip("Symlink permission semantics are platform-specific.")
+
+    real_parent = tmp_path / "real-parent"
+    real_parent.mkdir()
+    linked_parent = tmp_path / "linked-parent"
+    linked_parent.symlink_to(real_parent, target_is_directory=True)
+    evidence_dir = linked_parent / "evidence"
+    monkeypatch.setattr(main, "EVIDENCE_DIR", evidence_dir)
+
+    with pytest.raises(RuntimeError, match="Evidence directory path must not contain symbolic links"):
+        main.reconcile_evidence_files()
+
+    assert not (real_parent / "evidence").exists()
