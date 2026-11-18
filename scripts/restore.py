@@ -46,6 +46,14 @@ def _read_evidence_rows(db: sqlite3.Connection) -> list[tuple]:
     return db.execute("SELECT stored_name, size_bytes, sha256 FROM earnings_evidence").fetchall()
 
 
+def _utf8_byte_length(value: str) -> int:
+    """Return strict UTF-8 length, rejecting lone surrogate code points."""
+    try:
+        return len(value.encode("utf-8"))
+    except UnicodeEncodeError as exc:
+        raise ValueError("Filename is not valid Unicode in backup manifest") from exc
+
+
 def _is_windows_reserved_component(component: str) -> bool:
     """Return whether a path component is reserved by Windows, even with an extension."""
     stem = component.split(".", 1)[0].upper()
@@ -99,7 +107,7 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
         or "\\" in database_name
         or any(char in database_name for char in '<>:"|?*')
         or database_name.endswith((" ", "."))
-        or len(database_name.encode("utf-8")) > 255
+        or _utf8_byte_length(database_name) > 255
         or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in database_name)
         or _is_windows_reserved_component(database_name)
     ):
@@ -139,11 +147,11 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
             relative_name is None or not name or relative_name.is_absolute()
             or relative_name.as_posix() != name
             or "\\" in name or any(char in name for char in '<>:"|?*')
-            or len(name.encode("utf-8")) > 1024
+            or _utf8_byte_length(name) > 1024
             or any(
                 not part or part in {".", ".."} or part.endswith((" ", "."))
                 or _is_windows_reserved_component(part)
-                or len(part.encode("utf-8")) > 255
+                or _utf8_byte_length(part) > 255
                 for part in relative_name.parts
             )
             or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in name)
