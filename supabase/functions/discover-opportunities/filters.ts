@@ -77,7 +77,7 @@ export function classifyCountryEligibility(text: string, country = "Iran"): Coun
 
   // Official rules often put sanctioned / void / excluded countries in a comma-separated list.
   const excludedList = new RegExp(
-    `(?:void\\s+in|except(?:\\s+for)?|excluding|prohibited\\s+jurisdictions?\\s*:|restricted\\s+countries?\\s*:|not\\s+available\\s+in)[^.!?]{0,500}\\b${name}\\b`,
+    `(?:void\\s+in|except(?:\\s+for)?|excluding|prohibited\\s+jurisdictions?|restricted\\s+countries?|sanctioned\\s+(?:countries|jurisdictions)|not\\s+available\\s+in)[^.!?]{0,500}\\b${name}\\b`,
     "i",
   );
   if (excludedList.test(value)) return "ineligible";
