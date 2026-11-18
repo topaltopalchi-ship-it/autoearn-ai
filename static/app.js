@@ -53,13 +53,10 @@ async function verifyEligibility(id){
   const opportunity=opportunities.find(item=>Number(item.id)===Number(id));
   if(!opportunity)return toast("Opportunity not found. Refresh and try again.");
   if(!opportunity.terms_url)return toast("Add the official terms URL before eligibility review.");
-  if(!hasAcceptedWallet(opportunity))return toast("Add the exact supported digital wallet to the reward or notes field.");
-  const message="Have you personally checked the platform's official terms and confirmed: your actual country is eligible; the reward is withdrawable to an accepted wallet; no deposit or purchase is required; and automated gameplay is explicitly permitted?\\n\\nOnly choose OK if every item is confirmed from official sources.";
-  if(!confirm(message))return;
-  const {error}=await supabase.from("opportunities").update({status:"eligible"}).eq("id",id);
-  if(error)return fail(error);
-  toast("Marked eligible based on your official-source review.");
-  await loadData();
+  $("eligibility-opportunity-id").value=String(id);
+  $("eligibility-form").reset();
+  $("eligibility-opportunity-id").value=String(id);
+  $("eligibility-dialog").showModal();
 }
 async function createTask(id){
   const opportunity=opportunities.find(item=>Number(item.id)===Number(id));
@@ -140,6 +137,25 @@ function bindWorkspace(){
     e.preventDefault();const data=Object.fromEntries(new FormData(e.target));
     const {error}=await supabase.from("opportunities").insert({...data,owner_id:currentUser.id,url:String(data.url).trim(),score:(data.terms_url?25:0)+(data.eligibility?20:0)+(data.reward_description?15:0)});
     if(error)return fail(error);e.target.closest("dialog").close();e.target.reset();toast("Opportunity saved");await loadData();
+  };
+  $("eligibility-form").onsubmit=async e=>{
+    e.preventDefault();
+    const data=Object.fromEntries(new FormData(e.target));
+    const id=Number(data.opportunity_id);
+    const opportunity=opportunities.find(item=>Number(item.id)===id);
+    if(!opportunity)return toast("Opportunity not found. Refresh and try again.");
+    for(const key of ["payout_source","automation_source"]){
+      try{const u=new URL(data[key]);if(u.protocol!=="https:")throw new Error();data[key]=u.href}
+      catch(_){return toast("Both evidence links must be valid HTTPS URLs.")}
+    }
+    const passed=data.country.trim()&&data.country_allowed==="yes"&&data.wallet&&data.wallet_confirmed==="yes"&&data.minimum.trim()&&data.fees.trim()&&data.kyc!=="unknown"&&data.free_entry==="yes"&&data.automation==="yes";
+    const report={reviewed_at:new Date().toISOString(),country:data.country.trim(),country_allowed:data.country_allowed,wallet:data.wallet,wallet_confirmed:data.wallet_confirmed,minimum_withdrawal:data.minimum.trim(),fees:data.fees.trim(),kyc:data.kyc,free_entry:data.free_entry,automation_explicitly_allowed:data.automation,payout_source:data.payout_source,automation_source:data.automation_source};
+    const note="\\n\\n[OWNER OFFICIAL ELIGIBILITY REVIEW]\\n"+JSON.stringify(report,null,2);
+    const {error}=await supabase.from("opportunities").update({status:passed?"eligible":"ineligible",notes:(opportunity.notes||"")+note}).eq("id",id);
+    if(error)return fail(error);
+    e.target.closest("dialog").close();
+    toast(passed?"Review saved: eligible for guided review; no automatic gameplay is enabled.":"Review saved: this opportunity is not cleared.");
+    await loadData();
   };
   $("reward-form").onsubmit=async e=>{
     e.preventDefault();const data=Object.fromEntries(new FormData(e.target));
