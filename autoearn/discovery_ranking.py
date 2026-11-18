@@ -8,6 +8,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
+from .tracks import get_track, track_matches_category
+
 
 def _age_days(value: str) -> int | None:
     if not value:
@@ -119,8 +121,22 @@ def prioritize_discovery_leads(records: list[dict[str, Any]]) -> dict[str, Any]:
         else:
             automation_policy = "policy_unverified"
 
+        # Only a human-reviewed, category-compatible track may influence tie-breaking.
+        # Auto-inferred or stale/mismatched labels remain informationally untrusted.
+        track_key = str(record.get("track_key") or "").strip()
+        reviewed_track = (
+            get_track(track_key)
+            if record.get("track_review_status") == "matched"
+            and track_matches_category(track_key, str(record.get("category") or ""))
+            else None
+        )
+        track_priority = reviewed_track.priority if reviewed_track else 999
+
         items.append({
             **record,
+            "track_label": reviewed_track.label if reviewed_track else "نیازمند بررسی دسته‌بندی",
+            "track_priority": track_priority,
+            "track_execution_guidance": reviewed_track.execution_guidance if reviewed_track else "unreviewed",
             "research_priority_score": score,
             "research_priority": tier,
             "research_reasons": reasons,
