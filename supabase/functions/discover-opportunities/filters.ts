@@ -1,6 +1,6 @@
 export type CandidateDecision =
   | { accepted: true; url: string; payoutMethods: string[] }
-  | { accepted: false; reason: "invalid_url" | "excluded_category" | "missing_reward_evidence" | "missing_payout_evidence" };
+  | { accepted: false; reason: "invalid_url" | "excluded_category" | "missing_free_entry_evidence" | "missing_reward_evidence" | "missing_payout_evidence" };
 
 const EXCLUDED_RESULT_RE = /\b(survey|surveys|questionnaire|microtask|micro-task|crowd.?work|freelance job|job opening|career|news|press release|blog post|article|guide|directory|archives?|roundup|review|comparison|cashback|cash back|loyalty program|rewards? program|points redemption|redeem points|affiliate referral|referral bonus|invite friends|sign.?up bonus|registration bonus|paid to register|offerwall|price chart|token price|market cap|cryptocurrency price|payment gateway|accept payments|merchant account|business payments|casino|betting|sportsbook|slot machine)\b/i;
 const GAME_ACTIVITY_RE = /\b(game|games|gaming|play|player|puzzle|contest|competition|tournament|sweepstakes|giveaway|raffle|lucky draw|prize draw|free draw|lottery|spin|wheel|daily spin|scratch|instant.?win|quiz|trivia|iq test|brain.?test|predict|prediction|pick.?em|match predictor|score predictor)\b/i;
