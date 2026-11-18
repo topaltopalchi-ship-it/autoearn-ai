@@ -89,6 +89,20 @@ def test_unknown_adapter_cannot_submit():
         )
 
 
+def test_registry_rejects_adapter_without_callable_submit_method():
+    class IncompleteAdapter:
+        manifest = CompetitionAdapterManifest(
+            adapter_id="incomplete-adapter", exact_host="contest.example.com",
+            official_api=True, automated_agents_allowed=True,
+            allowed_actions=("submit_entry",),
+        )
+
+    registry = CompetitionAdapterRegistry()
+    with pytest.raises(TypeError, match="callable submit_entry"):
+        registry.register(IncompleteAdapter())
+    assert registry.get_manifest("incomplete-adapter") is None
+
+
 def test_manifest_rejects_wildcard_and_unapproved_adapter():
     with pytest.raises(ValueError):
         CompetitionAdapterManifest(
