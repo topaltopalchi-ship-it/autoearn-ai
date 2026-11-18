@@ -173,10 +173,10 @@ function bindWorkspace(){
     const passed=data.country.trim()&&data.country_allowed==="yes"&&data.payment_method&&data.payment_method!=="Other / not specified"&&data.payment_confirmed==="yes"&&data.minimum.trim()&&data.fees.trim()&&data.kyc!=="unknown"&&data.free_entry==="yes"&&data.automation==="yes";
     const report={reviewed_at:new Date().toISOString(),country:data.country.trim(),country_allowed:data.country_allowed,payment_method:data.payment_method,payment_confirmed:data.payment_confirmed,minimum_withdrawal:data.minimum.trim(),fees:data.fees.trim(),kyc:data.kyc,free_entry:data.free_entry,automation_explicitly_allowed:data.automation,payout_source:data.payout_source,automation_source:data.automation_source};
     const note="\n\n[OWNER OFFICIAL ELIGIBILITY REVIEW]\n"+JSON.stringify(report,null,2);
-    const {error}=await supabase.from("opportunities").update({status:passed?"eligible":"ineligible",notes:(opportunity.notes||"")+note}).eq("id",id);
+    const {error}=await supabase.from("opportunities").update({status:passed?"reviewing":"ineligible",notes:(opportunity.notes||"")+note}).eq("id",id);
     if(error)return fail(error);
     e.target.closest("dialog").close();
-    toast(passed?"Review saved: eligible for guided review; no automatic gameplay is enabled.":"Review saved: this opportunity is not cleared.");
+    toast(passed?"Owner checklist saved. This remains under review until official evidence is independently verified; guided sessions are not enabled.":"Review saved: this opportunity is not cleared.");
     await loadData();
   };
   $("reward-form").onsubmit=async e=>{
