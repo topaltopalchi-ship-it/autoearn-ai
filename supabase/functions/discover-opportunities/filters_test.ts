@@ -179,6 +179,16 @@ Deno.test("rejects entertainment-only games that use misleading prize wording", 
   assertRejected("https://example.com/wheel", "Lucky wheel win cash prize", "Free spin for entertainment only. No monetary reward.", "missing_reward_evidence");
 });
 
+Deno.test("rejects cash-prize wording contradicted by no-cash-value terms", () => {
+  assertRejected("https://example.com/promo", "Free game win cash prize", "No purchase necessary. The advertised prize has no cash value and cannot be redeemed for cash. Winners receive payout details by PayPal.", "missing_reward_evidence");
+});
+Deno.test("rejects non-withdrawable virtual tokens despite withdrawal keywords", () => {
+  assertRejected("https://example.com/tokens", "Free puzzle game cash reward", "Free entry. Virtual points only; rewards are non-withdrawable. Withdrawal and payout are not supported.", "missing_reward_evidence");
+});
+Deno.test("rejects entertainment-only spin promotions with misleading winner payout text", () => {
+  assertRejected("https://example.com/spin", "Daily free spin win cash prize", "Free spin for entertainment only. No monetary reward is provided, although the page describes a payout process.", "missing_reward_evidence");
+});
+
 Deno.test("detects Iran in a comma-separated void-in country list", () => {
   assertEquals(classifyCountryEligibility("Contest is void in: Afghanistan, Iran, Syria and North Korea."), "ineligible");
 });
