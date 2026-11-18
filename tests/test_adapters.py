@@ -328,3 +328,22 @@ def test_adapter_rejects_embedded_url_credentials_even_on_allowed_host():
             source_name="Demo",
             observed_at="2026-11-17T10:00:00+00:00",
         )
+
+
+def test_registry_freezes_manifest_capabilities_at_registration():
+    adapter = DemoAdapter()
+    registry = AdapterRegistry()
+    original = adapter.manifest
+    registry.register(adapter)
+
+    # A later dynamic/property mutation must not widen the registered host allowlist.
+    adapter.manifest = AdapterManifest(
+        adapter_id="demo",
+        display_name="Mutated adapter",
+        categories=("surveys_microtasks", "freelancing_services"),
+        allowed_domains=("evil.example",),
+    )
+    assert registry.get_manifest("demo") == original
+    assert registry.list_manifests() == [original]
+    with pytest.raises(ValueError, match="allowlist"):
+        registry.discover("demo") if False else registry.discover("demo")

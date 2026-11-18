@@ -151,6 +151,9 @@ class AdapterRegistry:
 
     def __init__(self) -> None:
         self._adapters: dict[str, DiscoveryAdapter] = {}
+        # Freeze the validated capabilities at registration; adapter properties
+        # may be dynamic and must not widen permissions after trust is granted.
+        self._manifests: dict[str, AdapterManifest] = {}
         self._lock = RLock()
 
     def register(self, adapter: DiscoveryAdapter) -> None:
@@ -161,24 +164,22 @@ class AdapterRegistry:
             if manifest.adapter_id in self._adapters:
                 raise ValueError("adapter id is already registered")
             self._adapters[manifest.adapter_id] = adapter
+            self._manifests[manifest.adapter_id] = manifest
 
     def get_manifest(self, adapter_id: str) -> AdapterManifest | None:
         with self._lock:
-            adapter = self._adapters.get(adapter_id)
-            return adapter.manifest if adapter else None
+            return self._manifests.get(adapter_id)
 
     def list_manifests(self) -> list[AdapterManifest]:
         with self._lock:
-            manifests = [adapter.manifest for adapter in self._adapters.values()]
-        return sorted(manifests, key=lambda item: item.adapter_id)
+            return [self._manifests[key] for key in sorted(self._manifests)]
 
     def discover(self, adapter_id: str) -> list[DiscoveredLead]:
         with self._lock:
             adapter = self._adapters.get(adapter_id)
-        if adapter is None:
+            manifest = self._manifests.get(adapter_id)
+        if adapter is None or manifest is None:
             raise KeyError("adapter is not registered")
-
-        manifest = adapter.manifest
         leads = adapter.discover()
         if not isinstance(leads, list):
             raise TypeError("adapter discover() must return a list")
