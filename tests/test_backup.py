@@ -186,6 +186,21 @@ def test_restore_verifies_and_recovers_backup_without_overwriting(tmp_path):
 
 
 @pytest.mark.parametrize("database_name", ["manifest.json", "PRIVATE_EVIDENCE"])
+def test_restore_rejects_destination_inside_backup_directory(tmp_path):
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    backup = tmp_path / "backup"
+    create_backup(database, evidence, backup)
+    destination = backup / "nested" / "recovered"
+
+    with pytest.raises(ValueError, match="outside the backup directory"):
+        restore_backup(backup, destination)
+    assert not destination.exists()
+
+
 def test_restore_rejects_database_name_colliding_with_reserved_backup_entry(tmp_path, database_name):
     database = tmp_path / "autoearn.db"
     with sqlite3.connect(database) as db:
