@@ -67,7 +67,10 @@ class OpportunityCandidate:
         )
         for field_name in monetary_fields:
             value = getattr(self, field_name)
-            if value is not None and not isfinite(value):
+            if value is not None and (
+                isinstance(value, bool) or not isinstance(value, (int, float))
+                or not isfinite(value)
+            ):
                 raise ValueError(f"{field_name} must be a finite number")
         if self.reward_amount is not None and self.reward_amount < 0:
             raise ValueError("reward_amount cannot be negative")
@@ -81,14 +84,24 @@ class OpportunityCandidate:
             raise ValueError("minimum_withdrawal_amount cannot be negative")
         if self.minimum_withdrawal_currency is not None and not self.minimum_withdrawal_currency.strip():
             raise ValueError("minimum_withdrawal_currency cannot be blank")
-        if self.estimated_minutes is not None and self.estimated_minutes < 1:
-            raise ValueError("estimated_minutes must be positive")
+        if self.estimated_minutes is not None and (
+            isinstance(self.estimated_minutes, bool)
+            or not isinstance(self.estimated_minutes, int)
+            or self.estimated_minutes < 1
+        ):
+            raise ValueError("estimated_minutes must be a positive integer")
         for field_name in ("payment_probability", "acceptance_probability", "payout_reliability"):
             value = getattr(self, field_name)
-            if value is not None and not 0 <= value <= 100:
-                raise ValueError(f"{field_name} must be from 0 to 100")
-        if self.risk_score is not None and not 0 <= self.risk_score <= 100:
-            raise ValueError("risk_score must be from 0 to 100")
+            if value is not None and (
+                isinstance(value, bool) or not isinstance(value, int)
+                or not 0 <= value <= 100
+            ):
+                raise ValueError(f"{field_name} must be an integer from 0 to 100")
+        if self.risk_score is not None and (
+            isinstance(self.risk_score, bool) or not isinstance(self.risk_score, int)
+            or not 0 <= self.risk_score <= 100
+        ):
+            raise ValueError("risk_score must be an integer from 0 to 100")
         if not self.reward_currency.strip():
             raise ValueError("reward_currency is required")
 
@@ -105,10 +118,14 @@ def evaluate_candidate(
     max_evidence_age_days: int = 30,
 ) -> dict[str, object]:
     """Return eligibility, confidence, flags, and a conservative ranking score."""
-    if not country.strip():
+    if not isinstance(country, str) or not country.strip():
         raise ValueError("country is required")
-    if max_evidence_age_days < 0:
-        raise ValueError("max_evidence_age_days cannot be negative")
+    if (
+        isinstance(max_evidence_age_days, bool)
+        or not isinstance(max_evidence_age_days, int)
+        or max_evidence_age_days < 0
+    ):
+        raise ValueError("max_evidence_age_days must be a non-negative integer")
 
     flags: list[str] = []
     country_key = _country_key(country)
