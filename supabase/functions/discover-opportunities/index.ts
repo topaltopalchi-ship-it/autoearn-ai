@@ -6,21 +6,22 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// Worldwide discovery: search broadly in English and several major languages.
+// Worldwide discovery is limited to online games and prize-based entertainment.
  // Availability is offer-specific; the UI must not imply every offer works in every country.
 const SEARCHES = [
-  // Short queries work better with a full-text index than long, restrictive phrases.
-  { category: "game", query: 'play to earn' },
-  { category: "game", query: 'paid games rewards' },
-  { category: "game", query: 'juegos ganar dinero' },
-  { category: "paid-task", query: 'microtasks' },
-  { category: "paid-task", query: 'online paid tasks' },
-  { category: "paid-task", query: 'micro tâches rémunérées' },
-  { category: "survey", query: 'paid surveys' },
-  { category: "survey", query: 'encuestas pagadas' },
-  { category: "signup-offer", query: 'signup bonus' },
-  { category: "signup-offer", query: 'referral rewards' },
-  { category: "signup-offer", query: 'bonus parrainage' },
+  { category: "game", query: 'free online games win real prizes no purchase worldwide' },
+  { category: "game", query: 'free play games rewards cash prizes international' },
+  { category: "game", query: 'juegos gratis ganar premios dinero sin compra' },
+  { category: "sweepstakes", query: 'free online sweepstakes enter win prizes no purchase international' },
+  { category: "sweepstakes", query: 'concursos sorteos gratis premios online sin compra' },
+  { category: "wheel", query: 'free spin wheel win prizes daily no purchase online' },
+  { category: "wheel", query: 'ruleta de premios gratis girar ganar premios online' },
+  { category: "puzzle", query: 'free online puzzle contest win cash prizes skill challenge' },
+  { category: "puzzle", query: 'free puzzle games competitions prizes online' },
+  { category: "iq-test", query: 'free online brain games iq quiz challenge prize contest' },
+  { category: "iq-test", query: 'free intelligence test puzzle competition prizes online' },
+  { category: "instant-win", query: 'free instant win games scratch cards reveal win no purchase' },
+  { category: "instant-win", query: 'juegos premios instantaneos gratis rasca y gana sin compra' },
 ];
 
 function json(body: unknown, status = 200) {
@@ -75,11 +76,11 @@ Deno.serve((req: Request) => {
               url: parsed.toString(),
               category: search.category,
               reward_description: description,
-              eligibility: "Found through worldwide search. Country availability is not verified; confirm eligible countries, age limits, payout methods and restrictions on the official site.",
+              eligibility: "Worldwide discovery candidate. Country availability, age limits and prize eligibility are NOT verified. Confirm official rules and free-entry route before participating.",
               terms_url: "",
               status: "discovered",
               score: 0,
-              notes: "Automatically found through multilingual worldwide web search. Not verified or endorsed. Check the official terms, eligible countries, fees, payout conditions and current availability before participating.",
+              notes: "Found by a game-and-prize focused search. Not verified or endorsed. Prioritize no-purchase entry; do not pay, deposit, buy tickets or share payment details. Check official rules, eligible countries, odds and prize delivery first.",
             });
           } catch { /* Ignore malformed result URLs. */ }
         }
