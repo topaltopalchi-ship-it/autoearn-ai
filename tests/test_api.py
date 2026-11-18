@@ -2182,6 +2182,50 @@ def test_earning_evidence_upload_is_private_validated_and_downloadable(client, t
     ).status_code == 401
 
 
+
+def test_concurrent_earning_evidence_uploads_cannot_exceed_quota(client, tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+    from app import main
+
+    evidence_dir = tmp_path / "quota-evidence"
+    monkeypatch.setattr(main, "EVIDENCE_DIR", evidence_dir)
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    earning = client.post(
+        "/api/earnings", headers=headers,
+        json={"amount": 9, "currency": "EUR", "state": "earned"},
+    ).json()
+    payload = b"%PDF-1.4\\nquota receipt\\n"
+    # Fill nine slots, leaving exactly one for two simultaneous requests.
+    for _ in range(9):
+        response = client.post(
+            f"/api/earnings/{earning['id']}/evidence", headers=headers,
+            files={"upload": ("receipt.pdf", payload, "application/pdf")},
+        )
+        assert response.status_code == 201
+
+    scanner_barrier = Barrier(2)
+    def synchronized_scan(_payload):
+        scanner_barrier.wait(timeout=5)
+        return "stream: OK"
+    monkeypatch.setattr(main, "scan_bytes", synchronized_scan)
+
+    def upload_once():
+        return client.post(
+            f"/api/earnings/{earning['id']}/evidence", headers=headers,
+            files={"upload": ("receipt.pdf", payload, "application/pdf")},
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        responses = list(pool.map(lambda _index: upload_once(), range(2)))
+
+    assert sorted(response.status_code for response in responses) == [201, 409]
+    listed = client.get(f"/api/earnings/{earning['id']}/evidence", headers=headers)
+    assert listed.status_code == 200
+    assert len(listed.json()) == 10
+    assert len(list(evidence_dir.iterdir())) == 10
+
+
 def test_earning_evidence_rejects_malware_before_storage(client, tmp_path, monkeypatch):
     from app import main
     from autoearn.evidence_scanning import MalwareDetected
