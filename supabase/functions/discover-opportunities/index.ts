@@ -49,7 +49,7 @@ Deno.serve((req: Request) => {
 
     const found: Array<Record<string, unknown>> = [];
     const errors: string[] = [];
-    const rejected = { invalid_url: 0, excluded_category: 0, no_accepted_wallet: 0, missing_reward_evidence: 0, missing_payout_evidence: 0 };
+    const rejected = { invalid_url: 0, excluded_category: 0, missing_reward_evidence: 0, missing_payout_evidence: 0 };
     let acceptedCandidates = 0;
     const searchStats: Array<{ category: string; query: string; results: number; status: number }> = [];
 
@@ -89,7 +89,7 @@ Deno.serve((req: Request) => {
 
           acceptedCandidates++;
           const hostname = new URL(decision.url).hostname.replace(/^www\./, "");
-          const walletMatches = decision.wallets;
+          const payoutMethods = decision.payoutMethods;
           found.push({
             owner_id: ownerId,
             title,
@@ -97,11 +97,11 @@ Deno.serve((req: Request) => {
             url: decision.url,
             category: search.category,
             reward_description: description,
-            eligibility: `Payout wallet mentioned in search result: ${walletMatches.join(", ")}. This is NOT confirmation that withdrawals are supported in your country; verify on the official payout and terms pages.`,
+            eligibility: `Payout method hints in search result: ${payoutMethods.join(", ") || "not specified"}. These are not verified; confirm official payment methods and country eligibility.`,
             terms_url: "",
             status: "discovered",
             score: 0,
-            notes: `Accepted wallet keyword(s) found in search snippet: ${walletMatches.join(", ")}. Wallet support and country eligibility are unverified. Confirm minimum withdrawal, fees, KYC and official rules. Never deposit or pay to unlock a prize.`,
+            notes: `Payout method hints: ${payoutMethods.join(", ") || "not specified"}. Payment methods and country eligibility are unverified. Confirm minimum withdrawal, fees, KYC and official rules. Never deposit or pay to unlock a prize.`,
           });
         }
       } catch (error) {
