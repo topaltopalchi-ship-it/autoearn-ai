@@ -404,7 +404,10 @@ def test_competition_manifest_rejects_malformed_fields(changes):
         CompetitionAdapterManifest(**values)
 
 
-@pytest.mark.parametrize("host", ["127.0.0.1", "10.0.0.8", "192.168.1.1"])
+@pytest.mark.parametrize("host", [
+    "127.0.0.1", "10.0.0.8", "192.168.1.1", "::1", "2001:db8::1",
+    "::ffff:127.0.0.1",
+])
 def test_competition_manifest_rejects_ip_address_hosts(host):
     with pytest.raises(ValueError, match="public DNS hostname"):
         CompetitionAdapterManifest(
