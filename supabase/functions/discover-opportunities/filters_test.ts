@@ -161,7 +161,7 @@ Deno.test("rejects a wheel game that requires a deposit", () => {
   assertRejected("https://example.com/wheel", "Lucky wheel cash prize", "Deposit $5 to unlock daily spins. Winners receive payout by PayPal.", "excluded_category");
 });
 Deno.test("rejects a free spin claim without verifiable prize payout context", () => {
-  assertRejected("https://example.com/spin", "Daily free spin wheel", "Spin for fun and collect points. No cash prize or withdrawal information.", "missing_reward_evidence");
+  assertRejected("https://example.com/spin", "Daily free spin wheel", "Spin for fun and collect points. No withdrawal information is provided.", "missing_reward_evidence");
 });
 Deno.test("accepts free instant-win promotion only with prize and payout evidence", () => {
   const result = evaluateCandidate("https://example.com/instant-win", "Free instant win cash prize", "No purchase necessary. Winner receives prize payout by bank transfer under official rules.");
