@@ -530,3 +530,58 @@ def test_restore_rejects_unicode_normalization_colliding_paths(tmp_path):
     with pytest.raises(ValueError, match="case-colliding"):
         restore_backup(backup, destination)
     assert not destination.exists()
+
+
+@pytest.mark.parametrize("unsafe_name", [
+    "CON", "nul.txt", "AUX.data", "COM1.log", "LPT9",
+    "bad<name>.bin", "bad|name.bin", "bad?name.bin",
+    "bad\\\\name.bin", "trailing-dot.", "trailing-space ", "bad\\u0085name.bin",
+])
+def test_backup_rejects_nonportable_evidence_names(tmp_path, unsafe_name):
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    (evidence / unsafe_name).write_bytes(b"receipt")
+
+    destination = tmp_path / "backup"
+    with pytest.raises(ValueError, match="Unsafe evidence filename"):
+        create_backup(database, evidence, destination)
+    assert not destination.exists()
+
+
+def test_backup_rejects_case_colliding_evidence_names_on_posix(tmp_path):
+    import os
+
+    if os.name != "posix":
+        pytest.skip("Case-colliding filenames require a case-sensitive test filesystem")
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    (evidence / "Receipt.bin").write_bytes(b"first")
+    (evidence / "receipt.bin").write_bytes(b"second")
+
+    with pytest.raises(ValueError, match="case-colliding"):
+        create_backup(database, evidence, tmp_path / "backup")
+    assert not (tmp_path / "backup").exists()
+
+
+def test_backup_rejects_unicode_normalization_colliding_names_on_posix(tmp_path):
+    import os
+
+    if os.name != "posix":
+        pytest.skip("Distinct normalization forms require a case-sensitive POSIX test filesystem")
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    (evidence / "caf\\u00e9.txt").write_bytes(b"first")
+    (evidence / "cafe\\u0301.txt").write_bytes(b"second")
+
+    with pytest.raises(ValueError, match="case-colliding"):
+        create_backup(database, evidence, tmp_path / "backup")
+    assert not (tmp_path / "backup").exists()

@@ -18,6 +18,7 @@ from pathlib import Path
 import shutil
 import sqlite3
 import tempfile
+import unicodedata
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -36,6 +37,32 @@ def _sha256(path: Path) -> str:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+
+def _portable_evidence_key(name: str) -> str:
+    """Validate a portable evidence path and return its collision key."""
+    relative_name = Path(name)
+    if (
+        not name or relative_name.is_absolute()
+        or relative_name.as_posix() != name
+        or "\\\\" in name or any(char in name for char in '<>:"|?*')
+        or len(name.encode("utf-8")) > 1024
+        or any(
+            not part or part in {".", ".."} or part.endswith((" ", "."))
+            or len(part.encode("utf-8")) > 255
+            or part.split(".", 1)[0].upper() in {"CON", "PRN", "AUX", "NUL"}
+            or (
+                len(part.split(".", 1)[0]) == 4
+                and part.split(".", 1)[0].upper()[:3] in {"COM", "LPT"}
+                and part.split(".", 1)[0].upper()[3] in "123456789"
+            )
+            for part in relative_name.parts
+        )
+        or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in name)
+    ):
+        raise ValueError(f"Unsafe evidence filename: {name}")
+    return unicodedata.normalize("NFC", name).casefold()
 
 
 def _read_evidence_rows(db: sqlite3.Connection) -> list[tuple]:
@@ -95,6 +122,7 @@ def create_backup(
         evidence_copy = staging / "private_evidence"
         evidence_copy.mkdir(mode=0o700)
         evidence_entries = []
+        portable_names = set()
         if evidence_dir.exists():
             if not evidence_dir.is_dir():
                 raise ValueError("Evidence path is not a directory")
@@ -106,6 +134,12 @@ def create_backup(
                 if not item.is_file():
                     raise ValueError(f"Unexpected non-file in evidence directory: {item.relative_to(evidence_dir)}")
                 relative_name = item.relative_to(evidence_dir).as_posix()
+                portable_key = _portable_evidence_key(relative_name)
+                if portable_key in portable_names:
+                    raise ValueError(
+                        f"Duplicate or case-colliding evidence filename: {relative_name}"
+                    )
+                portable_names.add(portable_key)
                 copied = evidence_copy / relative_name
                 copied.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
                 shutil.copyfile(item, copied)
