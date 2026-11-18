@@ -1,5 +1,5 @@
 import { withSupabase } from "npm:@supabase/server@^1";
-import { canonicalOpportunityUrl, domainReviewFlags, evaluateCandidate } from "./filters.ts";
+import { canonicalOpportunityUrl, classifyCountryEligibility, domainReviewFlags, evaluateCandidate } from "./filters.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -102,6 +102,7 @@ Deno.serve((req: Request) => {
           const hostname = new URL(decision.url).hostname.replace(/^www\./, "");
           const payoutMethods = decision.payoutMethods;
           const domainFlags = domainReviewFlags(decision.url);
+          const iranEligibility = classifyCountryEligibility(`${title} ${description}`);
           found.push({
             owner_id: ownerId,
             title,
@@ -109,11 +110,11 @@ Deno.serve((req: Request) => {
             url: canonicalOpportunityUrl(decision.url)!,
             category: search.category,
             reward_description: description,
-            eligibility: `Payout method hints in search result: ${payoutMethods.join(", ") || "not specified"}. These are not verified; confirm official payment methods and country eligibility. Domain review flags: ${domainFlags.join(", ") || "none detected by basic heuristics"}. Domain ownership is not verified.`,
+            eligibility: `Iran eligibility: ${iranEligibility.toUpperCase()} (based only on search-result text; official terms still require review). Payout method hints: ${payoutMethods.join(", ") || "not specified"} (unverified). Domain flags: ${domainFlags.join(", ") || "none detected by basic heuristics"}; domain ownership is not verified.`,
             terms_url: "",
             status: "discovered",
             score: 0,
-            notes: `Payout method hints: ${payoutMethods.join(", ") || "not specified"}. Payment methods and country eligibility are unverified. Domain review flags: ${domainFlags.join(", ") || "none detected by basic heuristics"}. A clean flag result does not prove the site is official. Confirm the organizer, official terms, minimum withdrawal, fees, KYC and country eligibility. Never deposit or pay to unlock a prize.`,
+            notes: `Payout method hints: ${payoutMethods.join(", ") || "not specified"}. Payment methods and country eligibility are unverified. Iran eligibility from search-result text: ${iranEligibility}. Domain review flags: ${domainFlags.join(", ") || "none detected by basic heuristics"}. A clean flag result does not prove the site is official. Confirm the organizer, official terms, minimum withdrawal, fees, KYC and country eligibility. Never deposit or pay to unlock a prize.`,
           });
         }
       } catch (error) {
