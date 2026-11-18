@@ -31,6 +31,10 @@ Deno.serve((req: Request) => {
       needsSetup: true,
     }, 503);
 
+    // @supabase/server exposes the authenticated user ID as userClaims.id.
+    const ownerId = ctx.userClaims?.id;
+    if (!ownerId) return json({ error: "Authenticated user identity is missing." }, 401);
+
     const found: Array<Record<string, unknown>> = [];
     const errors: string[] = [];
 
@@ -58,7 +62,7 @@ Deno.serve((req: Request) => {
             const description = String(item.description || "No reward details provided by search result.").trim().slice(0, 900);
             if (title.length < 2) continue;
             found.push({
-              owner_id: ctx.userClaims.sub,
+              owner_id: ownerId,
               title,
               platform: hostname.slice(0, 100),
               url: parsed.toString(),
@@ -78,7 +82,7 @@ Deno.serve((req: Request) => {
     }
 
     const unique = [...new Map(found.map((row) => [row.url, row])).values()];
-    if (!unique.length) return json({ saved: 0, scanned: found.length, errors, message: "No candidate pages found. Try again later." });
+    if (!unique.length) return json({ saved: 0, scanned: 0, errors, message: "No candidate pages found. Try again later." });
 
     const { data, error } = await ctx.supabase
       .from("opportunities")
