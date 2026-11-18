@@ -118,14 +118,16 @@ function bindWorkspace(){
       if(error) throw error;
       if(data?.needsSetup) throw new Error(data.error);
       if(data?.error) throw new Error(data.error);
+      const rejected = data.rejected || {};
+      const summary = `Filter summary: ${data.accepted_candidates || 0} accepted candidates; ${rejected.invalid_url || 0} invalid URLs; ${rejected.excluded_category || 0} excluded categories; ${rejected.no_accepted_wallet || 0} without an accepted wallet.`;
       if ((data.saved || 0) === 0) {
         const details = Array.isArray(data.searches)
           ? data.searches.map(item => `${item.query}: ${item.results} results (HTTP ${item.status})`).join("\\n")
-          : "No search diagnostics returned.";
+          : "No search diagnostics returned."; 
         const issues = Array.isArray(data.errors) && data.errors.length ? `\\nIssues: ${data.errors.join("; ")}` : "";
-        alert(`No new opportunities were saved. Search diagnostics:\\n${details}${issues}`);
+        alert(`No new opportunities were saved. ${summary}\\nSearch diagnostics:\\n${details}${issues}`);
       } else {
-        toast(`Found ${data.saved} new candidates. Please review them.`);
+        toast(`Saved ${data.saved} new candidates. ${summary} Please review them.`);
       }
       await loadData();
     } catch(error) { fail(error); }
