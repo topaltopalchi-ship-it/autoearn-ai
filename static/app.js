@@ -44,15 +44,32 @@ function render(){
 function renderOpportunities(){
   const q=$("search").value.toLowerCase(),status=$("filter").value;
   const rows=opportunities.filter(o=>(!status||o.status===status)&&[o.title,o.platform,o.category].some(x=>(x||"").toLowerCase().includes(q)));
-  $("opportunity-list").innerHTML=rows.length?rows.map(o=>`<div class="item"><div><h3>${esc(o.title)} <span class="pill">${esc(o.status)}</span></h3><p>${esc(o.platform)} · ${esc(o.category)} · Review score ${o.score}/60<br><a href="${esc(o.url)}" target="_blank" rel="noopener noreferrer">Open platform ↗</a> ${o.terms_url?'· <a href="'+esc(o.terms_url)+'" target="_blank" rel="noopener noreferrer">Terms ↗</a>':''}<br>${esc(o.reward_description||"No reward details entered")}</p></div><div class="item-actions"><button class="secondary" data-task="${o.id}">Create task</button><button class="secondary" data-status="${o.id}" data-next="reviewing">Review</button></div></div>`).join(""):'<div class="empty">No matching opportunities.</div>';
+  $("opportunity-list").innerHTML=rows.length?rows.map(o=>`<div class="item"><div><h3>${esc(o.title)} <span class="pill">${esc(o.status)}</span></h3><p>${esc(o.platform)} · ${esc(o.category)} · Review score ${o.score}/60<br><a href="${esc(o.url)}" target="_blank" rel="noopener noreferrer">Open platform ↗</a> ${o.terms_url?'· <a href="'+esc(o.terms_url)+'" target="_blank" rel="noopener noreferrer">Terms ↗</a>':''}<br>${esc(o.reward_description||"No reward details entered")}</p></div><div class="item-actions"><button class="secondary" data-task="${o.id}">Start guided session</button><button class="secondary" data-status="${o.id}" data-next="reviewing">Review</button></div></div>`).join(""):'<div class="empty">No matching opportunities.</div>';
   $("opportunity-list").querySelectorAll("[data-task]").forEach(b=>b.onclick=()=>createTask(Number(b.dataset.task)));
   $("opportunity-list").querySelectorAll("[data-status]").forEach(b=>b.onclick=()=>setStatus(Number(b.dataset.status),b.dataset.next));
 }
 async function createTask(id){
-  const description=prompt("Describe the activity you plan to do manually:");
-  if(!description)return;
-  const {error}=await supabase.from("tasks").insert({owner_id:currentUser.id,opportunity_id:id,description});
-  if(error)return fail(error);toast("Task added to approval queue");await loadData();
+  const opportunity=opportunities.find(item=>Number(item.id)===Number(id));
+  if(!opportunity)return toast("Opportunity not found. Refresh and try again.");
+  let target;
+  try {
+    target=new URL(opportunity.url);
+    if(target.protocol!=="https:") throw new Error("Only secure HTTPS platform links can be opened.");
+  } catch(error) { return toast(error.message||"Invalid platform URL."); }
+  if(!confirm("Start a guided session for this opportunity? AutoEarn will only open the official HTTPS page and record the session. It will NOT sign up, log in, play automatically, submit information, or spend money."))return;
+  const opened=window.open(target.href,"_blank","noopener,noreferrer");
+  if(!opened){toast("Allow pop-ups for AutoEarn AI, then tap Start guided session again.");return;}
+  const description="Guided session opened by owner. Follow platform rules manually; no automated gameplay or spending.";
+  const {error}=await supabase.from("tasks").insert({
+    owner_id:currentUser.id,
+    opportunity_id:id,
+    description,
+    status:"approved",
+    approved_at:new Date().toISOString()
+  });
+  if(error)return fail(error);
+  toast("Guided session recorded. Follow the platform rules manually.");
+  await loadData();
 }
 async function setStatus(id,status){
   const {error}=await supabase.from("opportunities").update({status}).eq("id",id);
