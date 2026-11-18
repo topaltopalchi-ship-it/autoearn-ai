@@ -168,3 +168,13 @@ Deno.test("accepts free instant-win promotion only with prize and payout evidenc
   if (!result.accepted) throw new Error(`Expected acceptance, got: ${result.reason}`);
   assertEquals(result.payoutMethods, ["Bank transfer"]);
 });
+
+Deno.test("rejects promotional copy that explicitly says there is no cash prize", () => {
+  assertRejected("https://example.com/spin", "Free spin cash prize promotion", "No purchase necessary. No cash prize is offered; collect points only.", "missing_reward_evidence");
+});
+Deno.test("rejects points that cannot be withdrawn even when payout keywords appear", () => {
+  assertRejected("https://example.com/game", "Free puzzle game cash reward", "Free entry. Points only, cannot be withdrawn. Payout information is not applicable.", "missing_reward_evidence");
+});
+Deno.test("rejects entertainment-only games that use misleading prize wording", () => {
+  assertRejected("https://example.com/wheel", "Lucky wheel win cash prize", "Free spin for entertainment only. No monetary reward.", "missing_reward_evidence");
+});
