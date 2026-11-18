@@ -359,7 +359,7 @@ def test_backup_and_restore_preserve_quarantine_subdirectory(tmp_path):
     "nested\\\\escape.bin",
     "C:/escape.bin",
     "nested/../escape.bin",
-    "bad\\u0085name.bin",
+    "bad\u0085name.bin",
     "trailing-dot.",
     "trailing-space ",
     "x" * 256,
@@ -579,8 +579,8 @@ def test_backup_rejects_unicode_normalization_colliding_names_on_posix(tmp_path)
         db.execute("CREATE TABLE sample (value INTEGER)")
     evidence = tmp_path / "evidence"
     evidence.mkdir()
-    (evidence / "caf\\u00e9.txt").write_bytes(b"first")
-    (evidence / "cafe\\u0301.txt").write_bytes(b"second")
+    (evidence / "caf\u00e9.txt").write_bytes(b"first")
+    (evidence / "cafe\u0301.txt").write_bytes(b"second")
 
     with pytest.raises(ValueError, match="case-colliding"):
         create_backup(database, evidence, tmp_path / "backup")

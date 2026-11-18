@@ -46,7 +46,7 @@ def _portable_evidence_key(name: str) -> str:
     if (
         not name or relative_name.is_absolute()
         or relative_name.as_posix() != name
-        or "\\\\" in name or any(char in name for char in '<>:"|?*')
+        or "\\" in name or any(char in name for char in '<>:"|?*')
         or len(name.encode("utf-8")) > 1024
         or any(
             not part or part in {".", ".."} or part.endswith((" ", "."))
