@@ -3062,3 +3062,25 @@ def test_startup_reconciliation_rejects_symlinked_parent_directory(tmp_path, mon
         main.reconcile_evidence_files()
 
     assert not (real_parent / "evidence").exists()
+
+def test_startup_reconciliation_rejects_symlinked_evidence_directory(tmp_path, monkeypatch):
+    import os
+    import pytest
+    from app import main
+
+    if os.name != "posix":
+        pytest.skip("Symlink permission semantics are platform-specific.")
+
+    real_evidence = tmp_path / "real-evidence"
+    real_evidence.mkdir()
+    marker = real_evidence / "keep.txt"
+    marker.write_text("must remain untouched")
+    linked_evidence = tmp_path / "linked-evidence"
+    linked_evidence.symlink_to(real_evidence, target_is_directory=True)
+    monkeypatch.setattr(main, "EVIDENCE_DIR", linked_evidence)
+
+    with pytest.raises(RuntimeError, match="Evidence directory path must not contain symbolic links"):
+        main.reconcile_evidence_files()
+
+    assert marker.read_text() == "must remain untouched"
+    assert list(real_evidence.iterdir()) == [marker]
