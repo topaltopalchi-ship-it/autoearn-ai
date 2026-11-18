@@ -6,6 +6,7 @@ let currentUser = null;
 let opportunities = [];
 let tasks = [];
 let rewards = [];
+const DISCOVERY_CATEGORIES = new Set(["game","sweepstakes","wheel","puzzle","iq-test","instant-win"]);
 
 const money = (n,c="USD") => new Intl.NumberFormat(undefined,{style:"currency",currency:c}).format(Number(n||0));
 function toast(message){const el=$("toast");el.textContent=message;el.classList.add("show");setTimeout(()=>el.classList.remove("show"),2600)}
@@ -26,7 +27,7 @@ async function loadData(){
     supabase.from("rewards").select("*, opportunities(title)").order("created_at",{ascending:false})
   ]);
   for(const result of [o,t,r]) if(result.error) throw result.error;
-  opportunities=o.data||[];tasks=t.data||[];rewards=r.data||[];
+  opportunities=(o.data||[]).filter(item=>DISCOVERY_CATEGORIES.has(item.category));tasks=t.data||[];rewards=r.data||[];
   render();
 }
 function render(){
