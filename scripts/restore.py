@@ -108,10 +108,16 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
         if not isinstance(entry, dict):
             raise ValueError("Invalid evidence entry")
         name = entry.get("name")
+        # Backup paths use portable POSIX separators regardless of the host
+        # running restore. Reject Windows separators/drive or alternate-stream
+        # syntax too, rather than allowing a manifest to change meaning when
+        # moved between operating systems.
         relative_name = Path(name) if isinstance(name, str) else None
         if (
             relative_name is None or not name or relative_name.is_absolute()
             or relative_name.as_posix() != name
+            or "\\" in name or ":" in name
+            or any(ord(char) < 32 or ord(char) == 127 for char in name)
             or any(part in {"", ".", ".."} for part in relative_name.parts)
         ):
             raise ValueError("Unsafe evidence filename in backup manifest")
