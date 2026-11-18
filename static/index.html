@@ -52,24 +52,22 @@
       <label>Website URL<input name="url" type="url" required placeholder="https://example.com"></label>
       <label>Category<select name="category"><option value="game">Online games with prizes</option><option value="sweepstakes">Online sweepstakes / draws</option><option value="wheel">Spin wheel / lucky wheel</option><option value="puzzle">Puzzle competitions</option><option value="iq-test">IQ tests / brain challenges</option><option value="instant-win">Instant-win / scratch games</option></select></label>
       <label>Advertised reward<textarea name="reward_description" placeholder="Describe the advertised reward; do not assume it is guaranteed."></textarea></label>
-      <label>Eligibility / country restrictions<textarea name="eligibility"></textarea></label>
+      <label>Other opportunity notes (optional)<textarea name="eligibility"></textarea></label>
       <label>Terms URL<input name="terms_url" type="url" placeholder="https://example.com/terms"></label>
       <label>Notes<textarea name="notes"></textarea></label><button class="primary" type="submit">Save opportunity</button>
     </form></dialog>
     <dialog id="eligibility-dialog"><form id="eligibility-form" method="dialog"><div class="dialog-head"><h2>Official eligibility review</h2><button type="button" class="icon-btn" data-close>×</button></div>
-      <p class="translator-privacy">Complete this only after checking official platform pages. A payment keyword in a search result is not proof of payout support. “Owner-cleared” means you recorded the checks; AutoEarn does not independently verify the site, payout, or country eligibility.</p>
+      <p class="translator-privacy">Complete this only after checking official platform pages. A payment keyword in a search result is not proof of payout support. “Owner-cleared” means you recorded the checks; AutoEarn does not independently verify the site, payout, or automation permission.</p>
       <input type="hidden" name="opportunity_id" id="eligibility-opportunity-id">
       <label>Official rules / terms URL<input name="terms_url" type="url" required placeholder="https://official-site.example/rules"></label>
-      <label>Your actual country<input name="country" required placeholder="Enter the country where you will participate"></label>
-      <label>Official rules confirm your country is allowed?<select name="country_allowed" required><option value="">Choose…</option><option value="yes">Yes</option><option value="no">No</option><option value="unknown">Unknown</option></select></label>
       <label>Specific payment method officially supported for prize withdrawals<select name="payment_method" required><option value="">Choose the confirmed method…</option><option>Bank card</option><option>Bank transfer</option><option>PayPal</option><option>Skrill</option><option>Neteller</option><option>Payeer</option><option>Crypto</option><option>Payoneer</option><option>WebMoney</option><option>Other / not specified (cannot qualify)</option></select></label>
-      <label>Official payout page confirms this method and country?<select name="payment_confirmed" required><option value="">Choose…</option><option value="yes">Yes</option><option value="no">No</option><option value="unknown">Unknown</option></select></label>
+      <label>Official payout page confirms this payment method?<select name="payment_confirmed" required><option value="">Choose…</option><option value="yes">Yes</option><option value="no">No</option><option value="unknown">Unknown</option></select></label>
       <label>Minimum withdrawal amount and currency<input name="minimum" required placeholder="e.g. 10 USD or Not stated"></label>
       <label>Withdrawal fees<input name="fees" required placeholder="e.g. 0%, fixed fee, or Not stated"></label>
       <label>KYC / identity verification<select name="kyc" required><option value="">Choose…</option><option value="required">Required</option><option value="not-required">Not required</option><option value="unknown">Unknown</option></select></label>
       <label>Can participate without purchase or deposit?<select name="free_entry" required><option value="">Choose…</option><option value="yes">Yes</option><option value="no">No</option><option value="unknown">Unknown</option></select></label>
       <label>Official terms explicitly permit automated gameplay?<select name="automation" required><option value="">Choose…</option><option value="yes">Yes, explicitly permitted</option><option value="no">No / prohibited</option><option value="unknown">Not stated / unclear</option></select></label>
-      <label>Official payout / country eligibility source URL<input name="payout_source" type="url" required placeholder="https://…"></label>
+      <label>Official payout source URL<input name="payout_source" type="url" required placeholder="https://…"></label>
       <label>Official automation rules source URL<input name="automation_source" type="url" required placeholder="https://…"></label>
       <button class="primary" type="submit">Save review</button>
     </form></dialog>
