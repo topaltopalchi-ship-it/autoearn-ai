@@ -1143,7 +1143,7 @@ def upload_earning_evidence(
                    (ledger_id, stored_name, media_type, size_bytes, sha256, created_at,
                     scan_status, scanner_name, scanned_at)
                    VALUES (?, ?, ?, ?, ?, ?, 'clean', 'ClamAV INSTREAM', ?)""",
-                (ledger_id, stored_name, upload.content_type, len(payload), digest, scanned_at),
+                (ledger_id, stored_name, upload.content_type, len(payload), digest, scanned_at, scanned_at),
             )
         except Exception:
             if file_descriptor is not None:
