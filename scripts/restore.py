@@ -14,6 +14,7 @@ from pathlib import Path
 import shutil
 import sqlite3
 import tempfile
+import unicodedata
 
 
 def _reject_symlink_components(path: Path) -> None:
@@ -114,6 +115,7 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
     if not isinstance(entries, list):
         raise ValueError("Invalid evidence file list in backup manifest")
     expected = {}
+    portable_names = set()
     for entry in entries:
         if not isinstance(entry, dict):
             raise ValueError("Invalid evidence entry")
@@ -137,9 +139,10 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
             or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in name)
         ):
             raise ValueError("Unsafe evidence filename in backup manifest")
-        portable_key = name.casefold()
-        if any(existing.casefold() == portable_key for existing in expected):
+        portable_key = unicodedata.normalize("NFC", name).casefold()
+        if portable_key in portable_names:
             raise ValueError("Duplicate or case-colliding evidence filename in backup manifest")
+        portable_names.add(portable_key)
         entry_size = entry.get("size_bytes")
         if isinstance(entry_size, bool) or not isinstance(entry_size, int) or entry_size < 0:
             raise ValueError("Invalid evidence size in backup manifest")
