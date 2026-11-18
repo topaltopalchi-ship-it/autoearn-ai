@@ -45,6 +45,16 @@ def _read_evidence_rows(db: sqlite3.Connection) -> list[tuple]:
     return db.execute("SELECT stored_name, size_bytes, sha256 FROM earnings_evidence").fetchall()
 
 
+def _is_windows_reserved_component(component: str) -> bool:
+    """Return whether a path component is reserved by Windows, even with an extension."""
+    stem = component.split(".", 1)[0].upper()
+    if stem in {"CON", "PRN", "AUX", "NUL"}:
+        return True
+    if len(stem) == 4 and stem[:3] in {"COM", "LPT"} and stem[3] in "123456789":
+        return True
+    return False
+
+
 def restore_backup(backup_directory: Path, destination: Path) -> dict:
     """Verify all backup data and restore it into a new, non-existing directory."""
     # Validate the original path components before resolve() follows links.
@@ -116,18 +126,20 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
         if (
             relative_name is None or not name or relative_name.is_absolute()
             or relative_name.as_posix() != name
-            or "\\" in name or ":" in name
+            or any(char in name for char in '<>:"|?*')
             or len(name.encode("utf-8")) > 1024
             or any(
                 not part or part in {".", ".."} or part.endswith((" ", "."))
+                or _is_windows_reserved_component(part)
                 or len(part.encode("utf-8")) > 255
                 for part in relative_name.parts
             )
             or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in name)
         ):
             raise ValueError("Unsafe evidence filename in backup manifest")
-        if name in expected:
-            raise ValueError("Duplicate evidence filename in backup manifest")
+        portable_key = name.casefold()
+        if any(existing.casefold() == portable_key for existing in expected):
+            raise ValueError("Duplicate or case-colliding evidence filename in backup manifest")
         entry_size = entry.get("size_bytes")
         if isinstance(entry_size, bool) or not isinstance(entry_size, int) or entry_size < 0:
             raise ValueError("Invalid evidence size in backup manifest")
