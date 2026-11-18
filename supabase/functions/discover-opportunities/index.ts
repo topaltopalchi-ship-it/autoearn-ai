@@ -9,19 +9,25 @@ const corsHeaders = {
 // Worldwide discovery is limited to online games and prize-based entertainment.
  // Availability is offer-specific; the UI must not imply every offer works in every country.
 const SEARCHES = [
-  { category: "game", query: 'free online games win real prizes no purchase worldwide' },
-  { category: "game", query: 'free play games rewards cash prizes international' },
-  { category: "game", query: 'juegos gratis ganar premios dinero sin compra' },
-  { category: "sweepstakes", query: 'free online sweepstakes enter win prizes no purchase international' },
-  { category: "sweepstakes", query: 'concursos sorteos gratis premios online sin compra' },
-  { category: "wheel", query: 'free spin wheel win prizes daily no purchase online' },
-  { category: "wheel", query: 'ruleta de premios gratis girar ganar premios online' },
-  { category: "puzzle", query: 'free online puzzle contest win cash prizes skill challenge' },
-  { category: "puzzle", query: 'free puzzle games competitions prizes online' },
-  { category: "iq-test", query: 'free online brain games iq quiz challenge prize contest' },
-  { category: "iq-test", query: 'free intelligence test puzzle competition prizes online' },
-  { category: "instant-win", query: 'free instant win games scratch cards reveal win no purchase' },
-  { category: "instant-win", query: 'juegos premios instantaneos gratis rasca y gana sin compra' },
+  { category: "game", query: 'online games prizes paid via PayPal' },
+  { category: "game", query: 'play to earn games PayPal rewards withdrawal' },
+  { category: "game", query: 'online games prizes Skrill payout' },
+  { category: "game", query: 'online games prizes Neteller payout' },
+  { category: "game", query: 'online games prizes Payeer payout' },
+  { category: "game", query: 'crypto games rewards Bitcoin USDT payout no deposit' },
+  { category: "sweepstakes", query: 'free sweepstakes prize PayPal payout no purchase' },
+  { category: "sweepstakes", query: 'online prize draw Skrill Neteller payout free entry' },
+  { category: "sweepstakes", query: 'crypto prize giveaway Bitcoin USDT free entry official rules' },
+  { category: "wheel", query: 'spin wheel prizes PayPal cash out free' },
+  { category: "wheel", query: 'lucky wheel Skrill Neteller Payeer rewards' },
+  { category: "wheel", query: 'crypto spin wheel Bitcoin USDT rewards no deposit' },
+  { category: "puzzle", query: 'puzzle contest prizes PayPal payout' },
+  { category: "puzzle", query: 'brain games competition Skrill Neteller payout' },
+  { category: "puzzle", query: 'puzzle competition crypto Bitcoin USDT prizes' },
+  { category: "iq-test", query: 'IQ quiz contest PayPal prize payout' },
+  { category: "iq-test", query: 'brain test competition Skrill Neteller prizes' },
+  { category: "instant-win", query: 'free instant win game PayPal prize no purchase' },
+  { category: "instant-win", query: 'scratch game prizes crypto Bitcoin USDT free entry' },
 ];
 
 function json(body: unknown, status = 200) {
@@ -69,6 +75,15 @@ Deno.serve((req: Request) => {
             const title = String(Array.isArray(item.title) ? item.title.map((part: { value?: string }) => part.value || "").join("") : item.title || hostname).trim().slice(0, 160);
             const description = String(Array.isArray(item.extract) ? item.extract.map((part: { value?: string }) => part.value || "").join("") : item.extract || "No reward details provided by search result.").trim().slice(0, 900);
             if (title.length < 2) continue;
+            const payoutText = (title + " " + description + " " + item.url).toLowerCase();
+            const walletMatches = [
+              /paypal/.test(payoutText) ? "PayPal" : null,
+              /skrill/.test(payoutText) ? "Skrill" : null,
+              /neteller/.test(payoutText) ? "Neteller" : null,
+              /payeer/.test(payoutText) ? "Payeer" : null,
+              /bitcoin|\\bbtc\\b|\\busdt\\b|ethereum|\\beth\\b|crypto|cryptocurrency/.test(payoutText) ? "Crypto" : null,
+            ].filter((value): value is string => Boolean(value));
+            if (walletMatches.length === 0) continue;
             found.push({
               owner_id: ownerId,
               title,
@@ -76,11 +91,11 @@ Deno.serve((req: Request) => {
               url: parsed.toString(),
               category: search.category,
               reward_description: description,
-              eligibility: "Worldwide discovery candidate. Country availability, age limits and prize eligibility are NOT verified. Confirm official rules and free-entry route before participating.",
+              eligibility: `Payout wallet mentioned in search result: ${walletMatches.join(", ")}. This is NOT confirmation that withdrawals are supported in your country; verify on the official payout and terms pages.`,
               terms_url: "",
               status: "discovered",
               score: 0,
-              notes: "Found by a game-and-prize focused search. Not verified or endorsed. Prioritize no-purchase entry; do not pay, deposit, buy tickets or share payment details. Check official rules, eligible countries, odds and prize delivery first.",
+              notes: `Accepted wallet keyword(s) found in search snippet: ${walletMatches.join(", ")}. Wallet support and country eligibility are unverified. Confirm minimum withdrawal, fees, KYC and official rules. Never deposit or pay to unlock a prize.`,
             });
           } catch { /* Ignore malformed result URLs. */ }
         }
