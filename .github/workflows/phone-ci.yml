@@ -90,10 +90,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y clamav-daemon clamav-freshclam
+          sudo systemctl stop clamav-freshclam.service clamav-daemon.service || true
           sudo freshclam
       - name: Configure ClamAV for loopback-only integration testing
         run: |
-          sudo sed -i '/^Example$/d' /etc/clamav/clamd.conf
+          sudo sed -i -e '/^Example$/d' -e '/^TCPSocket /d' -e '/^TCPAddr /d' -e '/^Foreground /d' /etc/clamav/clamd.conf
           printf '\nTCPSocket 3310\nTCPAddr 127.0.0.1\nForeground yes\n' | sudo tee -a /etc/clamav/clamd.conf
           sudo -u clamav clamd --config-file=/etc/clamav/clamd.conf --foreground > /tmp/clamd.log 2>&1 &
           for attempt in $(seq 1 60); do
