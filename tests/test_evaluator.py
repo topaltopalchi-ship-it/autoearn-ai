@@ -411,3 +411,24 @@ def test_explicitly_configured_owner_payout_route_can_pass_route_gate():
     )
     assert result["payout_route_configured"] is True
     assert result["execution_allowed"] is True
+
+
+@pytest.mark.parametrize(
+    "reward_amount,estimated_cost",
+    [(0.0, 0.0), (5.0, 5.0), (5.0, 8.0)],
+)
+def test_zero_or_negative_net_reward_never_authorizes_execution(
+    reward_amount, estimated_cost
+):
+    result = evaluate_candidate(
+        complete_candidate(
+            reward_amount=reward_amount,
+            estimated_cost=estimated_cost,
+            minimum_withdrawal_amount=0.0,
+        ),
+        "Germany",
+        now=NOW,
+    )
+    assert result["net_reward_estimate"] == 0.0
+    assert result["execution_allowed"] is False
+    assert "estimated net reward is not positive" in result["risk_flags"]

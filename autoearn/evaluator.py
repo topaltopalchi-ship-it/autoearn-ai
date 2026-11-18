@@ -262,6 +262,8 @@ def evaluate_candidate(
         and bool(candidate.evidence)
         and candidate.execution_mode == "official_api"
         and candidate.reward_amount is not None
+        and net_reward is not None
+        and net_reward > 0
         and candidate.payout_supported is True
         and candidate.payout_route_configured is True
         and candidate.payment_probability is not None
@@ -277,6 +279,8 @@ def evaluate_candidate(
             or (withdrawal_reachable is False and candidate.supports_balance_accumulation is True)
         )
     )
+    if net_reward is not None and net_reward <= 0:
+        flags.append("estimated net reward is not positive")
     if not withdrawal_currency_matches:
         flags.append("minimum withdrawal currency differs from reward currency; comparison is not allowed")
     elif withdrawal_reachable is False and candidate.supports_balance_accumulation is True:
