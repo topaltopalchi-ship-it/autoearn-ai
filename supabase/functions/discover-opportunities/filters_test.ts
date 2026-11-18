@@ -38,3 +38,25 @@ Deno.test("accepts bank transfer payout without crypto wallet", () => {
     accepted: true, url: "https://example.com/game", payoutMethods: ["Bank transfer"],
   });
 });
+
+Deno.test("accepts a free spin wheel with a cash prize and payout", () => {
+  assertEquals(evaluateCandidate("https://example.com/wheel", "Daily lucky spin wheel cash prize", "One free spin every day, no purchase necessary. Winners receive payout by bank transfer."), {
+    accepted: true, url: "https://example.com/wheel", payoutMethods: ["Bank transfer"],
+  });
+});
+Deno.test("accepts a free raffle with a prize draw and card payout", () => {
+  assertEquals(evaluateCandidate("https://example.com/raffle", "Free raffle prize draw win a car", "Free entry, no purchase required. Prize paid to winners by bank card."), {
+    accepted: true, url: "https://example.com/raffle", payoutMethods: ["Bank card"],
+  });
+});
+Deno.test("accepts a free sweepstakes with a gift card prize", () => {
+  assertEquals(evaluateCandidate("https://example.com/sweepstakes", "Free sweepstakes win a gift card", "No purchase necessary. Prize payout is delivered by Visa gift card."), {
+    accepted: true, url: "https://example.com/sweepstakes", payoutMethods: ["Bank card"],
+  });
+});
+Deno.test("rejects a paid raffle with no free entry route", () => {
+  assertRejected("https://example.com/raffle", "Paid raffle win a car", "Buy a ticket, entry fee required. Prize paid by bank transfer.", "excluded_category");
+});
+Deno.test("rejects a spin wheel with no real prize or payout evidence", () => {
+  assertRejected("https://example.com/wheel", "Lucky spin wheel game", "Spin for fun and collect points.", "missing_reward_evidence");
+});
