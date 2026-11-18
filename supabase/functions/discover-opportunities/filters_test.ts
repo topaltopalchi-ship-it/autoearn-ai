@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert";
-import { canonicalOpportunityUrl, evaluateCandidate, normalizePublicHttpsUrl } from "./filters.ts";
+import { canonicalOpportunityUrl, domainReviewFlags, evaluateCandidate, normalizePublicHttpsUrl } from "./filters.ts";
 
 function assertRejected(url: string, title: string, description: string, reason: string) {
   const result = evaluateCandidate(url, title, description);
@@ -127,4 +127,20 @@ Deno.test("preserves functional query parameters while sorting them", () => {
 });
 Deno.test("rejects unsafe URLs during canonicalization", () => {
   assertEquals(canonicalOpportunityUrl("http://example.com/game?utm_source=x"), null);
+});
+
+Deno.test("flags link shorteners for manual destination verification", () => {
+  assertEquals(domainReviewFlags("https://bit.ly/3abc"), ["link_shortener_domain"]);
+});
+Deno.test("flags shared hosting without automatically rejecting the candidate", () => {
+  assertEquals(domainReviewFlags("https://promo.netlify.app/game"), ["shared_hosting_subdomain"]);
+});
+Deno.test("flags punycode and unusually deep subdomains", () => {
+  assertEquals(
+    domainReviewFlags("https://xn--e1afmkfd.xn--p1ai.a.b.example.com/game"),
+    ["internationalized_or_punycode_domain", "deep_subdomain"],
+  );
+});
+Deno.test("ordinary HTTPS domains have no heuristic warning", () => {
+  assertEquals(domainReviewFlags("https://example.com/game"), []);
 });
