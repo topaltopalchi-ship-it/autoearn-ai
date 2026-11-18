@@ -29,7 +29,7 @@ async function loadData(){
     supabase.from("rewards").select("*, opportunities(title)").order("created_at",{ascending:false})
   ]);
   for(const result of [o,t,r]) if(result.error) throw result.error;
-  opportunities=(o.data||[]).filter(item=>DISCOVERY_CATEGORIES.has(item.category)&&hasAcceptedWallet(item));tasks=t.data||[];rewards=r.data||[];
+  opportunities=(o.data||[]).filter(item=>DISCOVERY_CATEGORIES.has(item.category));tasks=t.data||[];rewards=r.data||[];
   render();
 }
 function render(){
@@ -61,7 +61,7 @@ async function verifyEligibility(id){
 async function createTask(id){
   const opportunity=opportunities.find(item=>Number(item.id)===Number(id));
   if(!opportunity)return toast("Opportunity not found. Refresh and try again.");
-  if(opportunity.status!=="eligible"||!opportunity.terms_url||!hasAcceptedWallet(opportunity))return toast("This opportunity is not cleared. Review official terms, country eligibility and wallet payout first.");
+  if(opportunity.status!=="eligible"||!opportunity.terms_url)return toast("This opportunity is not cleared. Review official terms, country eligibility and payout method first.");
   let target;
   try {
     target=new URL(opportunity.url);
@@ -119,7 +119,7 @@ function bindWorkspace(){
       if(data?.needsSetup) throw new Error(data.error);
       if(data?.error) throw new Error(data.error);
       const rejected = data.rejected || {};
-      const summary = `Filter summary: ${data.accepted_candidates || 0} accepted candidates; ${rejected.invalid_url || 0} invalid URLs; ${rejected.excluded_category || 0} excluded categories; ${rejected.no_accepted_wallet || 0} without an accepted wallet.`;
+      const summary = `Filter summary: ${data.accepted_candidates || 0} accepted candidates; ${rejected.invalid_url || 0} invalid URLs; ${rejected.excluded_category || 0} excluded categories; ${rejected.no_accepted_wallet || 0} without an payout details.`;
       if ((data.saved || 0) === 0) {
         const details = Array.isArray(data.searches)
           ? data.searches.map(item => `${item.query}: ${item.results} results (HTTP ${item.status})`).join("\\n")
@@ -150,8 +150,8 @@ function bindWorkspace(){
       try{const u=new URL(data[key]);if(u.protocol!=="https:")throw new Error();data[key]=u.href}
       catch(_){return toast("Both evidence links must be valid HTTPS URLs.")}
     }
-    const passed=data.country.trim()&&data.country_allowed==="yes"&&data.wallet&&data.wallet_confirmed==="yes"&&data.minimum.trim()&&data.fees.trim()&&data.kyc!=="unknown"&&data.free_entry==="yes"&&data.automation==="yes";
-    const report={reviewed_at:new Date().toISOString(),country:data.country.trim(),country_allowed:data.country_allowed,wallet:data.wallet,wallet_confirmed:data.wallet_confirmed,minimum_withdrawal:data.minimum.trim(),fees:data.fees.trim(),kyc:data.kyc,free_entry:data.free_entry,automation_explicitly_allowed:data.automation,payout_source:data.payout_source,automation_source:data.automation_source};
+    const passed=data.country.trim()&&data.country_allowed==="yes"&&data.payment_method&&data.payment_confirmed==="yes"&&data.minimum.trim()&&data.fees.trim()&&data.kyc!=="unknown"&&data.free_entry==="yes"&&data.automation==="yes";
+    const report={reviewed_at:new Date().toISOString(),country:data.country.trim(),country_allowed:data.country_allowed,payment_method:data.payment_method,payment_confirmed:data.payment_confirmed,minimum_withdrawal:data.minimum.trim(),fees:data.fees.trim(),kyc:data.kyc,free_entry:data.free_entry,automation_explicitly_allowed:data.automation,payout_source:data.payout_source,automation_source:data.automation_source};
     const note="\n\n[OWNER OFFICIAL ELIGIBILITY REVIEW]\n"+JSON.stringify(report,null,2);
     const {error}=await supabase.from("opportunities").update({status:passed?"eligible":"ineligible",notes:(opportunity.notes||"")+note}).eq("id",id);
     if(error)return fail(error);
