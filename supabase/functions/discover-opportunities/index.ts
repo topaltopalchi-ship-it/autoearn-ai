@@ -6,11 +6,17 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// Worldwide discovery: search broadly in English and several major languages.
+ // Availability is offer-specific; the UI must not imply every offer works in every country.
 const SEARCHES = [
-  { category: "game", query: 'Deutschland Spiele Apps Geld verdienen Belohnungen Auszahlung' },
-  { category: "paid-task", query: 'Deutschland Microtasks bezahlte Aufgaben Plattform Auszahlung' },
-  { category: "survey", query: 'Deutschland bezahlte Umfragen seriös Auszahlung' },
-  { category: "signup-offer", query: 'Deutschland Neukunden Bonus Prämie Anmeldung Teilnahmebedingungen' },
+  { category: "game", query: 'worldwide global play to earn games reward apps cash payouts available countries' },
+  { category: "game", query: 'juegos aplicaciones ganar dinero recompensas global international payout worldwide' },
+  { category: "paid-task", query: 'worldwide international microtask platforms online tasks earn money global workers payout' },
+  { category: "paid-task", query: 'micro tâches rémunérées travail en ligne international tâches payées partout dans le monde' },
+  { category: "survey", query: 'global paid online surveys worldwide countries international rewards payout' },
+  { category: "survey", query: 'encuestas pagadas internacionales remuneradas disponibles varios países pagos' },
+  { category: "signup-offer", query: 'worldwide international sign up bonus referral rewards promotions countries terms' },
+  { category: "signup-offer", query: 'bonus inscription récompense parrainage offres promotionnelles pays internationaux' },
 ];
 
 function json(body: unknown, status = 200) {
@@ -60,11 +66,11 @@ Deno.serve((req: Request) => {
               url: parsed.toString(),
               category: search.category,
               reward_description: description,
-              eligibility: "Germany-targeted search result. Confirm country, age, payout method and eligibility on the official site.",
+              eligibility: "Found through worldwide search. Country availability is not verified; confirm eligible countries, age limits, payout methods and restrictions on the official site.",
               terms_url: "",
               status: "discovered",
               score: 0,
-              notes: "Automatically found by web search. Not verified or endorsed. Check the official terms, fees, payout conditions and current availability before participating.",
+              notes: "Automatically found through multilingual worldwide web search. Not verified or endorsed. Check the official terms, eligible countries, fees, payout conditions and current availability before participating.",
             });
           } catch { /* Ignore malformed result URLs. */ }
         }
@@ -85,7 +91,7 @@ Deno.serve((req: Request) => {
     return json({
       saved: data?.length || 0,
       scanned: unique.length,
-      categories: SEARCHES.map((item) => item.category),
+      categories: [...new Set(SEARCHES.map((item) => item.category))],
       errors,
       message: "Candidates saved for your review. They are not verified offers.",
     });
