@@ -184,11 +184,11 @@ class SQLiteSupervisionStore:
         with self._connect() as db:
             if request_id:
                 rows = db.execute(
-                    "SELECT * FROM supervision_audit WHERE request_id=? ORDER BY occurred_at, rowid",
+                    "SELECT * FROM supervision_audit WHERE request_id=? ORDER BY rowid",
                     (request_id,),
                 ).fetchall()
             else:
                 rows = db.execute(
-                    "SELECT * FROM supervision_audit ORDER BY occurred_at, rowid"
+                    "SELECT * FROM supervision_audit ORDER BY rowid"
                 ).fetchall()
             return tuple(AuditEvent(**dict(row)) for row in rows)
