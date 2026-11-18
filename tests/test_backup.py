@@ -46,6 +46,21 @@ def test_backup_captures_sqlite_snapshot_and_private_evidence(tmp_path):
     assert stored_manifest["database_sha256"] == manifest["database_sha256"]
 
 
+
+@pytest.mark.parametrize("database_name", ["manifest.json", "PRIVATE_EVIDENCE"])
+def test_backup_rejects_database_name_colliding_with_reserved_backup_entry(tmp_path, database_name):
+    database = tmp_path / database_name
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    destination = tmp_path / "backup"
+
+    with pytest.raises(ValueError, match="reserved backup entry"):
+        create_backup(database, evidence, destination)
+    assert not destination.exists()
+
+
 def test_backup_refuses_to_overwrite_existing_destination(tmp_path):
     database = tmp_path / "autoearn.db"
     with sqlite3.connect(database) as db:
@@ -167,6 +182,27 @@ def test_restore_verifies_and_recovers_backup_without_overwriting(tmp_path):
     assert manifest["sqlite_integrity_check"] == "ok"
     with pytest.raises(FileExistsError):
         restore_backup(backup, destination)
+
+
+
+@pytest.mark.parametrize("database_name", ["manifest.json", "PRIVATE_EVIDENCE"])
+def test_restore_rejects_database_name_colliding_with_reserved_backup_entry(tmp_path, database_name):
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    backup = tmp_path / "backup"
+    create_backup(database, evidence, backup)
+    manifest_path = backup / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["database_file"] = database_name
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    destination = tmp_path / "recovered"
+
+    with pytest.raises(ValueError, match="Invalid database filename"):
+        restore_backup(backup, destination)
+    assert not destination.exists()
 
 
 def test_restore_rejects_symlinked_backup_directory(tmp_path):
