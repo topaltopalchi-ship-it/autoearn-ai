@@ -252,6 +252,7 @@ def test_competition_rejects_unsafe_rules_url():
     {"answer": float("nan")},
     {"answer": object()},
     {"answer": "آ" * 11000},
+    {1: "answer"},
 ])
 def test_submission_rejects_non_json_or_oversized_payload(payload):
     registry = CompetitionAdapterRegistry()
@@ -271,6 +272,21 @@ def test_submission_rejects_non_json_or_oversized_payload(payload):
     SubmissionReceipt("entry-1", "accepted\nforged"),
     SubmissionReceipt("entry-1", "accepted", "x" * 2001),
 ])
+def test_submission_rejects_excessively_nested_payload_without_calling_adapter():
+    registry = CompetitionAdapterRegistry()
+    adapter = FakeAdapter()
+    registry.register(adapter)
+    nested = "leaf"
+    for _ in range(1500):
+        nested = [nested]
+
+    with pytest.raises(ValueError, match="payload"):
+        registry.submit(
+            "example-official", competition(), {"answer": nested}, owner_confirmed=True
+        )
+    assert adapter.calls == 0
+
+
 def test_submission_rejects_malformed_adapter_receipts(receipt):
     class BadReceiptAdapter(FakeAdapter):
         def submit_entry(self, competition, payload):
