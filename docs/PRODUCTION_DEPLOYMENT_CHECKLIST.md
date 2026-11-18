@@ -35,3 +35,8 @@ Record the reviewer, date, deployment environment, evidence links, unresolved fi
 ## Evidence scanner deployment note
 
 The evidence upload path calls a local ClamAV INSTREAM client. Start and health-check ClamAV before AutoEarn; if the daemon is absent or returns anything other than the exact clean verdict, uploads fail with HTTP 503 and are not stored. Do not expose the ClamAV TCP port to any network beyond loopback. Startup reconciliation also moves stale, unreferenced regular evidence files into a private `.quarantine` directory without deleting them. Retention and restore procedures remain incomplete. This filesystem consistency safeguard is distinct from malware scanning. See [Evidence malware scanning](EVIDENCE_MALWARE_SCANNING.md) for the tested behavior and remaining operational acceptance items.
+
+
+## Quarantine backup/restore verification
+
+The local backup and restore scripts now recursively preserve nested evidence paths, including orphan files under `.quarantine`, and validate their manifest checksums. The round-trip test passed in the Python 3.10/3.12/3.14 CI matrix. This verifies preservation only: it does not complete retention, audit, recovery approval, or cleanup policy, and it does not convert quarantined files into clean evidence.
