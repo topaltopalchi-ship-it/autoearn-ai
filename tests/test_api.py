@@ -2117,7 +2117,7 @@ def test_security_headers_cover_html_api_and_static_assets(client, path):
 def test_all_api_routes_except_health_require_owner_authentication():
     from app import main
 
-    public_api_paths = {"/api/health"}
+    public_api_paths = {"/api/health", "/api/auth/session", "/api/auth/login"}
     protected = [
         route for route in main.app.routes
         if getattr(route, "path", "").startswith("/api/")

@@ -12,7 +12,7 @@ PASSWORD = "correct-horse-battery-staple"
 def owner_client(tmp_path, monkeypatch):
     from app import main
     monkeypatch.setattr(main, "DB_PATH", tmp_path / "owner-auth.db")
-    monkeypatch.setattr(main, "OWNER_TOKEN", "legacy-api-token-for-test-only")
+    monkeypatch.setattr(main, "OWNER_TOKEN", "legacy-api-token-for-test-only-long-enough")
     monkeypatch.setattr(main, "OWNER_SESSION_SECURE", True)
     main.init_db()
     main.initialize_owner_password(PASSWORD)
