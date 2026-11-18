@@ -100,6 +100,12 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
         raise ValueError("Invalid database checksum in backup manifest")
 
     database_name = manifest.get("database_file")
+    try:
+        database_name_byte_length = (
+            _utf8_byte_length(database_name) if isinstance(database_name, str) else 0
+        )
+    except ValueError as exc:
+        raise ValueError("Invalid database filename in backup manifest") from exc
     if (
         not isinstance(database_name, str) or not database_name
         or Path(database_name).name != database_name
@@ -107,7 +113,7 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
         or "\\" in database_name
         or any(char in database_name for char in '<>:"|?*')
         or database_name.endswith((" ", "."))
-        or _utf8_byte_length(database_name) > 255
+        or database_name_byte_length > 255
         or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in database_name)
         or _is_windows_reserved_component(database_name)
     ):
