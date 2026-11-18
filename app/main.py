@@ -8,6 +8,7 @@ import hashlib
 import ipaddress
 import logging
 import sqlite3
+import stat
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone, timedelta
@@ -351,6 +352,47 @@ def init_db() -> None:
                 db.execute(f"ALTER TABLE earnings_evidence ADD COLUMN {name} {definition}")
 
 
+def reconcile_evidence_files(grace_period_seconds: int = 24 * 60 * 60) -> int:
+    """Quarantine old unreferenced regular files without deleting evidence."""
+    if grace_period_seconds < 0:
+        raise ValueError("grace_period_seconds must be non-negative")
+    for component in (EVIDENCE_DIR, *EVIDENCE_DIR.parents):
+        if component.is_symlink():
+            raise RuntimeError("Evidence directory path must not contain symbolic links")
+    EVIDENCE_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(EVIDENCE_DIR, 0o700)
+    quarantine = EVIDENCE_DIR / ".quarantine"
+    if quarantine.is_symlink():
+        raise RuntimeError("Evidence quarantine path must not be a symbolic link")
+    quarantine.mkdir(mode=0o700, exist_ok=True)
+    os.chmod(quarantine, 0o700)
+    with connect() as db:
+        referenced = {row["stored_name"] for row in db.execute("SELECT stored_name FROM earnings_evidence")}
+    cutoff = datetime.now(timezone.utc).timestamp() - grace_period_seconds
+    moved = 0
+    for entry in EVIDENCE_DIR.iterdir():
+        if entry.name == ".quarantine" or entry.is_symlink():
+            continue
+        try:
+            metadata = entry.stat(follow_symlinks=False)
+        except FileNotFoundError:
+            continue
+        if not stat.S_ISREG(metadata.st_mode):
+            continue
+        if entry.name in referenced or metadata.st_mtime > cutoff:
+            continue
+        destination = quarantine / f"{uuid.uuid4().hex}-{entry.name}"
+        try:
+            # rename moves a symlink itself rather than following it; the
+            # lstat-style check above ensures only ordinary files are selected.
+            os.rename(entry, destination)
+            moved += 1
+        except FileNotFoundError:
+            # Another worker may have reconciled the same file first.
+            continue
+    return moved
+
+
 async def _discovery_scheduler_loop() -> None:
     """Poll the durable scheduler; SQLite leases prevent duplicate workers."""
     while True:
@@ -367,6 +409,7 @@ async def _discovery_scheduler_loop() -> None:
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_db()
+    await asyncio.to_thread(reconcile_evidence_files)
     scheduler_task = asyncio.create_task(_discovery_scheduler_loop())
     try:
         yield
