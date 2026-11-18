@@ -35,7 +35,7 @@
         <article><span>Opportunities</span><strong id="stat-opps">0</strong><small>Tracked platforms</small></article>
         <article><span>Tasks created</span><strong id="stat-tasks">0</strong><small>Assisted workflow</small></article>
         <article><span>Need your approval</span><strong id="stat-approval">0</strong><small>Nothing runs without you</small></article>
-        <article><span>Rewards paid</span><strong id="stat-paid">$0.00</strong><small id="stat-pending">Pending: $0.00</small></article>
+        <article><span>Paid (recorded)</span><strong id="stat-paid">$0.00</strong><small id="stat-pending">Pending: $0.00</small></article>
       </section>
       <section class="panel" id="opportunities">
         <div class="section-head"><div><span class="eyebrow">DISCOVERY & DUE DILIGENCE</span><h2>Opportunities</h2></div><div class="item-actions"><button class="secondary" id="discover-opportunities">Find new opportunities</button><button class="primary" id="add-opportunity">+ Add opportunity</button></div></div>
@@ -77,7 +77,7 @@
       <label>Amount<input name="amount" type="number" min="0" step="0.01" required></label>
       <label>Currency<input name="currency" value="USD" maxlength="8" required></label>
       <label>Status<select name="status"><option>pending</option><option>confirmed</option><option>paid</option><option>rejected</option></select></label>
-      <label>Reference / note<input name="reference"></label><button class="primary" type="submit">Save reward</button>
+      <label>Transaction reference / payment evidence<input name="reference" placeholder="Transaction ID or confirmation reference"></label><p class="translator-privacy">“Paid” is a manual record, not a bank verification. A reference is required. Never enter full card numbers, passwords, or private keys.</p><button class="primary" type="submit">Save reward</button>
     </form></dialog>
   </div>
   <div id="toast" role="status"></div>
