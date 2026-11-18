@@ -381,7 +381,7 @@ def reconcile_evidence_files(grace_period_seconds: int = 24 * 60 * 60) -> int:
             continue
         if entry.name in referenced or metadata.st_mtime > cutoff:
             continue
-        destination = quarantine / f"{uuid.uuid4().hex}-{entry.name}"
+        destination = quarantine / f"{uuid.uuid4().hex}.orphan"
         try:
             # rename moves a symlink itself rather than following it; the
             # lstat-style check above ensures only ordinary files are selected.
