@@ -301,3 +301,37 @@ def test_restore_rejects_oversized_manifest_without_creating_destination(tmp_pat
     with pytest.raises(ValueError, match="16 MiB safety limit"):
         restore_backup(backup, destination)
     assert not destination.exists()
+
+
+def test_backup_rejects_malformed_existing_evidence_schema(tmp_path):
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE earnings_evidence (stored_name TEXT)")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    with pytest.raises(RuntimeError, match="Invalid earnings_evidence schema"):
+        create_backup(database, evidence, tmp_path / "backup")
+    assert not (tmp_path / "backup").exists()
+
+
+def test_restore_rejects_malformed_existing_evidence_schema(tmp_path):
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    backup = tmp_path / "backup"
+    create_backup(database, evidence, backup)
+    backup_db = backup / "autoearn.db"
+    with sqlite3.connect(backup_db) as db:
+        db.execute("CREATE TABLE earnings_evidence (stored_name TEXT)")
+    manifest_path = backup / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    database_bytes = backup_db.read_bytes()
+    manifest["database_size_bytes"] = len(database_bytes)
+    manifest["database_sha256"] = hashlib.sha256(database_bytes).hexdigest()
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    destination = tmp_path / "recovered"
+    with pytest.raises(ValueError, match="Invalid earnings_evidence schema"):
+        restore_backup(backup, destination)
+    assert not destination.exists()
