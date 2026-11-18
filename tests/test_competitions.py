@@ -91,6 +91,27 @@ class FakeAdapter:
         return SubmissionReceipt("entry-123", "accepted", "official API receipt")
 
 
+@pytest.mark.parametrize("confirmation", ["yes", 1, None, [], {}])
+def test_submission_rejects_truthy_or_malformed_owner_confirmation(confirmation):
+    registry = CompetitionAdapterRegistry()
+    adapter = FakeAdapter()
+    registry.register(adapter)
+    with pytest.raises(PermissionError, match="owner confirmation"):
+        registry.submit("example-official", competition(), {"answer": 42}, owner_confirmed=confirmation)
+    assert adapter.calls == 0
+
+
+def test_submission_rejects_malformed_adapter_id_and_competition():
+    registry = CompetitionAdapterRegistry()
+    adapter = FakeAdapter()
+    registry.register(adapter)
+    with pytest.raises(ValueError, match="adapter_id"):
+        registry.submit([], competition(), {"answer": 42}, owner_confirmed=True)
+    with pytest.raises(TypeError, match="Competition instance"):
+        registry.submit("example-official", {}, {"answer": 42}, owner_confirmed=True)
+    assert adapter.calls == 0
+
+
 def test_submission_requires_owner_confirmation_and_exact_registered_adapter():
     registry = CompetitionAdapterRegistry()
     adapter = FakeAdapter()
