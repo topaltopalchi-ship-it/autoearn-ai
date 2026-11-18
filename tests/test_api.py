@@ -2323,6 +2323,9 @@ def test_startup_reconciliation_quarantines_only_old_unreferenced_regular_files(
     quarantine = evidence_dir / ".quarantine"
     quarantined = list(quarantine.iterdir())
     assert len(quarantined) == 1
+    # A second startup pass must be idempotent: quarantined files stay put.
+    assert main.reconcile_evidence_files(grace_period_seconds=300) == 0
+    assert list(quarantine.iterdir()) == quarantined
     assert quarantined[0].read_bytes() == b"old orphan"
     assert (evidence_dir / stored_name).read_bytes() == b"%PDF-1.4\\nvalid receipt\\n"
     assert fresh.read_bytes() == b"possibly in-flight"
