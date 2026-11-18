@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert";
-import { canonicalOpportunityUrl, domainReviewFlags, evaluateCandidate, normalizePublicHttpsUrl } from "./filters.ts";
+import { canonicalOpportunityUrl, classifyCountryEligibility, domainReviewFlags, evaluateCandidate, normalizePublicHttpsUrl } from "./filters.ts";
 
 function assertRejected(url: string, title: string, description: string, reason: string) {
   const result = evaluateCandidate(url, title, description);
@@ -143,4 +143,16 @@ Deno.test("flags punycode and unusually deep subdomains", () => {
 });
 Deno.test("ordinary HTTPS domains have no heuristic warning", () => {
   assertEquals(domainReviewFlags("https://example.com/game"), []);
+});
+Deno.test("country eligibility stays unknown without explicit rules evidence", () => {
+  assertEquals(classifyCountryEligibility("Free game with cash prize and payout."), "unknown");
+});
+Deno.test("explicitly excluded Iran is marked ineligible", () => {
+  assertEquals(classifyCountryEligibility("This contest is not available in Iran."), "ineligible");
+});
+Deno.test("explicitly eligible Iran is recognized", () => {
+  assertEquals(classifyCountryEligibility("The contest is open to residents of Iran."), "eligible");
+});
+Deno.test("country allowlist excluding Iran is not eligible", () => {
+  assertEquals(classifyCountryEligibility("Eligible countries: Canada, Germany, Japan."), "ineligible");
 });
