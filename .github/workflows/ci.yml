@@ -9,10 +9,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: node --check static/app.js && node --check static/puzzle.js
+      - run: deno check supabase/functions/discover-opportunities/index.ts
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
