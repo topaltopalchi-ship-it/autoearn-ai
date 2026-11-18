@@ -57,12 +57,12 @@
       <label>Notes<textarea name="notes"></textarea></label><button class="primary" type="submit">Save opportunity</button>
     </form></dialog>
     <dialog id="eligibility-dialog"><form id="eligibility-form" method="dialog"><div class="dialog-head"><h2>Official eligibility review</h2><button type="button" class="icon-btn" data-close>×</button></div>
-      <p class="translator-privacy">Complete this only after checking official platform pages. A wallet keyword in a search result is not proof of payout support.</p>
+      <p class="translator-privacy">Complete this only after checking official platform pages. A payment keyword in a search result is not proof of payout support.</p>
       <input type="hidden" name="opportunity_id" id="eligibility-opportunity-id">
       <label>Your actual country<input name="country" required placeholder="Enter the country where you will participate"></label>
       <label>Official rules confirm your country is allowed?<select name="country_allowed" required><option value="">Choose…</option><option value="yes">Yes</option><option value="no">No</option><option value="unknown">Unknown</option></select></label>
-      <label>Accepted wallet actually supported for prize withdrawals<select name="wallet" required><option value="">Choose the confirmed wallet…</option><option>PayPal</option><option>Skrill</option><option>Neteller</option><option>Payeer</option><option>Crypto</option><option>Payoneer</option><option>WebMoney</option></select></label>
-      <label>Official payout page confirms this wallet and country?<select name="wallet_confirmed" required><option value="">Choose…</option><option value="yes">Yes</option><option value="no">No</option><option value="unknown">Unknown</option></select></label>
+      <label>Payment method actually supported for prize withdrawals<select name="payment_method" required><option value="">Choose the confirmed method…</option><option>Bank card</option><option>Bank transfer</option><option>PayPal</option><option>Skrill</option><option>Neteller</option><option>Payeer</option><option>Crypto</option><option>Payoneer</option><option>WebMoney</option><option>Other / not specified</option></select></label>
+      <label>Official payout page confirms this method and country?<select name="payment_confirmed" required><option value="">Choose…</option><option value="yes">Yes</option><option value="no">No</option><option value="unknown">Unknown</option></select></label>
       <label>Minimum withdrawal amount and currency<input name="minimum" required placeholder="e.g. 10 USD or Not stated"></label>
       <label>Withdrawal fees<input name="fees" required placeholder="e.g. 0%, fixed fee, or Not stated"></label>
       <label>KYC / identity verification<select name="kyc" required><option value="">Choose…</option><option value="required">Required</option><option value="not-required">Not required</option><option value="unknown">Unknown</option></select></label>
