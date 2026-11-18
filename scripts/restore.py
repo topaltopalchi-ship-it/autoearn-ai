@@ -108,7 +108,12 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
         if not isinstance(entry, dict):
             raise ValueError("Invalid evidence entry")
         name = entry.get("name")
-        if not isinstance(name, str) or not name or Path(name).name != name or name in {".", ".."}:
+        relative_name = Path(name) if isinstance(name, str) else None
+        if (
+            relative_name is None or not name or relative_name.is_absolute()
+            or relative_name.as_posix() != name
+            or any(part in {"", ".", ".."} for part in relative_name.parts)
+        ):
             raise ValueError("Unsafe evidence filename in backup manifest")
         if name in expected:
             raise ValueError("Duplicate evidence filename in backup manifest")
@@ -119,10 +124,14 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
             raise ValueError("Invalid evidence checksum in backup manifest")
         expected[name] = entry
     actual_names = set()
-    for item in source_evidence.iterdir():
-        if item.is_symlink() or not item.is_file():
+    for item in source_evidence.rglob("*"):
+        if item.is_symlink():
             raise ValueError("Backup evidence contains an unsafe entry")
-        actual_names.add(item.name)
+        if item.is_dir():
+            continue
+        if not item.is_file():
+            raise ValueError("Backup evidence contains an unsafe entry")
+        actual_names.add(item.relative_to(source_evidence).as_posix())
     if actual_names != set(expected):
         raise ValueError("Backup evidence files do not match the manifest")
     for name, entry in expected.items():
@@ -145,6 +154,7 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
         evidence_copy.mkdir(mode=0o700)
         for name in sorted(expected):
             copied = evidence_copy / name
+            copied.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
             shutil.copyfile(source_evidence / name, copied)
             entry = expected[name]
             if copied.stat().st_size != entry["size_bytes"] or _sha256(copied) != entry["sha256"]:
@@ -157,8 +167,11 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
         if os.name == "posix":
             os.chmod(database_copy, 0o600)
             os.chmod(evidence_copy, 0o700)
-            for item in evidence_copy.iterdir():
-                os.chmod(item, 0o600)
+            for item in evidence_copy.rglob("*"):
+                if item.is_dir():
+                    os.chmod(item, 0o700)
+                elif item.is_file():
+                    os.chmod(item, 0o600)
             os.chmod(staging, 0o700)
         shutil.copyfile(manifest_path, staging / "manifest.json")
         if os.name == "posix":
