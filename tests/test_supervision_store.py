@@ -164,3 +164,19 @@ def test_transition_rejects_non_text_evidence_and_reason(tmp_path, value):
         store.reject(request.request_id, actor="owner", reason=value)
     with pytest.raises(SupervisionError, match="reason"):
         store.cancel(request.request_id, actor="owner", reason=value)
+
+
+def test_audit_events_follow_commit_order_when_wall_clock_moves_backwards(tmp_path, monkeypatch):
+    import autoearn.supervision_store as store_module
+
+    store = make_store(tmp_path)
+    stamps = iter(("2026-11-18T12:00:02+00:00", "2026-11-18T12:00:01+00:00"))
+    monkeypatch.setattr(store_module, "_timestamp", lambda: next(stamps))
+
+    request = create(store)
+    store.approve(request.request_id, actor="owner")
+
+    events = store.audit_events(request.request_id)
+    assert [event.event_type for event in events] == ["requested", "approved"]
+    assert [event.occurred_at for event in events] == list(("2026-11-18T12:00:02+00:00", "2026-11-18T12:00:01+00:00"))
+
