@@ -1145,6 +1145,10 @@ def upload_earning_evidence(
     if target.parent != EVIDENCE_DIR.resolve():
         raise HTTPException(400, "Invalid evidence storage path.")
     with connect() as db:
+        # Acquire the SQLite write reservation before the authoritative quota
+        # check. Without this, concurrent uploads can both observe the last
+        # available slot and exceed the per-ledger evidence limit.
+        db.execute("BEGIN IMMEDIATE")
         if not db.execute(
             "SELECT id FROM earnings_ledger WHERE id = ?", (ledger_id,)
         ).fetchone():
