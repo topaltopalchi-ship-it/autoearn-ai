@@ -11,7 +11,7 @@ The web interface connects directly to Supabase Auth and the three owner-protect
 - Owner ID is attached to every inserted record; database RLS validates ownership.
 - Human approval is required before a task can be marked completed.
 - Explainable opportunity metadata score; not a guarantee of legitimacy or payment.
-- Python API and unit tests remain available for local development only. Do not expose the legacy SQLite API as a public production service.
+- The FastAPI host serves the static app and a health endpoint only; no unauthenticated SQLite CRUD API is exposed. User data is stored in Supabase.
 
 ## Supabase setup
 
