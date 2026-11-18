@@ -178,3 +178,13 @@ Deno.test("rejects points that cannot be withdrawn even when payout keywords app
 Deno.test("rejects entertainment-only games that use misleading prize wording", () => {
   assertRejected("https://example.com/wheel", "Lucky wheel win cash prize", "Free spin for entertainment only. No monetary reward.", "missing_reward_evidence");
 });
+
+Deno.test("detects Iran in a comma-separated void-in country list", () => {
+  assertEquals(classifyCountryEligibility("Contest is void in: Afghanistan, Iran, Syria and North Korea."), "ineligible");
+});
+Deno.test("detects Iran in a prohibited-jurisdictions clause", () => {
+  assertEquals(classifyCountryEligibility("Residents of prohibited jurisdictions, including Iran, may not participate."), "ineligible");
+});
+Deno.test("detects Iran in an except-for country list", () => {
+  assertEquals(classifyCountryEligibility("Open worldwide except for Iran and Syria."), "ineligible");
+});
