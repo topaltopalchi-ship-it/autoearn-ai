@@ -83,28 +83,6 @@ export function classifyCountryEligibility(text: string, country = "Iran"): Coun
   return "unknown";
 }
 
-export function evaluateCandidate(rawUrl: string, title: string, description: string): CandidateDecision {");
-  const countryName = new RegExp(`(?:\\b${escaped}\\b|\\bIslamic Republic of Iran\\b)`, "i");
-  const value = text.replace(/\\s+/g, " ");
-
-  const exclusion = new RegExp(
-    `(?:not available|unavailable|not eligible|ineligible|excluded|restricted|prohibited|cannot participate|may not participate|do not accept|does not accept|not supported)\\s+(?:to|for|in)?\\s*(?:residents? of\\s+)?${escaped}\\b|\\b${escaped}\\b.{0,45}(?:not eligible|excluded|restricted|prohibited|cannot participate|not supported)`,
-    "i",
-  );
-  if (exclusion.test(value)) return "ineligible";
-
-  const inclusion = new RegExp(
-    `(?:available|open|eligible|accepted|supported)\\s+(?:to|for|in)?\\s*(?:residents? of\\s+)?${escaped}\\b|\\b residents? of ${escaped}\\b.{0,45}(?:eligible|may participate|can participate)`,
-    "i",
-  );
-  if (inclusion.test(value)) return "eligible";
-
-  const allowlist = /(?:eligible countries|available countries|countries supported|only available in|residents of the following countries)/i.test(value);
-  if (allowlist && countryName.test(value)) return "eligible";
-  if (allowlist && !countryName.test(value)) return "ineligible";
-  return "unknown";
-}
-
 export function evaluateCandidate(rawUrl: string, title: string, description: string): CandidateDecision {
   const normalizedUrl = normalizePublicHttpsUrl(rawUrl);
   if (!normalizedUrl) return { accepted: false, reason: "invalid_url" };
