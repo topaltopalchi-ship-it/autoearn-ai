@@ -126,7 +126,7 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
         if (
             relative_name is None or not name or relative_name.is_absolute()
             or relative_name.as_posix() != name
-            or any(char in name for char in '<>:"|?*')
+            or "\\" in name or any(char in name for char in '<>:"|?*')
             or len(name.encode("utf-8")) > 1024
             or any(
                 not part or part in {".", ".."} or part.endswith((" ", "."))
