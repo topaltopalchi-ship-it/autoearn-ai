@@ -3000,3 +3000,39 @@ def test_earning_evidence_quota_is_checked_before_scanning(client, monkeypatch, 
     )
     assert response.status_code == 409
     assert calls == []
+
+def test_startup_reconciliation_rejects_symlinked_quarantine_directory(tmp_path, monkeypatch):
+    import os
+    import pytest
+    from app import main
+
+    if os.name != "posix":
+        pytest.skip("Symlink permission semantics are platform-specific.")
+
+    evidence_dir = tmp_path / "evidence"
+    evidence_dir.mkdir()
+    outside = tmp_path / "outside-quarantine"
+    outside.mkdir()
+    marker = outside / "keep.txt"
+    marker.write_text("must remain untouched")
+    (evidence_dir / ".quarantine").symlink_to(outside, target_is_directory=True)
+    monkeypatch.setattr(main, "EVIDENCE_DIR", evidence_dir)
+
+    with pytest.raises(RuntimeError, match="quarantine path must not be a symbolic link"):
+        main.reconcile_evidence_files()
+
+    assert marker.read_text() == "must remain untouched"
+    assert list(outside.iterdir()) == [marker]
+
+
+def test_startup_reconciliation_rejects_negative_grace_period(tmp_path, monkeypatch):
+    import pytest
+    from app import main
+
+    evidence_dir = tmp_path / "evidence"
+    monkeypatch.setattr(main, "EVIDENCE_DIR", evidence_dir)
+
+    with pytest.raises(ValueError, match="grace_period_seconds must be non-negative"):
+        main.reconcile_evidence_files(grace_period_seconds=-1)
+
+    assert not evidence_dir.exists()
