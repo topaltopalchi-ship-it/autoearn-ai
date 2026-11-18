@@ -1856,7 +1856,7 @@ def test_global_emergency_pause_blocks_registered_competition_submission(client,
 
     class RegisteredButNeverCalled:
         def get_manifest(self, adapter_id):
-            return SimpleNamespace(allowed_actions=("submit_entry",))
+            return SimpleNamespace(exact_host="contest.example.com", allowed_actions=("submit_entry",))
 
         def submit(self, *args, **kwargs):
             raise AssertionError("emergency pause must block before adapter submission")
@@ -1913,7 +1913,7 @@ def test_emergency_pause_update_waits_for_inflight_submission_gate(client, monke
 
     class BlockingAdapter:
         def get_manifest(self, adapter_id):
-            return SimpleNamespace(allowed_actions=("submit_entry",))
+            return SimpleNamespace(exact_host="contest.example.com", allowed_actions=("submit_entry",))
 
         def submit(self, *args, **kwargs):
             adapter_entered.set()
@@ -2472,7 +2472,7 @@ def test_competition_adapter_rate_limit_persists_across_registry_restarts(client
             self.calls = 0
         def get_manifest(self, adapter_id):
             return SimpleNamespace(
-                allowed_actions=("submit_entry",), requests_per_minute=1
+                exact_host="contest.example.com", allowed_actions=("submit_entry",), requests_per_minute=1
             )
         def submit(self, *args, **kwargs):
             self.calls += 1
@@ -2570,7 +2570,7 @@ def test_concurrent_competition_submissions_share_persistent_rate_window(client,
     class BlockingRegistry:
         def get_manifest(self, adapter_id):
             return SimpleNamespace(
-                allowed_actions=("submit_entry",), requests_per_minute=1
+                exact_host="contest.example.com", allowed_actions=("submit_entry",), requests_per_minute=1
             )
         def submit(self, *args, **kwargs):
             with calls_lock:
