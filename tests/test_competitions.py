@@ -227,3 +227,60 @@ def test_competition_adapter_enforces_manifest_requests_per_minute(monkeypatch):
     )
     assert second.status == "accepted"
     assert adapter.calls == 2
+
+
+
+@pytest.mark.parametrize("url", [
+    "https://user:password@contest.example.com/event",
+    "https://contest.example.com:8443/event",
+    "https://contest.example.com/event#fragment",
+    "https://contest.example.com:bad/event",
+])
+def test_competition_rejects_ambiguous_or_credential_bearing_urls(url):
+    assert not assess_competition(competition(url=url)).ready
+
+
+def test_competition_rejects_unsafe_rules_url():
+    result = assess_competition(competition(
+        rules_url="https://user:secret@contest.example.com/rules"
+    ))
+    assert not result.ready
+    assert any("rules URL" in blocker for blocker in result.blockers)
+
+
+@pytest.mark.parametrize("payload", [
+    {"answer": float("nan")},
+    {"answer": object()},
+    {"answer": "آ" * 7000},
+])
+def test_submission_rejects_non_json_or_oversized_payload(payload):
+    registry = CompetitionAdapterRegistry()
+    adapter = FakeAdapter()
+    registry.register(adapter)
+    with pytest.raises(ValueError, match="payload"):
+        registry.submit(
+            "example-official", competition(), payload, owner_confirmed=True
+        )
+    assert adapter.calls == 0
+
+
+@pytest.mark.parametrize("receipt", [
+    SubmissionReceipt("", "accepted"),
+    SubmissionReceipt("entry-" + "x" * 300, "accepted"),
+    SubmissionReceipt("entry-1", "Accepted"),
+    SubmissionReceipt("entry-1", "accepted\nforged"),
+    SubmissionReceipt("entry-1", "accepted", "x" * 2001),
+])
+def test_submission_rejects_malformed_adapter_receipts(receipt):
+    class BadReceiptAdapter(FakeAdapter):
+        def submit_entry(self, competition, payload):
+            self.calls += 1
+            return receipt
+
+    registry = CompetitionAdapterRegistry()
+    adapter = BadReceiptAdapter()
+    registry.register(adapter)
+    with pytest.raises(RuntimeError, match="invalid submission receipt"):
+        registry.submit(
+            "example-official", competition(), {"answer": 42}, owner_confirmed=True
+        )
