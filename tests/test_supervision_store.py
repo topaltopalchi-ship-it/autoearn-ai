@@ -112,3 +112,55 @@ def test_case_variant_system_actor_is_rejected_for_all_decisions(tmp_path):
         store.complete(request.request_id, actor="SYSTEM", evidence="receipt")
     with pytest.raises(SupervisionError, match="human actor"):
         store.cancel(request.request_id, actor=" System ")
+
+
+@pytest.mark.parametrize("opportunity_id", [True, False, 0, -1, 1.5, "5"])
+def test_creation_requires_positive_integer_opportunity_id(tmp_path, opportunity_id):
+    store = make_store(tmp_path)
+    with pytest.raises(SupervisionError, match="opportunity_id"):
+        store.create(
+            opportunity_id=opportunity_id, action="prepare_draft", description="Draft",
+            opportunity_eligible=True, source_approved=True, evidence_fresh=True,
+        )
+
+
+@pytest.mark.parametrize("actor", [None, "", "   ", 123])
+def test_creation_rejects_missing_or_invalid_request_actor(tmp_path, actor):
+    store = make_store(tmp_path)
+    with pytest.raises(SupervisionError, match="actor"):
+        store.create(
+            opportunity_id=5, action="prepare_draft", description="Draft",
+            opportunity_eligible=True, source_approved=True, evidence_fresh=True,
+            actor=actor,
+        )
+
+
+@pytest.mark.parametrize("flag", ["yes", 1, None])
+@pytest.mark.parametrize("field", ["opportunity_eligible", "source_approved", "evidence_fresh"])
+def test_creation_requires_literal_true_readiness_flags(tmp_path, field, flag):
+    store = make_store(tmp_path)
+    flags = {"opportunity_eligible": True, "source_approved": True, "evidence_fresh": True}
+    flags[field] = flag
+    with pytest.raises(SupervisionError, match="eligible"):
+        store.create(opportunity_id=5, action="prepare_draft", description="Draft", **flags)
+
+
+def test_status_filter_rejects_unknown_or_non_string_values(tmp_path):
+    store = make_store(tmp_path)
+    create(store)
+    for status in ("unknown", "", 1, []):
+        with pytest.raises(SupervisionError, match="status"):
+            store.list(status=status)
+
+
+@pytest.mark.parametrize("value", [None, 123, []])
+def test_transition_rejects_non_text_evidence_and_reason(tmp_path, value):
+    store = make_store(tmp_path)
+    request = create(store)
+    store.approve(request.request_id, actor="owner")
+    with pytest.raises(SupervisionError, match="evidence"):
+        store.complete(request.request_id, actor="owner", evidence=value)
+    with pytest.raises(SupervisionError, match="reason"):
+        store.reject(request.request_id, actor="owner", reason=value)
+    with pytest.raises(SupervisionError, match="reason"):
+        store.cancel(request.request_id, actor="owner", reason=value)
