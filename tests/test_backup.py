@@ -687,7 +687,7 @@ def test_backup_rejects_undecodable_posix_evidence_filename(tmp_path):
         db.execute("CREATE TABLE sample (value INTEGER)")
     evidence = tmp_path / "evidence"
     evidence.mkdir()
-    bad_name = os.fsdecode(b"receipt_\\xff.bin")
+    bad_name = os.fsdecode(b"receipt_\xff.bin")
     bad_path = evidence / bad_name
     try:
         descriptor = os.open(os.fsencode(bad_path), os.O_CREAT | os.O_WRONLY, 0o600)
