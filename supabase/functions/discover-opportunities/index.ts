@@ -77,11 +77,13 @@ Deno.serve((req: Request) => {
             if (title.length < 2) continue;
             const payoutText = (title + " " + description + " " + item.url).toLowerCase();
             const walletMatches = [
-              /paypal/.test(payoutText) ? "PayPal" : null,
-              /skrill/.test(payoutText) ? "Skrill" : null,
-              /neteller/.test(payoutText) ? "Neteller" : null,
-              /payeer/.test(payoutText) ? "Payeer" : null,
-              /bitcoin|\\bbtc\\b|\\busdt\\b|ethereum|\\beth\\b|crypto|cryptocurrency/.test(payoutText) ? "Crypto" : null,
+              /\\bpaypal\\b/.test(payoutText) ? "PayPal" : null,
+              /\\bskrill\\b/.test(payoutText) ? "Skrill" : null,
+              /\\bneteller\\b/.test(payoutText) ? "Neteller" : null,
+              /\\bpayeer\\b/.test(payoutText) ? "Payeer" : null,
+              /\\bpayoneer\\b/.test(payoutText) ? "Payoneer" : null,
+              /\\bwebmoney\\b/.test(payoutText) ? "WebMoney" : null,
+              /bitcoin|\\bbtc\\b|\\busdt\\b|ethereum|\\beth\\b|crypto|cryptocurrency|tether|\\busdc\\b/.test(payoutText) ? "Crypto" : null,
             ].filter((value): value is string => Boolean(value));
             if (walletMatches.length === 0) continue;
             found.push({
