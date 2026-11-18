@@ -1055,6 +1055,16 @@ def update_earning_state(ledger_id: int, data: EarningsStateIn,
             raise HTTPException(409, "Earning record already has this state")
         if data.state not in allowed[previous]:
             raise HTTPException(409, "This earning-state transition is not allowed")
+        if data.state == "paid":
+            clean_receipt = db.execute(
+                """SELECT 1 FROM earnings_evidence
+                   WHERE ledger_id = ? AND scan_status = 'clean' LIMIT 1""",
+                (ledger_id,),
+            ).fetchone()
+            if clean_receipt is None:
+                raise HTTPException(
+                    409, "A malware-scanned clean payment receipt is required before marking earnings paid."
+                )
         timestamp = now()
         db.execute("""
             UPDATE earnings_ledger SET state = ?, updated_at = ? WHERE id = ?
