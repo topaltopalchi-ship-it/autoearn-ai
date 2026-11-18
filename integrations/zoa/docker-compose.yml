@@ -8,4 +8,7 @@ services:
       - .env
     environment:
       ZOA_URL: https://play.zoagames.com
+      # Practice is the safe default; set ZOA_MODE=ladder in .env only
+      # after reviewing the live competition rules and choosing to compete.
+      ZOA_MODE: ${ZOA_MODE:-practice}
     # No ports are exposed. The agent makes outbound HTTPS/WebSocket connections only.
