@@ -150,7 +150,7 @@ function bindWorkspace(){
       try{const u=new URL(data[key]);if(u.protocol!=="https:")throw new Error();data[key]=u.href}
       catch(_){return toast("Both evidence links must be valid HTTPS URLs.")}
     }
-    const passed=data.country.trim()&&data.country_allowed==="yes"&&data.payment_method&&data.payment_confirmed==="yes"&&data.minimum.trim()&&data.fees.trim()&&data.kyc!=="unknown"&&data.free_entry==="yes"&&data.automation==="yes";
+    const passed=data.country.trim()&&data.country_allowed==="yes"&&data.payment_method&&data.payment_method!=="Other / not specified"&&data.payment_confirmed==="yes"&&data.minimum.trim()&&data.fees.trim()&&data.kyc!=="unknown"&&data.free_entry==="yes"&&data.automation==="yes";
     const report={reviewed_at:new Date().toISOString(),country:data.country.trim(),country_allowed:data.country_allowed,payment_method:data.payment_method,payment_confirmed:data.payment_confirmed,minimum_withdrawal:data.minimum.trim(),fees:data.fees.trim(),kyc:data.kyc,free_entry:data.free_entry,automation_explicitly_allowed:data.automation,payout_source:data.payout_source,automation_source:data.automation_source};
     const note="\n\n[OWNER OFFICIAL ELIGIBILITY REVIEW]\n"+JSON.stringify(report,null,2);
     const {error}=await supabase.from("opportunities").update({status:passed?"eligible":"ineligible",notes:(opportunity.notes||"")+note}).eq("id",id);
