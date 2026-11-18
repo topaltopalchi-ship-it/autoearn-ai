@@ -384,3 +384,30 @@ def test_restore_rejects_nonportable_or_oversized_evidence_paths(tmp_path, unsaf
     with pytest.raises(ValueError, match="Unsafe evidence filename"):
         restore_backup(backup, destination)
     assert not destination.exists()
+
+
+def test_restore_preserves_owner_only_permissions_on_posix(tmp_path):
+    import os
+    import stat
+
+    if os.name != "posix":
+        pytest.skip("POSIX permission modes are not available")
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    evidence = tmp_path / "private_evidence"
+    nested = evidence / ".quarantine" / "nested"
+    nested.mkdir(parents=True)
+    (nested / "orphan.orphan").write_bytes(b"recoverable evidence")
+
+    backup = tmp_path / "backup"
+    create_backup(database, evidence, backup)
+    restored = tmp_path / "restored"
+    restore_backup(backup, restored)
+
+    assert stat.S_IMODE((restored / "autoearn.db").stat().st_mode) == 0o600
+    assert stat.S_IMODE((restored / "manifest.json").stat().st_mode) == 0o600
+    assert stat.S_IMODE((restored / "private_evidence").stat().st_mode) == 0o700
+    assert stat.S_IMODE((restored / "private_evidence" / ".quarantine").stat().st_mode) == 0o700
+    assert stat.S_IMODE((restored / "private_evidence" / ".quarantine" / "nested").stat().st_mode) == 0o700
+    assert stat.S_IMODE((restored / "private_evidence" / ".quarantine" / "nested" / "orphan.orphan").stat().st_mode) == 0o600
