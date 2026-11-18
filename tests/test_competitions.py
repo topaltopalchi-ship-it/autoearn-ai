@@ -251,7 +251,7 @@ def test_competition_rejects_unsafe_rules_url():
 @pytest.mark.parametrize("payload", [
     {"answer": float("nan")},
     {"answer": object()},
-    {"answer": "آ" * 7000},
+    {"answer": "آ" * 11000},
 ])
 def test_submission_rejects_non_json_or_oversized_payload(payload):
     registry = CompetitionAdapterRegistry()
