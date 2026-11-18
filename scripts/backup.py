@@ -98,17 +98,21 @@ def create_backup(
         if evidence_dir.exists():
             if not evidence_dir.is_dir():
                 raise ValueError("Evidence path is not a directory")
-            for item in sorted(evidence_dir.iterdir(), key=lambda path: path.name):
+            for item in sorted(evidence_dir.rglob("*"), key=lambda path: path.as_posix()):
                 if item.is_symlink():
-                    raise ValueError(f"Evidence symlinks are not backed up: {item.name}")
+                    raise ValueError(f"Evidence symlinks are not backed up: {item.relative_to(evidence_dir)}")
+                if item.is_dir():
+                    continue
                 if not item.is_file():
-                    raise ValueError(f"Unexpected non-file in evidence directory: {item.name}")
-                copied = evidence_copy / item.name
+                    raise ValueError(f"Unexpected non-file in evidence directory: {item.relative_to(evidence_dir)}")
+                relative_name = item.relative_to(evidence_dir).as_posix()
+                copied = evidence_copy / relative_name
+                copied.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
                 shutil.copyfile(item, copied)
                 if os.name == "posix":
                     os.chmod(copied, 0o600)
                 evidence_entries.append({
-                    "name": item.name,
+                    "name": relative_name,
                     "size_bytes": copied.stat().st_size,
                     "sha256": _sha256(copied),
                 })
