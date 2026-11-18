@@ -32,6 +32,19 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _read_evidence_rows(db: sqlite3.Connection) -> list[tuple]:
+    """Read evidence references, allowing legacy databases with no table."""
+    table = db.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'earnings_evidence'").fetchone()
+    if table is None:
+        return []
+    columns = {row[1] for row in db.execute("PRAGMA table_info(earnings_evidence)")}
+    required = {"stored_name", "size_bytes", "sha256"}
+    if not required.issubset(columns):
+        missing = ", ".join(sorted(required - columns))
+        raise ValueError(f"Invalid earnings_evidence schema; missing columns: {missing}")
+    return db.execute("SELECT stored_name, size_bytes, sha256 FROM earnings_evidence").fetchall()
+
+
 def restore_backup(backup_directory: Path, destination: Path) -> dict:
     """Verify all backup data and restore it into a new, non-existing directory."""
     # Validate the original path components before resolve() follows links.
@@ -117,12 +130,7 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
         if item.stat().st_size != entry.get("size_bytes") or _sha256(item) != entry.get("sha256"):
             raise ValueError(f"Evidence checksum or size mismatch: {name}")
     with closing(sqlite3.connect(source_database.as_uri() + "?mode=ro", uri=True)) as db:
-        try:
-            database_evidence = db.execute(
-                "SELECT stored_name, size_bytes, sha256 FROM earnings_evidence"
-            ).fetchall()
-        except sqlite3.OperationalError:
-            database_evidence = []
+        database_evidence = _read_evidence_rows(db)
     for name, size_bytes, sha256 in database_evidence:
         entry = expected.get(name)
         if entry is None or entry.get("size_bytes") != size_bytes or entry.get("sha256") != sha256:
