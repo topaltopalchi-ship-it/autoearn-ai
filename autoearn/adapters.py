@@ -62,7 +62,7 @@ class AdapterManifest:
             raise ValueError("categories must be a non-empty tuple of supported categories")
         if len(set(self.categories)) != len(self.categories):
             raise ValueError("categories must not contain duplicates")
-        if self.execution_mode not in {"manual", "assist", "official_api"}:
+        if not isinstance(self.execution_mode, str) or self.execution_mode not in {"manual", "assist", "official_api"}:
             raise ValueError("execution_mode is not supported")
         if (
             not isinstance(self.allowed_domains, tuple)
