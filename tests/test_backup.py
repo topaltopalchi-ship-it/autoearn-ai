@@ -451,3 +451,58 @@ def test_restore_rejects_symlink_inside_evidence_tree(tmp_path):
     with pytest.raises(ValueError, match="unsafe entry"):
         restore_backup(backup, destination)
     assert not destination.exists()
+
+
+@pytest.mark.parametrize("unsafe_name", [
+    "CON",
+    "nul.txt",
+    "AUX.data",
+    "COM1.log",
+    "LPT9",
+    "bad<name>.bin",
+    "bad|name.bin",
+    "bad?name.bin",
+])
+def test_restore_rejects_windows_reserved_or_invalid_evidence_components(tmp_path, unsafe_name):
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    (evidence / "receipt.bin").write_bytes(b"receipt")
+    backup = tmp_path / "backup"
+    create_backup(database, evidence, backup)
+
+    manifest_path = backup / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    (backup / "private_evidence" / "receipt.bin").rename(
+        backup / "private_evidence" / unsafe_name
+    )
+    manifest["evidence_files"][0]["name"] = unsafe_name
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    destination = tmp_path / "restored"
+    with pytest.raises(ValueError, match="Unsafe evidence filename"):
+        restore_backup(backup, destination)
+    assert not destination.exists()
+
+
+def test_restore_rejects_case_colliding_evidence_paths_on_posix(tmp_path):
+    import os
+
+    if os.name != "posix":
+        pytest.skip("Case-colliding filenames require a case-sensitive test filesystem")
+    database = tmp_path / "autoearn.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE sample (value INTEGER)")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    (evidence / "Receipt.bin").write_bytes(b"first")
+    (evidence / "receipt.bin").write_bytes(b"second")
+    backup = tmp_path / "backup"
+    create_backup(database, evidence, backup)
+
+    destination = tmp_path / "restored"
+    with pytest.raises(ValueError, match="case-colliding"):
+        restore_backup(backup, destination)
+    assert not destination.exists()
