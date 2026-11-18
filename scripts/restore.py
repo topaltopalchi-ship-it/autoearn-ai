@@ -73,6 +73,8 @@ def restore_backup(backup_directory: Path, destination: Path) -> dict:
     destination = Path(destination).resolve()
     if not backup_directory.is_dir():
         raise FileNotFoundError("Backup directory does not exist")
+    if destination == backup_directory or backup_directory in destination.parents:
+        raise ValueError("Restore destination must be outside the backup directory")
     if destination.exists():
         raise FileExistsError(f"Restore destination already exists: {destination}")
     manifest_path = backup_directory / "manifest.json"
