@@ -15,6 +15,9 @@ def client(tmp_path, monkeypatch):
     from app import main
     monkeypatch.setattr(main, "DB_PATH", tmp_path / "test.db")
     monkeypatch.setattr(main, "OWNER_TOKEN", "test-owner-secret-0123456789-abcdef")
+    # API tests use a deterministic clean scanner; protocol tests exercise the
+    # actual ClamAV client independently in tests/test_evidence_scanning.py.
+    monkeypatch.setattr(main, "scan_bytes", lambda _payload: "stream: OK")
     main.init_db()
     with TestClient(app) as test_client:
         yield test_client
@@ -2046,6 +2049,9 @@ def test_earning_evidence_upload_is_private_validated_and_downloadable(client, t
     assert metadata["media_type"] == "application/pdf"
     assert metadata["size_bytes"] == len(payload)
     assert metadata["sha256"] == hashlib.sha256(payload).hexdigest()
+    assert metadata["scan_status"] == "clean"
+    assert metadata["scanner_name"] == "ClamAV INSTREAM"
+    assert metadata["scanned_at"]
     stored_files = list((tmp_path / "private-evidence").iterdir())
     assert len(stored_files) == 1
     if os.name == "posix":
@@ -2069,6 +2075,32 @@ def test_earning_evidence_upload_is_private_validated_and_downloadable(client, t
     assert client.get(
         f"/api/earnings/{earning['id']}/evidence/{metadata['id']}"
     ).status_code == 401
+
+
+def test_earning_evidence_fails_closed_when_scanner_is_unavailable(client, tmp_path, monkeypatch):
+    from app import main
+    from autoearn.evidence_scanning import ScannerUnavailable
+
+    evidence_dir = tmp_path / "unscanned-evidence"
+    monkeypatch.setattr(main, "EVIDENCE_DIR", evidence_dir)
+    def unavailable(_payload):
+        raise ScannerUnavailable("offline")
+    monkeypatch.setattr(main, "scan_bytes", unavailable)
+    headers = {"X-AutoEarn-Owner-Token": "test-owner-secret-0123456789-abcdef"}
+    earning = client.post(
+        "/api/earnings", headers=headers,
+        json={"amount": 2, "currency": "EUR"},
+    ).json()
+    response = client.post(
+        f"/api/earnings/{earning['id']}/evidence",
+        headers=headers,
+        files={"upload": ("receipt.pdf", b"%PDF-1.4\\nreceipt\\n", "application/pdf")},
+    )
+    assert response.status_code == 503
+    assert not evidence_dir.exists()
+    listed = client.get(f"/api/earnings/{earning['id']}/evidence", headers=headers)
+    assert listed.status_code == 200
+    assert listed.json() == []
 
 
 def test_earning_evidence_rejects_symlink_storage_directory(client, tmp_path, monkeypatch):
