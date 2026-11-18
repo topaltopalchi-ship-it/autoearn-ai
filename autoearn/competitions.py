@@ -295,21 +295,48 @@ class CompetitionAdapterManifest:
     requests_per_minute: int = 10
 
     def __post_init__(self) -> None:
-        if not self.adapter_id.strip() or not self.exact_host.strip():
-            raise ValueError("adapter id and exact host are required")
-        labels = self.exact_host.split(".")
         if (
-            self.exact_host != self.exact_host.casefold()
-            or len(labels) < 2
-            or any(not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label) for label in labels)
+            not isinstance(self.adapter_id, str)
+            or not re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", self.adapter_id)
+        ):
+            raise ValueError("adapter id must be a valid lowercase identifier")
+        if (
+            not isinstance(self.exact_host, str)
+            or not self.exact_host
+            or self.exact_host != self.exact_host.strip()
+            or self.exact_host != self.exact_host.casefold()
+            or len(self.exact_host) > 253
         ):
             raise ValueError("adapter host must be an exact lowercase public hostname")
-        if not self.official_api or not self.automated_agents_allowed:
+        labels = self.exact_host.split(".")
+        if (
+            len(labels) < 2
+            or any(
+                not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label)
+                for label in labels
+            )
+        ):
+            raise ValueError("adapter host must be an exact lowercase public hostname")
+        if self.official_api is not True or self.automated_agents_allowed is not True:
             raise ValueError("competition adapters require an official API and explicit agent permission")
+        if (
+            not isinstance(self.allowed_actions, tuple)
+            or any(
+                not isinstance(action, str)
+                or not re.fullmatch(r"[a-z][a-z0-9_]{0,39}", action)
+                for action in self.allowed_actions
+            )
+            or len(set(self.allowed_actions)) != len(self.allowed_actions)
+        ):
+            raise ValueError("allowed_actions must be unique safe action identifiers")
         if "submit_entry" not in self.allowed_actions:
             raise ValueError("adapter must explicitly declare submit_entry")
-        if not 1 <= self.requests_per_minute <= 60:
-            raise ValueError("requests_per_minute must be between 1 and 60")
+        if (
+            isinstance(self.requests_per_minute, bool)
+            or not isinstance(self.requests_per_minute, int)
+            or not 1 <= self.requests_per_minute <= 60
+        ):
+            raise ValueError("requests_per_minute must be an integer between 1 and 60")
 
 
 @dataclass(frozen=True)
