@@ -13,7 +13,7 @@ import json
 import os
 import re
 from collections import deque
-from threading import Lock
+from threading import Lock, RLock
 from time import monotonic
 from typing import Literal, Protocol
 from urllib.parse import urlsplit
@@ -405,14 +405,17 @@ class CompetitionAdapterRegistry:
         # Keep the exact manifest snapshot that passed validation at
         # registration; never trust a later dynamic property value.
         self._manifests: dict[str, CompetitionAdapterManifest] = {}
+        self._registry_lock = RLock()
         self._rate_lock = Lock()
         self._request_times: dict[str, deque[float]] = {}
 
     def get_manifest(self, adapter_id: str) -> CompetitionAdapterManifest | None:
-        return self._manifests.get(adapter_id)
+        with self._registry_lock:
+            return self._manifests.get(adapter_id)
 
     def list_manifests(self) -> tuple[CompetitionAdapterManifest, ...]:
-        return tuple(self._manifests[key] for key in sorted(self._manifests))
+        with self._registry_lock:
+            return tuple(self._manifests[key] for key in sorted(self._manifests))
 
     def register(self, adapter: CompetitionAdapter) -> None:
         manifest = adapter.manifest
@@ -420,10 +423,11 @@ class CompetitionAdapterRegistry:
             raise TypeError("adapter must expose a CompetitionAdapterManifest")
         if not callable(getattr(adapter, "submit_entry", None)):
             raise TypeError("adapter must implement a callable submit_entry method")
-        if manifest.adapter_id in self._adapters:
-            raise ValueError("adapter id is already registered")
-        self._adapters[manifest.adapter_id] = adapter
-        self._manifests[manifest.adapter_id] = manifest
+        with self._registry_lock:
+            if manifest.adapter_id in self._adapters:
+                raise ValueError("adapter id is already registered")
+            self._adapters[manifest.adapter_id] = adapter
+            self._manifests[manifest.adapter_id] = manifest
 
     def submit(
         self,
@@ -442,10 +446,11 @@ class CompetitionAdapterRegistry:
         readiness = assess_competition(competition)
         if not readiness.ready:
             raise PermissionError("; ".join(readiness.blockers))
-        adapter = self._adapters.get(adapter_id)
-        if adapter is None:
+        with self._registry_lock:
+            adapter = self._adapters.get(adapter_id)
+            manifest = self._manifests.get(adapter_id)
+        if adapter is None or manifest is None:
             raise KeyError("official competition adapter is not registered")
-        manifest = self._manifests[adapter_id]
         host = (urlsplit(competition.url).hostname or "").casefold()
         if host != manifest.exact_host:
             raise PermissionError("competition host is outside the adapter's exact allowlist")

@@ -528,3 +528,37 @@ def test_configured_ai_provider_rejects_malformed_response_envelopes(
     with pytest.raises(competitions.AIProviderError, match="invalid response format"):
         competitions.build_strategy(5, "logic")
 
+
+
+def test_competition_adapter_registry_registration_is_atomic_under_concurrency():
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    barrier = Barrier(2)
+
+    class RacingAdapter(FakeAdapter):
+        @property
+        def manifest(self):
+            barrier.wait(timeout=3)
+            return CompetitionAdapterManifest(
+                adapter_id="racing-official", exact_host="contest.example.com",
+                official_api=True, automated_agents_allowed=True,
+                allowed_actions=("submit_entry",),
+            )
+
+    registry = CompetitionAdapterRegistry()
+    adapters = [RacingAdapter(), RacingAdapter()]
+
+    def register(adapter):
+        try:
+            registry.register(adapter)
+            return "registered"
+        except ValueError:
+            return "duplicate"
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        outcomes = list(pool.map(register, adapters))
+
+    assert sorted(outcomes) == ["duplicate", "registered"]
+    assert len(registry.list_manifests()) == 1
+    assert registry.get_manifest("racing-official") is not None
