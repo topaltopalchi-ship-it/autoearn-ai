@@ -66,6 +66,19 @@ function renderRewards(){
 function fillRewardOptions(){$("reward-opportunity").innerHTML='<option value="">Not linked</option>'+opportunities.map(o=>'<option value="'+o.id+'">'+esc(o.title)+'</option>').join("")}
 function bindWorkspace(){
   $("add-opportunity").onclick=()=> $("opportunity-dialog").showModal();
+  $("discover-opportunities").onclick=async()=>{
+    const button=$("discover-opportunities");
+    button.disabled=true;button.textContent="Searching Germany…";
+    try {
+      const {data,error}=await supabase.functions.invoke("discover-opportunities",{body:{}});
+      if(error) throw error;
+      if(data?.needsSetup) throw new Error(data.error);
+      if(data?.error) throw new Error(data.error);
+      toast(`Found ${data.saved||0} new candidates. Please review them.`);
+      await loadData();
+    } catch(error) { fail(error); }
+    finally { button.disabled=false;button.textContent="Find new opportunities"; }
+  };
   $("add-reward").onclick=()=> $("reward-dialog").showModal();
   document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>b.closest("dialog").close());
   $("opportunity-form").onsubmit=async e=>{
