@@ -27,8 +27,8 @@ Calculation: sum of (workstream weight × verified completion). Values are conse
 
 ## Latest verification
 
-- Latest verified implementation commit: `99b6b116772775d9ab41fc4fc8bc46bc5771311f`. This includes strict backup/restore validation for malformed existing `earnings_evidence` schemas and defensive validation of malformed AI-provider response envelopes.
-- GitHub Actions run [44249692069](https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44249692069), on commit `99b6b116772775d9ab41fc4fc8bc46bc5771311f`: all three Python matrix jobs (3.10, 3.12 and 3.14) completed successfully. Each test log reports **413 passed, 2 skipped, 1 warning, and 3 subtests passed**. This verifies the covered code paths only; it does not install or validate a real external competition adapter, authorize a live submission, or verify payout.
+- Latest verified implementation commit: `847c0c49a8143b9017dd9e9d4d0cfeebf1394f0a`. This includes strict backup/restore validation, defensive AI-provider response validation, and corrected malformed-source-candidate test arguments.
+- GitHub Actions run [44250894114](https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44250894114), on commit `847c0c49a8143b9017dd9e9d4d0cfeebf1394f0a`: all three Python matrix jobs (3.10, 3.12 and 3.14) completed successfully. The test logs report **440 passed, 2 skipped, 1 warning, and 15 subtests passed**. The skipped tests require an opt-in live ClamAV daemon; the warning is a Starlette/AnyIO deprecation warning. This verifies the covered code paths only; it does not install or validate a real external competition adapter, authorize a live submission, or verify payout.
 - Production deployment controls and sign-off requirements are documented in `docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md`; the checklist is not yet satisfied.
 - Later documentation-only updates must receive their own CI verification before release.
 - `main` remains unchanged; PR #47 remains draft and unmerged; repository visibility remains public.
