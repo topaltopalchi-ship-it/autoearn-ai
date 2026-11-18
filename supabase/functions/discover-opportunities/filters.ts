@@ -16,7 +16,7 @@ export function evaluateCandidate(rawUrl: string, title: string, description: st
   }
   if (parsed.protocol !== "https:") return { accepted: false, reason: "invalid_url" };
 
-  const text = \`\${title} \${description} \${rawUrl}\`;
+  const text = [title, description, rawUrl].join(" ");
   if (EXCLUDED_RESULT_RE.test(text) || !GAME_ACTIVITY_RE.test(text)) {
     return { accepted: false, reason: "excluded_category" };
   }
