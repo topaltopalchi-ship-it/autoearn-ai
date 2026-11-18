@@ -2,7 +2,7 @@ import pytest
 from autoearn.evidence_scanning import MalwareDetected, ScannerUnavailable, scan_bytes
 
 class FakeSocket:
-    def __init__(self, response=b"stream: OK\\0"):
+    def __init__(self, response=b"stream: OK\0"):
         self.response = response
         self.sent = bytearray()
         self.timeout = None
@@ -19,7 +19,7 @@ def test_clamav_stream_protocol_accepts_exact_clean_verdict(monkeypatch):
     monkeypatch.setattr("autoearn.evidence_scanning.socket.create_connection", lambda address, timeout: fake)
     assert scan_bytes(b"PDF test") == "stream: OK"
     assert fake.timeout == 5.0
-    assert fake.sent.startswith(b"zINSTREAM\\0")
+    assert fake.sent.startswith(b"zINSTREAM\0")
     assert fake.sent.endswith((0).to_bytes(4, "big"))
 
 def test_clamav_stream_protocol_sends_length_prefixed_chunks(monkeypatch):
@@ -28,18 +28,18 @@ def test_clamav_stream_protocol_sends_length_prefixed_chunks(monkeypatch):
     fake = FakeSocket()
     monkeypatch.setattr("autoearn.evidence_scanning.socket.create_connection", lambda address, timeout: fake)
     assert scan_bytes(payload) == "stream: OK"
-    wire = bytes(fake.sent)[len(b"zINSTREAM\\0"): ]
+    wire = bytes(fake.sent)[len(b"zINSTREAM\0"): ]
     first_length = int.from_bytes(wire[:4], "big")
     assert first_length == evidence_scanning.CHUNK_BYTES
     second_offset = 4 + first_length
     assert int.from_bytes(wire[second_offset:second_offset + 4], "big") == 3
 
 def test_clamav_positive_verdict_is_rejected(monkeypatch):
-    fake = FakeSocket(b"stream: /tmp/file: Eicar-Test-Signature FOUND\\0")
+    fake = FakeSocket(b"stream: /tmp/file: Eicar-Test-Signature FOUND\0")
     monkeypatch.setattr("autoearn.evidence_scanning.socket.create_connection", lambda address, timeout: fake)
     with pytest.raises(MalwareDetected): scan_bytes(b"malware fixture")
 
-@pytest.mark.parametrize("response", [b"", b"ERROR\\0", b"stream: OK extra\\0"])
+@pytest.mark.parametrize("response", [b"", b"ERROR\0", b"stream: OK extra\0"])
 def test_clamav_unknown_or_empty_verdict_fails_closed(monkeypatch, response):
     fake = FakeSocket(response)
     monkeypatch.setattr("autoearn.evidence_scanning.socket.create_connection", lambda address, timeout: fake)
