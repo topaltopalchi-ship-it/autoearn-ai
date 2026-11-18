@@ -73,7 +73,9 @@ def test_live_clamav_outage_rejects_evidence_upload_without_storage(tmp_path, mo
                 )},
             )
             assert upload.status_code == 503
-            assert not evidence_dir.exists()
+            # App startup may create the private directory for reconciliation;
+            # an unavailable scanner must leave it without any evidence files.
+            assert not evidence_dir.exists() or not any(evidence_dir.iterdir())
 
             listed = client.get(
                 f"/api/earnings/{earning_id}/evidence", headers=headers
