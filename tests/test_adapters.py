@@ -305,3 +305,29 @@ def test_manifest_rejects_malformed_field_types(kwargs):
     values.update(kwargs)
     with pytest.raises((ValueError, TypeError)):
         AdapterManifest(**values)
+
+
+@pytest.mark.parametrize("execution_mode", [None, [], 7])
+def test_manifest_rejects_non_string_execution_mode(execution_mode):
+    with pytest.raises(ValueError, match="execution_mode"):
+        AdapterManifest(
+            adapter_id="bad-mode-type",
+            display_name="Bad mode type",
+            categories=("other",),
+            execution_mode=execution_mode,
+            allowed_domains=("example.com",),
+        )
+
+
+def test_adapter_rejects_embedded_url_credentials_even_on_allowed_host():
+    lead = DiscoveredLead(
+        title="Credential URL",
+        url="https://attacker:secret@example.com/task",
+        category="surveys_microtasks",
+        source_name="Demo",
+        observed_at="2026-11-17T10:00:00+00:00",
+    )
+    registry = AdapterRegistry()
+    registry.register(DemoAdapter(leads=[lead]))
+    with pytest.raises(ValueError, match="credentials"):
+        registry.discover("demo")
