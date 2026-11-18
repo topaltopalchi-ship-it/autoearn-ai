@@ -2399,6 +2399,19 @@ def submit_competition_entry(competition_id: int, data: CompetitionSubmitIn,
                              actor: str = Depends(require_owner)):
     if not data.owner_confirmed:
         raise HTTPException(403, "Explicit owner confirmation is required.")
+    # Validate the request body before creating a write-ahead submission
+    # intent or consuming a durable rate-limit slot. Invalid local input is
+    # not an external attempt and must not pollute the audit history.
+    if any(not isinstance(key, str) for key in data.payload):
+        raise HTTPException(422, "Entry payload object keys must be strings.")
+    try:
+        encoded_payload = json.dumps(
+            data.payload, ensure_ascii=False, allow_nan=False, separators=(",", ":")
+        ).encode("utf-8")
+    except (TypeError, ValueError, UnicodeEncodeError, RecursionError) as exc:
+        raise HTTPException(422, "Entry payload must contain valid, bounded JSON values.") from exc
+    if len(encoded_payload) > 20000:
+        raise HTTPException(422, "Entry payload exceeds the 20000-byte limit.")
     manifest = competition_adapters.get_manifest(data.adapter_id)
     if manifest is None:
         raise HTTPException(409, "No approved official competition adapter is installed for this platform.")
