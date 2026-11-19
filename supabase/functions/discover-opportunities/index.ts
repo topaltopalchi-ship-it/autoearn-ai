@@ -130,7 +130,7 @@ Deno.serve((req: Request) => {
             terms_url: "",
             status: "discovered",
             score: 0,
-            notes: `Payout method hints: ${payoutMethods.join(", ") || "not specified"}. Payment methods are unverified. Due-diligence flags: ${reviewFlags.join(", ") || "no missing details detected by text heuristics"}. Country is not used as an AutoEarn discovery filter. Domain review flags: ${domainFlags.join(", ") || "none detected by basic heuristics"}. A clean flag result does not prove the site is official. Confirm the organizer, official terms, minimum withdrawal, fees, KYC and automation rules. Never deposit or pay to unlock a prize.`,
+            notes: `Payout method hints: ${payoutMethods.join(", ") || "not specified"}. Payment methods are unverified. Due-diligence flags: ${reviewFlags.join(", ") || "no missing details detected by text heuristics"}. Country is not used as an AutoEarn discovery filter. Domain review flags: ${domainFlags.join(", ") || "none detected by basic heuristics"}. A clean flag result does not prove the site is official. Confirm the organizer, official terms, minimum withdrawal, fees, KYC and automation rules. Never deposit or pay to unlock a prize.\n[DISCOVERY PROVENANCE]\n${JSON.stringify({source: "Mwmbl search", search_query: search.query, discovered_at: new Date().toISOString(), excerpt: description})}`,
           });
         }
       } catch (error) {
