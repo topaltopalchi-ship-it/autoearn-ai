@@ -19,7 +19,7 @@ let tasks = [];
 let rewards = [];
 const DISCOVERY_CATEGORIES = new Set(["game","sweepstakes","wheel","raffle","prediction","puzzle","iq-test","instant-win"]);
 const CATEGORY_LABELS = { game:"Game", sweepstakes:"Sweepstakes", wheel:"Spin wheel", raffle:"Raffle", prediction:"Prediction contest", puzzle:"Puzzle", "iq-test":"Quiz", "instant-win":"Instant win" };
-function categoryLabel(category){ return String(category||"").split(",").map(value=>value.trim()).filter(Boolean).map(value=>CATEGORY_LABELS[value]||value).join(", ") || "Other"; }
+function categoryLabel(category){ return window.AutoEarnDueDiligence?.formatCategoryLabels(category,CATEGORY_LABELS) || "Other"; }
 function discoveryProvenanceHtml(opportunity){
   const provenance=window.AutoEarnDiscoveryProvenance?.extractDiscoveryProvenance(opportunity.notes||"");
   if(!provenance)return "";
