@@ -10,7 +10,7 @@ export function normalizeDomGameMetrics(raw) {
       typeof value === "string" && /^\\d{1,12}$/.test(value.trim()) ? Number(value) : NaN;
     if (Number.isSafeInteger(number) && number >= 0) metrics[key] = number;
   }
-  return Object.keys(metrics).length ? { metrics, metricsSource: "dom-attribute" } : null;
+  return Object.keys(metrics).length ? { gameState: { metrics, metricsSource: "dom-attribute" } } : null;
 }
 
 /** Reads only explicit data-game-* attributes from exactly one marked game board. */
