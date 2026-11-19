@@ -192,6 +192,34 @@ test("guided sessions require an explicitly eligible opportunity status", () => 
   assert.equal(canStart(undefined), false);
 });
 
+
+test("guided session gate rejects malformed and structurally invalid review reports", () => {
+  const canStart = globalThis.AutoEarnDueDiligence.canStartGuidedSession;
+  const report = {
+    payment_method: "PayPal",
+    payment_confirmed: "yes",
+    minimum_withdrawal: "10 USD",
+    fees: "0%",
+    country_eligible: "yes",
+    minimum_age: "18",
+    kyc: "required",
+    free_entry: "yes",
+    automation_explicitly_allowed: "yes",
+    payout_source: "https://example.com/payout",
+    automation_source: "https://example.com/automation"
+  };
+  const opportunity = (notes, overrides = {}) => ({
+    status: "eligible",
+    terms_url: "https://example.com/terms",
+    notes: "[OWNER OFFICIAL ELIGIBILITY REVIEW]\\n" + notes,
+    ...overrides
+  });
+  for (const notes of ["{", "null", "[]", '"yes"', JSON.stringify({ ...report, kyc: "maybe" }), JSON.stringify({ ...report, payment_method: "Other / not specified" }), JSON.stringify({ ...report, minimum_age: "unknown" }), JSON.stringify({ ...report, payout_source: "http://example.com/payout" }), JSON.stringify({ ...report, automation_source: "https://localhost/rules" })]) {
+    assert.equal(canStart(opportunity(notes)), false, notes);
+  }
+  assert.equal(canStart(opportunity(JSON.stringify(report), { terms_url: "https://example.com:8443/terms" })), false);
+  assert.equal(canStart(opportunity(JSON.stringify(report), { notes: "[OWNER OFFICIAL ELIGIBILITY REVIEW]\\n" + JSON.stringify(report) + "\\ntrailing text" })), false);
+});
 test("eligible status alone cannot bypass the complete official evidence review", () => {
   const canStart = globalThis.AutoEarnDueDiligence.canStartGuidedSession;
   const valid = {
