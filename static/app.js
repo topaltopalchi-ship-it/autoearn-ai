@@ -148,10 +148,25 @@ async function setStatus(id,status){
   const {error}=await supabase.from("opportunities").update({status}).eq("id",id);
   if(error)return fail(error);await loadData();
 }
+function openRewardForOpportunity(id){
+  const opportunity=opportunities.find(item=>Number(item.id)===Number(id));
+  if(!opportunity)return toast("Opportunity not found. Refresh and try again.");
+  const form=$("reward-form");
+  form.reset();
+  $("reward-opportunity").value=String(id);
+  form.elements.status.value="pending";
+  $("reward-dialog").showModal();
+}
 function renderTasks(){
-  $("task-list").innerHTML=tasks.length?tasks.map(t=>`<div class="item"><div><h3>${esc(t.description)}</h3><p>${esc(t.opportunities?.title||"Opportunity")} · ${esc(t.opportunities?.platform||"")} · ${esc(t.status)}</p></div><div class="item-actions">${t.status==="pending_approval"?'<button class="primary" data-approve="'+t.id+'">Approve task</button>':''}${t.status==="approved"?'<button class="secondary" data-complete="'+t.id+'">Mark completed</button>':''}</div></div>`).join(""):'<div class="empty">No tasks yet. Create a task from an opportunity.</div>';
+  $("task-list").innerHTML=tasks.length?tasks.map(t=>{
+    const completedAt=t.completed_at?new Date(t.completed_at).toLocaleString():"";
+    const dateLine=t.status==="completed"&&completedAt?"<br><strong>Completed:</strong> "+esc(completedAt):"";
+    const rewardAction=t.status==="completed"&&t.opportunity_id?'<button class="secondary" data-reward-opportunity="'+t.opportunity_id+'">Record actual reward</button>':"";
+    return `<div class="item"><div><h3>${esc(t.description)}</h3><p>${esc(t.opportunities?.title||"Opportunity")} · ${esc(t.opportunities?.platform||"")} · ${esc(t.status)}${dateLine}</p></div><div class="item-actions">${t.status==="pending_approval"?'<button class="primary" data-approve="'+t.id+'">Approve task</button>':''}${t.status==="approved"?'<button class="secondary" data-complete="'+t.id+'">Mark completed</button>':''}${rewardAction}</div></div>`;
+  }).join(""):'<div class="empty">No tasks yet. Create a task from an opportunity.</div>';
   $("task-list").querySelectorAll("[data-approve]").forEach(b=>b.onclick=async()=>{if(!confirm("Approve this task? You remain responsible for following platform rules."))return;const {error}=await supabase.from("tasks").update({status:"approved",approved_at:new Date().toISOString()}).eq("id",b.dataset.approve).eq("status","pending_approval");if(error)return fail(error);await loadData()});
   $("task-list").querySelectorAll("[data-complete]").forEach(b=>b.onclick=async()=>{const {error}=await supabase.from("tasks").update({status:"completed",completed_at:new Date().toISOString()}).eq("id",b.dataset.complete).eq("status","approved");if(error)return fail(error);await loadData()});
+  $("task-list").querySelectorAll("[data-reward-opportunity]").forEach(b=>b.onclick=()=>openRewardForOpportunity(Number(b.dataset.rewardOpportunity)));
 }
 function renderRewards(){
   const ledger=window.AutoEarnRewardLedger;
