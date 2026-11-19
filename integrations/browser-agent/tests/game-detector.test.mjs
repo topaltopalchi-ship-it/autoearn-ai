@@ -19,6 +19,12 @@ test("recognizes Connect Four only from exactly 42 uniquely indexed X/O/empty ce
   assert.equal(detectKnownGame({ gameCandidates: [{ kind: "connect-four", cells: cells.slice(1) }] }).gameType, null);
 });
 
+test("recognizes Othello only from 64 indexed cells and an explicit current player", () => {
+  const cells = Array.from({ length: 64 }, (_, index) => ({ index, mark: index === 27 || index === 36 ? "W" : index === 28 || index === 35 ? "B" : "" }));
+  assert.equal(detectKnownGame({ gameCandidates: [{ kind: "othello", cells, currentPlayer: "B" }] }).gameType, "othello");
+  assert.equal(detectKnownGame({ gameCandidates: [{ kind: "othello", cells, currentPlayer: "" }] }).gameType, null);
+});
+
 test("recognizes 2048 only from valid coordinate and power-of-two tile metadata", () => {
   const tiles = [{ x: 0, y: 0, value: 2 }, { x: 2, y: 1, value: 4 }, { x: 3, y: 3, value: 8 }];
   const result = detectKnownGame({ gameCandidates: [{ kind: "2048", boardKey: "board-b", tiles }] });
