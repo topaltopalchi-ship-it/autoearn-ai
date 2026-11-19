@@ -16,6 +16,10 @@ The web interface connects directly to Supabase Auth and the three owner-protect
 - Explainable opportunity metadata score; not a guarantee of legitimacy or payment.
 - The FastAPI host serves the static app and a health endpoint only; no unauthenticated SQLite CRUD API is exposed. User data is stored in Supabase.
 
+## Reward ledger and monthly reporting
+
+The owner-only reward ledger validates positive amounts, three-letter currency codes, and known statuses. A reward marked paid must include a transaction reference or other payment evidence. Dashboard totals keep currencies separate and distinguish paid (with a reference), confirmed, and pending amounts. Monthly history groups records by their UTC creation month and currency, showing the same status breakdown for the six most recent months with valid dates. These are manually entered records, not bank verification or proof of withdrawal; rejected records are not included in the three displayed totals.
+
 ## Supabase setup
 
 1. In Supabase Dashboard, open **Authentication → Sign In / Providers** and turn off **Allow new users to sign up**. This makes the project invite-only; existing users can still sign in.
