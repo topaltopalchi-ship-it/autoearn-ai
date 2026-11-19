@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert";
-import { candidateReviewFlags, canonicalOpportunityUrl, domainReviewFlags, evaluateCandidate, normalizePublicHttpsUrl } from "./filters.ts";
+import { candidateReviewFlags, canonicalOpportunityUrl, domainReviewFlags, evaluateCandidate, mergeDuplicateCandidates, normalizePublicHttpsUrl } from "./filters.ts";
 
 function assertRejected(url: string, title: string, description: string, reason: string) {
   const result = evaluateCandidate(url, title, description);
@@ -325,4 +325,48 @@ Deno.test("does not flag disclosed prize, payout timing, organizer and winner se
     candidateReviewFlags("Free cash prize contest", "Sponsor: Example Games. Prize is $500 USD. Winners are selected by highest score. Payment will be made within 30 days via PayPal. Minimum withdrawal is 10 USD. No withdrawal fees. No purchase necessary."),
     [],
   );
+});
+
+
+Deno.test("merges duplicate discovery URLs and preserves distinct search provenance", () => {
+  const merged = mergeDuplicateCandidates([
+    {
+      url: "https://example.com/game?utm_source=one",
+      title: "Free puzzle game",
+      reward_description: "Prize: $100. Free entry.",
+      eligibility: "Payout method hints: PayPal. Due-diligence flags: fees missing.",
+      notes: "Review the official terms.\\n[DISCOVERY PROVENANCE]\\n" + JSON.stringify({
+        source: "Mwmbl search", search_query: "free puzzle prize", discovered_at: "2026-11-19T10:00:00.000Z", excerpt: "Prize: $100.",
+      }),
+    },
+    {
+      url: "https://example.com/game?utm_source=two",
+      title: "Free puzzle game official contest",
+      reward_description: "Winners receive $100 payout within 30 days.",
+      eligibility: "Payout method hints: Skrill. Due-diligence flags: organizer missing.",
+      notes: "Other notes.\\n[DISCOVERY PROVENANCE]\\n" + JSON.stringify({
+        source: "Mwmbl search", search_query: "official contest payout", discovered_at: "2026-11-19T11:00:00.000Z", excerpt: "Payout within 30 days.",
+      }),
+    },
+  ]);
+  assertEquals(merged.length, 1);
+  assertEquals(merged[0].url, "https://example.com/game");
+  assertEquals(merged[0].title, "Free puzzle game official contest");
+  assertEquals(String(merged[0].reward_description).includes("Prize: $100."), true);
+  assertEquals(String(merged[0].reward_description).includes("Winners receive $100 payout"), true);
+  assertEquals(String(merged[0].eligibility).includes("PayPal"), true);
+  assertEquals(String(merged[0].eligibility).includes("Skrill"), true);
+  const notes = String(merged[0].notes);
+  const provenance = JSON.parse(notes.split("[DISCOVERY PROVENANCE]\\n")[1]);
+  assertEquals(provenance.search_query, "free puzzle prize | official contest payout");
+  assertEquals(provenance.excerpt.includes("Prize: $100."), true);
+  assertEquals(provenance.excerpt.includes("Payout within 30 days."), true);
+});
+
+Deno.test("does not merge candidates with different functional URL parameters", () => {
+  const merged = mergeDuplicateCandidates([
+    { url: "https://example.com/game?level=1", title: "Level one" },
+    { url: "https://example.com/game?level=2", title: "Level two" },
+  ]);
+  assertEquals(merged.length, 2);
 });
