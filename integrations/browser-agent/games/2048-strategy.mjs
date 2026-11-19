@@ -112,6 +112,7 @@ export function evaluate2048Board(board) {
     let increasing = 0, decreasing = 0;
     for (let y = 0; y < SIZE - 1; y++) {
       const diff = values[y][x] - values[y + 1][x];
+      smoothness -= Math.abs(diff);
       if (diff > 0) decreasing -= diff;
       else increasing += diff;
     }
@@ -120,7 +121,7 @@ export function evaluate2048Board(board) {
   const maximum = Math.max(...board.flat());
   const corners = [board[0][0], board[0][3], board[3][0], board[3][3]];
   const cornerBonus = corners.includes(maximum) ? logTile(maximum) * 18 : 0;
-  const snakeBonus = snakePositionScore(board) * 7;
+  const snakeBonus = snakePositionScore(board) * 1;
   return empty * 270 + smoothness * 11 + monotonicity * 45 + cornerBonus + snakeBonus;
 }
 
