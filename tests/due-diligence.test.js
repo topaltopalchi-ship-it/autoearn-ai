@@ -220,7 +220,7 @@ test("guided session gate rejects malformed and structurally invalid review repo
   assert.equal(canStart(opportunity(JSON.stringify(report), { terms_url: "https://example.com:8443/terms" })), false);
   assert.equal(canStart(opportunity(JSON.stringify(report), { notes: "[OWNER OFFICIAL ELIGIBILITY REVIEW]\n" + JSON.stringify(report) + "\ntrailing text" })), false);
 });
-test("eligible status alone cannot bypass the complete official evidence review", () => {
+test("owner self-attestation and valid HTTPS links never count as independent verification", () => {
   const canStart = globalThis.AutoEarnDueDiligence.canStartGuidedSession;
   const valid = {
     status: "eligible",
@@ -243,5 +243,5 @@ test("eligible status alone cannot bypass the complete official evidence review"
   assert.equal(canStart({ ...valid, notes: valid.notes.replace(/("fees"\s*:\s*)"0%"/, '$1"Not stated"') }), false);
   assert.equal(canStart({ ...valid, notes: valid.notes.replace(/("automation_explicitly_allowed"\s*:\s*)"yes"/, '$1"unknown"') }), false);
   assert.equal(canStart({ ...valid, terms_url: "javascript:alert(1)" }), false);
-  assert.equal(canStart(valid), true);
+  assert.equal(canStart(valid), false);
 });
