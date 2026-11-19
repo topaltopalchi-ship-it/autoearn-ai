@@ -98,3 +98,7 @@ Each expectimax decision now has a hard default cap of 25,000 expanded search no
 ### Paired 2048 heuristic comparison (experimental)
 
 Run `node integrations/browser-agent/games/run-2048-heuristic-comparison.mjs` to compare the classic heuristic (snake weight 0) with the current snake-ordering heuristic (snake weight 1). Both variants use identical deterministic episode seeds, the same expectimax depth, and the same move cap. The report includes average/median score, average maximum tile, 2048 completions, game overs, paired score wins/ties/losses, average paired score and tile deltas, and a deterministic 1,000-resample bootstrap interval. This isolates the snake bonus while retaining the same other evaluation terms. It is synthetic local evidence only—not a live-site win rate, guarantee, or earnings claim.
+
+### Paired 2048 heuristic-weight experiment (experimental)
+
+Run `node integrations/browser-agent/games/run-2048-heuristic-comparison.mjs` to compare the classic evaluation (snake weight 0) against the current snake-position term (weight 1). Both variants use the same deterministic episode seeds, expectimax depth, and move limit. The report includes per-variant score/tile/outcome summaries and paired score deltas with a deterministic bootstrap interval. The runner currently defaults to 10 paired episodes at depth 2. These are synthetic local-game measurements only; do not interpret them as third-party win rates or expected earnings.
