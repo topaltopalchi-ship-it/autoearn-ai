@@ -7,6 +7,7 @@ import { discoverGameInstructions } from "./game-instruction-discovery.mjs";
 import { createGameExperienceMemory } from "./game-experience-memory.mjs";
 import { recordVerifiedExperience } from "./experience-verification.mjs";
 import { readSafeGameCells, clickSafeGameCell } from "./game-cell-browser-adapter.mjs";
+import { detectGameOutcome } from "./game-outcome-detector.mjs";
 
 const gameUrl = process.env.AUTOEARN_GAME_URL;
 const approvedOrigins = new Set(String(process.env.AUTOEARN_ALLOWED_ORIGINS || "")
@@ -88,6 +89,15 @@ async function main() {
         const screenshot = await page.screenshot({ type: "jpeg", quality: 65, fullPage: false, timeout: 5_000 });
         const screenshotData = "data:image/jpeg;base64," + screenshot.toString("base64");
         const gameState = await perceive({ screenshot: screenshotData, title, text: visibleText });
+        const outcomeMarkers = await page.locator("[data-game-outcome], [data-game-status]").evaluateAll(elements =>
+          elements.slice(0, 10).map(element => ({
+            outcome: element.getAttribute("data-game-outcome") || "",
+            status: element.getAttribute("data-game-status") || ""
+          }))
+        ).catch(() => []);
+        const domOutcome = outcomeMarkers.map(marker => detectGameOutcome({
+          outcomeAttribute: marker.outcome, statusAttribute: marker.status
+        })).find(result => result.outcome !== "unknown") || detectGameOutcome({ bodyText: visibleText });
         if (gameState.scene === "verification") {
           throw new Error("Local visual model detected a verification gate. Human action is required; no bypass was attempted.");
         }
@@ -103,6 +113,8 @@ async function main() {
               "\\nControls: " + extractedRules.controls.map(item => item.input + " = " + item.actionFa).join("; ") : "")).slice(0, 5_000),
           gameState: extractedRules ? {
             ...gameState,
+            outcome: domOutcome.outcome,
+            outcomeSource: domOutcome.source,
             objective: extractedRules.objectiveFa,
             stateSummary: gameState.stateSummary,
             rules: {
@@ -112,7 +124,7 @@ async function main() {
               winConditionFa: extractedRules.winConditionFa,
               loseConditionFa: extractedRules.loseConditionFa
             }
-          } : gameState,
+          } : { ...gameState, outcome: domOutcome.outcome, outcomeSource: domOutcome.source },
           rules: extractedRules,
           clickTargets: await readSafeGameCells(page),
           screenshot: screenshotData
