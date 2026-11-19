@@ -7,6 +7,7 @@ const empty = () => Array.from({ length: 6 }, () => Array(7).fill(""));
 test("Connect Four takes an immediate winning move", () => {
   const board = empty();
   for (let c = 0; c < 3; c++) board[5][c] = "X";
+  for (let c = 4; c < 7; c++) board[5][c] = "O";
   assert.deepEqual(chooseConnectFourMove(board, { player: "X" }), {
     type: "drop-column", column: 3, index: 38
   });
@@ -15,6 +16,8 @@ test("Connect Four takes an immediate winning move", () => {
 test("Connect Four blocks an opponent's immediate horizontal win", () => {
   const board = empty();
   for (let c = 0; c < 3; c++) board[5][c] = "O";
+  board[5][4] = board[5][5] = board[5][6] = "X";
+  board[4][4] = "X";
   const move = chooseConnectFourMove(board, { player: "X" });
   assert.equal(move.column, 3);
 });
@@ -28,7 +31,7 @@ test("Connect Four detects win, draw and invalid board shapes", () => {
   for (let c = 0; c < 4; c++) won[5][c] = "X";
   assert.equal(getConnectFourOutcome(won), "X");
   const draw = [
-    "OOXOOOX", "OXOOXXO", "XOXXOXX", "XOOOXOO", "XOXXXOX", "OXOOOXO"
+    "XXXOOOX", "OXOOXXO", "XOXXOXX", "XOOOXOO", "XOXXXOX", "OXOOOXO"
   ].map(row => row.split(""));
   assert.equal(getConnectFourOutcome(draw), "draw");
   assert.throws(() => chooseConnectFourMove([[ "X" ]]), /42 valid/);
