@@ -1,3 +1,4 @@
+import { readDomGameMetrics } from "./dom-game-metrics.mjs";
 import { collectNavigationTargets, isSafeNavigationTarget } from "./site-navigation.mjs";
 
 const ALLOWED_KEYS = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "Space", "Escape"]);
@@ -13,7 +14,8 @@ export function createPlaywrightGameAdapter(page, { isTerminal = () => false } =
       const snapshot = await page.locator("body").ariaSnapshot().catch(() => "");
       const origin = new URL(page.url()).origin;
       const navigationTargets = await collectNavigationTargets(page, origin).catch(() => []);
-      return { title, url: page.url(), snapshot: snapshot.slice(0, 18_000), navigationTargets };
+      const gameMetrics = await readDomGameMetrics(page).catch(() => null);
+      return { title, url: page.url(), snapshot: snapshot.slice(0, 18_000), navigationTargets, ...(gameMetrics || {}) };
     },
 
     async execute(action) {
