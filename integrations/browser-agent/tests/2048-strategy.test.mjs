@@ -188,4 +188,9 @@ test("shares the node allowance fairly across all legal root moves", () => {
   assert.equal(move.searchStats.perMoveNodeBudget,
     Math.floor(100 / move.searchStats.rootMovesEvaluated));
   assert.ok(move.searchStats.nodesVisited <= 100);
+  assert.equal(move.searchStats.perRootMoveStats.length, move.searchStats.rootMovesEvaluated);
+  assert.ok(move.searchStats.perRootMoveStats.every(item =>
+    item.nodeBudget === move.searchStats.perMoveNodeBudget &&
+    item.nodesVisited <= item.nodeBudget
+  ));
 });
