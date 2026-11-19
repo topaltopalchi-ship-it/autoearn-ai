@@ -170,15 +170,19 @@ Deno.serve((req: Request) => {
         .filter((url): url is string => Boolean(url)),
     );
     const unseen = unique.filter((row) => !existingKeys.has(String(row.url)));
-    const duplicates = unique.length - unseen.length;
+    const alreadySaved = unique.length - unseen.length;
+    const duplicatesWithinBatch = acceptedCandidates - unique.length;
+    const duplicates = alreadySaved + duplicatesWithinBatch;
 
     if (!unseen.length) {
       return json({
         saved: 0,
         scanned: unique.length,
         duplicates,
+        duplicates_within_batch: duplicatesWithinBatch,
+        already_saved: alreadySaved,
         ...diagnostics,
-        message: "All discovered candidates already exist in your list.",
+        message: "All discovered candidates already exist in your list; existing owner reviews were left unchanged.",
       });
     }
 
@@ -192,6 +196,8 @@ Deno.serve((req: Request) => {
       saved: data?.length || 0,
       scanned: unique.length,
       duplicates,
+      duplicates_within_batch: duplicatesWithinBatch,
+      already_saved: alreadySaved,
       ...diagnostics,
       categories: [...new Set(SEARCHES.map((item) => item.category))],
       message: "Candidates saved for your review. They are not verified offers.",
