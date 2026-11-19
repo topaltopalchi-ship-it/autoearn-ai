@@ -45,15 +45,16 @@ Deno.test("accepts a free spin wheel with a cash prize and payout", () => {
   });
 });
 Deno.test("accepts a free raffle with a prize draw and card payout", () => {
-  const result = evaluateCandidate("https://example.com/raffle", "Free raffle prize draw win a car", "Free entry, no purchase required. Prize paid to winners by bank card.");
+  const result = evaluateCandidate("https://example.com/raffle", "Free raffle prize draw cash prize", "Free entry, no purchase required. Prize paid to winners by bank card.");
   if (!result.accepted) throw new Error(`Expected free raffle to be accepted, got: ${result.reason}`);
   assertEquals(result.payoutMethods, ["Bank card"]);
   assertEquals(result.url, "https://example.com/raffle");
 });
-Deno.test("accepts a free sweepstakes with a gift card prize", () => {
-  assertEquals(evaluateCandidate("https://example.com/sweepstakes", "Free sweepstakes win a gift card", "No purchase necessary. Prize payout is delivered by Visa gift card."), {
-    accepted: true, url: "https://example.com/sweepstakes", payoutMethods: ["Bank card"],
-  });
+Deno.test("rejects a free sweepstakes whose only prize is a gift card", () => {
+  assertRejected("https://example.com/sweepstakes", "Free sweepstakes win a gift card", "No purchase necessary. Prize payout is delivered by Visa gift card.", "missing_reward_evidence");
+});
+Deno.test("rejects a free draw whose only prize is physical merchandise", () => {
+  assertRejected("https://example.com/draw", "Free prize draw win a phone", "No purchase necessary. Winner receives a new phone delivered by courier.", "missing_reward_evidence");
 });
 Deno.test("rejects a paid raffle with no free entry route", () => {
   assertRejected("https://example.com/raffle", "Paid raffle win a car", "Buy a ticket, entry fee required. Prize paid by bank transfer.", "excluded_category");
@@ -100,7 +101,7 @@ Deno.test("rejects a paid lottery ticket that requires payment", () => {
 });
 
 Deno.test("keeps a free raffle with official no-purchase language eligible for review", () => {
-  const result = evaluateCandidate("https://example.com/free-raffle", "Free raffle prize draw win a car", "No purchase necessary. Free entry. Winners receive prize payout by bank transfer.");
+  const result = evaluateCandidate("https://example.com/free-raffle", "Free raffle prize draw cash prize", "No purchase necessary. Free entry. Winners receive prize payout by bank transfer.");
   if (!result.accepted) throw new Error(`Expected free raffle to remain a candidate, got: ${result.reason}`);
 });
 
