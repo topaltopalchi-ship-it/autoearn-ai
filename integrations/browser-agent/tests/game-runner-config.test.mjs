@@ -16,7 +16,7 @@ test("requires an explicit X/O choice before tic-tac-toe play", () => {
   });
 });
 
-test("refuses missing, unknown, and ambiguous detections", () => {
+test("dispatches Connect Four only with an explicit player and column-only actions", () => {\n  assert.equal(resolveDetectedGame({ gameType: "connect-four" }).ok, false);\n  assert.deepEqual(resolveDetectedGame({ gameType: "connect-four" }, "o"), {\n    ok: true, gameType: "connect-four", adapter: "connect-four", player: "O",\n    allowedActions: ["click-column", "wait-for-turn"]\n  });\n});\n\ntest("refuses missing, unknown, and ambiguous detections", () => {
   assert.equal(resolveDetectedGame(null).ok, false);
   assert.equal(resolveDetectedGame({ gameType: null, reason: "ambiguous_game_candidates" }).reason,
     "ambiguous_game_candidates");
