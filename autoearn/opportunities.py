@@ -50,14 +50,13 @@ class Opportunity:
     reward_clarity: int = 0
     terms_clarity: int = 0
     source_trust: int = 0
-    region_fit: int = 0
     effort_fit: int = 0
 
     def __post_init__(self) -> None:
         if not self.title.strip():
             raise ValueError("title is required")
         normalize_url(self.url)
-        for field in ("reward_clarity", "terms_clarity", "source_trust", "region_fit", "effort_fit"):
+        for field in ("reward_clarity", "terms_clarity", "source_trust", "effort_fit"):
             value = getattr(self, field)
             if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 100:
                 raise ValueError(f"{field} must be an integer from 0 to 100")
@@ -66,10 +65,9 @@ class Opportunity:
 def score_opportunity(opportunity: Opportunity) -> dict[str, object]:
     """Return a transparent weighted score and reasons for the supplied metadata."""
     weights = {
-        "reward_clarity": 0.25,
-        "terms_clarity": 0.25,
-        "source_trust": 0.30,
-        "region_fit": 0.10,
+        "reward_clarity": 0.28,
+        "terms_clarity": 0.28,
+        "source_trust": 0.34,
         "effort_fit": 0.10,
     }
     values = {name: getattr(opportunity, name) for name in weights}
