@@ -29,6 +29,7 @@ test("Connect Four prefers the center on an empty board", () => {
 test("Connect Four detects win, draw and invalid board shapes", () => {
   const won = empty();
   for (let c = 0; c < 4; c++) won[5][c] = "X";
+  for (let c = 4; c < 7; c++) won[5][c] = "O";
   assert.equal(getConnectFourOutcome(won), "X");
   const draw = [
     "XXXOOOX", "OXOOXXO", "XOXXOXX", "XOOOXOO", "XOXXXOX", "OXOOOXO"
