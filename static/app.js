@@ -29,6 +29,8 @@ function eligibilityReviewHtml(opportunity){
   const dueFlags=window.AutoEarnDueDiligence.extractReviewFlags(notes);
   const evidence=window.AutoEarnDueDiligence.calculateEvidenceCompleteness(notes,opportunity.terms_url);
   let html=esc(base);
+  html+="<br><strong>Organizer identity:</strong> Not independently verified.";
+  html+="<br><strong>Official terms:</strong> Not independently verified; a URL alone is not proof.";
   if(dueFlags)html+="<br><strong>Review alerts:</strong> "+esc(dueFlags.replaceAll("_"," "));
   if(evidence)html+="<br><strong>Evidence completeness (text heuristic):</strong> "+evidence.score+"/100 · Not a legitimacy or payout guarantee.";
   if(index<0)return html;
