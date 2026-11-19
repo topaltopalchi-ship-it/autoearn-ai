@@ -29,6 +29,7 @@ registerGameStrategy("2048", async state => {
 
 registerGameStrategy("tic-tac-toe", async state => {
   if (!Array.isArray(state.board)) return null;
+  if (state.agentPlayer && state.currentPlayer !== state.agentPlayer) return null;
   const outcome = getTicTacToeOutcome(state.board);
   if (outcome !== "playing") return null;
   const move = chooseTicTacToeMove(state.board, { player: state.player });
