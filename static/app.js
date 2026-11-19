@@ -25,11 +25,14 @@ function eligibilityReviewHtml(opportunity){
   const marker="[OWNER OFFICIAL ELIGIBILITY REVIEW]";
   const notes=String(opportunity.notes||"");
   const index=notes.lastIndexOf(marker);
-  if(index<0)return esc(base);
+  const dueMatch=notes.match(/Due-diligence flags: ([^.]+)\\./);
+  let html=esc(base);
+  if(dueMatch)html+="<br><strong>Review alerts:</strong> "+esc(dueMatch[1].replaceAll("_"," "));
+  if(index<0)return html;
   try{
     const report=JSON.parse(notes.slice(index+marker.length).trim());
     const yesNo=value=>value==="yes"?"Yes":value==="no"?"No":value||"Not stated";
-    const automation=report.automation_explicitly_allowed=== "yes"?"Explicitly permitted":report.automation_explicitly_allowed==="no"?"Prohibited":"Unclear / not stated";
+    const automation=report.automation_explicitly_allowed==="yes"?"Explicitly permitted":report.automation_explicitly_allowed==="no"?"Prohibited":"Unclear / not stated";
     const details=[
       "Confirmed payment method: "+(report.payment_method||"Not stated"),
       "Official payout confirmation: "+yesNo(report.payment_confirmed),
@@ -39,8 +42,8 @@ function eligibilityReviewHtml(opportunity){
       "Free entry / no deposit: "+yesNo(report.free_entry),
       "Automated gameplay: "+automation
     ];
-    return esc(base)+"<br><strong>Owner's official review:</strong> "+details.map(esc).join(" · ");
-  }catch(_){return esc(base);}
+    return html+"<br><strong>Owner's official review:</strong> "+details.map(esc).join(" · ");
+  }catch(_){return html;}
 }
 
 const money = (n,c="USD") => new Intl.NumberFormat(undefined,{style:"currency",currency:c}).format(Number(n||0));
