@@ -252,4 +252,4 @@ Run the paired local comparison with 20 episodes per variant by default (40 simu
 node games/run-2048-heuristic-comparison.mjs
 ```
 
-Optional bounded settings are `AUTOEARN_2048_SEED` (0..4294967295, default 2048), `AUTOEARN_2048_EPISODES` (2..20, default 20), `AUTOEARN_2048_DEPTH` (1..3, default 2), and `AUTOEARN_2048_MAX_MOVES` (1..1000, default 500). The JSON report includes paired score and maximum-tile outcomes, 2048 completions, move-limit stops, and a deterministic bootstrap interval. This is a local synthetic benchmark only; it does not establish real-site win rates, reward eligibility, or earnings.
+Optional bounded settings are `AUTOEARN_2048_SEED` (0..4294967295, default 2048), `AUTOEARN_2048_EPISODES` (2..20, default 20), `AUTOEARN_2048_DEPTH` (1..3, default 2), `AUTOEARN_2048_MAX_MOVES` (1..1000, default 500), and `AUTOEARN_2048_SNAKE_WEIGHT` (0..2, default 1). The JSON report includes paired score and maximum-tile outcomes, 2048 completions, move-limit stops, and a deterministic bootstrap interval. This is a local synthetic benchmark only; it does not establish real-site win rates, reward eligibility, or earnings.
