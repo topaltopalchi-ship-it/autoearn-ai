@@ -15,7 +15,7 @@ function makeElement(index, { label = "", hidden = false, nestedInteractive = fa
     hasAttribute: () => false,
     closest: selector => nestedInteractive && selector.includes("button") ? parent : null,
     getBoundingClientRect: () => ({ width: hidden ? 0 : 30, height: hidden ? 0 : 30 }),
-    getComputedStyle: () => ({ display: hidden ? "none" : "block", visibility: "visible" })
+    style: { display: hidden ? "none" : "block", visibility: "visible" }
   };
 }
 
