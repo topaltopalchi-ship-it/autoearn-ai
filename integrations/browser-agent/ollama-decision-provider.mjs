@@ -1,6 +1,6 @@
 const DEFAULT_KEYS = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "Escape", " "]);
 
-function parseAction(text, allowCellClicks = false) {
+function parseAction(text, allowCellClicks = false, allowCanvasClicks = false) {
   let parsed;
   try {
     const cleaned = String(text || "").trim().replace(/^`{3}(?:json)?\s*/i, "").replace(/\s*`{3}$/i, "");
@@ -78,7 +78,7 @@ export function createOllamaGameDecision({
       "Allowed keys: " + [...keys].join(", "),
       "If the game is unclear, blocked, requests CAPTCHA/verification, or no safe move is evident, return {\"action\":\"stop\"}.",
       "Owner-rated experience hints for this exact state (not guarantees; do not blindly follow): " + JSON.stringify(memoryHints),
-      "If clickTargets are provided, only those numbered targets are eligible for click-cell actions; use the screenshot to choose the matching visible cell, and stop if mapping is uncertain.",
+      "If clickTargets are provided, only those numbered targets are eligible for click-cell actions; use the screenshot to choose the matching visible cell, and stop if mapping is uncertain.",\n      "For canvas clicks, choose a normalized point strictly inside a visible game canvas; if the game target cannot be located confidently, stop.");
       "Observation JSON: " + JSON.stringify(snapshot)
     ].join("\n");
     calls++;
@@ -98,7 +98,7 @@ export function createOllamaGameDecision({
       });
       if (!response.ok) throw new Error(`Local Ollama request failed (HTTP ${response.status}).`);
       const payload = await response.json();
-      const action = parseAction(payload?.message?.content, allowCellClicks);
+      const action = parseAction(payload?.message?.content, allowCellClicks, allowCanvasClicks);
       if (action?.type === "press" && !keys.has(action.key)) throw new Error("Local model selected a key outside the configured allowlist.");
       return action;
     } finally {
