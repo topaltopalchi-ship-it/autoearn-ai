@@ -1,5 +1,5 @@
 const HELP_LABEL = /\b(help|instructions?|rules?|how to play|game guide|guide|tutorial|faq)\b|راهنما|قوانین|چطور بازی|آموزش|دستورالعمل/i;
-const HELP_PATH = /(?:^|\/)(?:help|rules?|instructions?|guide|tutorial|how-to|faq|راهنما|قوانین|آموزش)(?:\/|$)/i;
+const HELP_PATH = /(?:^|\/)(?:help|rules?|instructions?|guide|tutorial|how-to|faq|manual|راهنما|قوانین|آموزش)(?:\/|$)/i;
 const SENSITIVE_PATH = /(?:logout|log-out|delete|remove|claim|checkout|purchase|deposit|withdraw|payment|submit|login|signin|sign-in|register|signup|sign-up|start-game|play-now)/i;
 const VERIFICATION = /captcha|are you human|verify you are human|robot check|security challenge|cloudflare turnstile|hcaptcha|recaptcha|تأیید انسان|کد امنیتی/i;
 
