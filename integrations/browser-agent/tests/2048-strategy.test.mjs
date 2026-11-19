@@ -227,3 +227,20 @@ test("snake positional preference distinguishes orderly high-tile rows", async (
   ];
   assert.ok(evaluate2048Board(orderly) > evaluate2048Board(scrambled));
 });
+
+test("paired heuristic comparison is reproducible and reports both variants", async () => {
+  const { compare2048HeuristicWeights } = await import("../games/2048-episode-simulator.mjs");
+  const options = { seed: 731, episodes: 2, depth: 1, maxMoves: 80 };
+  const first = compare2048HeuristicWeights(options);
+  const second = compare2048HeuristicWeights(options);
+  assert.deepEqual(first, second);
+  assert.deepEqual(first.variants.map(item => item.variant), ["classic-no-snake", "snake-weight-1"]);
+  assert.equal(first.paired.scoreWins + first.paired.scoreTies + first.paired.scoreLosses, 2);
+  assert.equal(first.paired.scoreDeltaBootstrap95.samples, 1000);
+});
+
+test("paired heuristic comparison rejects invalid experiment sizes", async () => {
+  const { compare2048HeuristicWeights } = await import("../games/2048-episode-simulator.mjs");
+  assert.throws(() => compare2048HeuristicWeights({ episodes: 1 }), /episodes/);
+  assert.throws(() => compare2048HeuristicWeights({ depth: 4 }), /depth/);
+});
