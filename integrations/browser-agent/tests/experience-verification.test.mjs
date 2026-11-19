@@ -24,7 +24,10 @@ test("records the exact allowlisted action only after a meaningful state change"
     gameType: "puzzle", stateSummary: "board A", objective: "score",
     action: { type: "press", key: "ArrowRight" }
   }]);
-  assert.deepEqual(pending, [{ id: "exp-1", gameType: "puzzle", actionKey: "ArrowRight" }]);
+  assert.deepEqual(pending, [{
+    id: "exp-1", gameType: "puzzle", actionKey: "ArrowRight",
+    progress: { reward: 0, feedback: "neutral", confidence: 0, signals: [] }
+  }]);
 });
 
 test("does not treat screenshot animation alone as a verified state change", async () => {
@@ -68,7 +71,10 @@ test("records a verified indexed game-cell click for owner feedback", async () =
     before, action: { type: "click-cell", index: 4 }, after
   }), true);
   assert.deepEqual(calls, [{ gameType: "memory", stateSummary: "two covered cards", objective: "", action: { type: "click-cell", index: 4 } }]);
-  assert.deepEqual(pending, [{ id: "cell-exp-1", gameType: "memory", actionKey: "click-cell:4" }]);
+  assert.deepEqual(pending, [{
+    id: "cell-exp-1", gameType: "memory", actionKey: "click-cell:4",
+    progress: { reward: 0, feedback: "neutral", confidence: 0, signals: [] }
+  }]);
 });
 
 
@@ -83,7 +89,10 @@ test("records a confident canvas click only after a meaningful game-state change
   assert.deepEqual(calls, [{
     gameType: "canvas-puzzle", stateSummary: "target-left", objective: "hit target", action
   }]);
-  assert.deepEqual(pending, [{ id: "canvas-exp-1", gameType: "canvas-puzzle", actionKey: "click-canvas:1:2" }]);
+  assert.deepEqual(pending, [{
+    id: "canvas-exp-1", gameType: "canvas-puzzle", actionKey: "click-canvas:1:2",
+    progress: { reward: 0, feedback: "neutral", confidence: 0, signals: [] }
+  }]);
 });
 
 test("does not remember low-confidence canvas clicks", async () => {
