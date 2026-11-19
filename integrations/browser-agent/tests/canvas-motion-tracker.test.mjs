@@ -11,7 +11,7 @@ test("estimates short-horizon hazard motion from consecutive observations", () =
   ], 1500);
   assert.equal(result.horizonMs, 500);
   assert.equal(result.tracks[0].moving, true);
-  assert.equal(result.tracks[0].velocityX, 0.2);
+  assert.ok(Math.abs(result.tracks[0].velocityX - 0.2) < 1e-9);
   assert.equal(result.predictedHazards.length, 1);
   assert.ok(Math.abs(result.predictedHazards[0].x - 0.3) < 1e-9);
 });
