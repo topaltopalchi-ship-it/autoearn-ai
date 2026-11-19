@@ -48,6 +48,10 @@ function boundedString(value, max) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
 
+function supportedKeyboardInput(input) {
+  return /arrow|left|right|up|down|کلیدهای? جهت|جهت[\s‌-]*ها|space|enter|escape|کلید فاصله|اینتر|اسکیپ/i.test(input);
+}
+
 function parseRules(content) {
   let value;
   try { value = JSON.parse(String(content || "").trim()); }
@@ -63,7 +67,7 @@ function parseRules(content) {
     ? value.controls.slice(0, 12).map(item => ({
       input: boundedString(item?.input, 60),
       actionFa: boundedString(item?.actionFa, 180)
-    })).filter(item => item.input && item.actionFa)
+    })).filter(item => item.input && item.actionFa && supportedKeyboardInput(item.input))
     : [];
   const list = key => Array.isArray(value[key])
     ? value[key].filter(item => typeof item === "string").slice(0, 12).map(item => item.slice(0, 180))
