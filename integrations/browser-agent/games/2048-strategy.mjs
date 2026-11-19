@@ -165,12 +165,24 @@ export function choose2048Move(board, { depth = 3, maxNodes = 25000 } = {}) {
   }
   const moves = legalMoves(board);
   if (!moves.length) return null;
-  const cache = new Map();
-  const budget = { maxNodes, nodesVisited: 0, cacheHits: 0, budgetExhausted: false };
+  const perMoveNodeBudget = Math.max(1, Math.floor(maxNodes / moves.length));
+  const aggregateStats = { nodesVisited: 0, cacheHits: 0, budgetExhausted: false };
   let best = null;
   for (const move of moves) {
+    // Give every legal root action its own equal budget so early directions
+    // cannot consume the search allowance and bias later alternatives.
+    const cache = new Map();
+    const budget = {
+      maxNodes: perMoveNodeBudget,
+      nodesVisited: 0,
+      cacheHits: 0,
+      budgetExhausted: false
+    };
     const score = move.result.gained * 0.08 +
       expectimaxChance(move.result.board, depth - 1, cache, budget);
+    aggregateStats.nodesVisited += budget.nodesVisited;
+    aggregateStats.cacheHits += budget.cacheHits;
+    aggregateStats.budgetExhausted ||= budget.budgetExhausted;
     if (!best || score > best.score) {
       best = {
         type: "press",
@@ -182,10 +194,10 @@ export function choose2048Move(board, { depth = 3, maxNodes = 25000 } = {}) {
     }
   }
   best.searchStats = {
-    nodesVisited: budget.nodesVisited,
-    cacheHits: budget.cacheHits,
-    budgetExhausted: budget.budgetExhausted,
-    maxNodes
+    ...aggregateStats,
+    maxNodes,
+    perMoveNodeBudget,
+    rootMovesEvaluated: moves.length
   };
   return best;
 }
