@@ -82,7 +82,7 @@ function valid2048Tiles(tiles) {
     const key = x + "," + y;
     if (!Number.isInteger(x) || x < 0 || x > 3 || !Number.isInteger(y) || y < 0 || y > 3 ||
         coordinates.has(key) || !Number.isSafeInteger(value) || value < 2 ||
-        (value & (value - 1)) !== 0) return false;
+        !Number.isInteger(Math.log2(value))) return false;
     coordinates.add(key);
   }
   return true;
