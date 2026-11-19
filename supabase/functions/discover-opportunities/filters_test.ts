@@ -368,6 +368,17 @@ Deno.test("merges duplicate discovery URLs and preserves distinct search provena
   assertEquals(provenance.excerpt.includes("Payout within 30 days."), true);
 });
 
+Deno.test("ignores invalid candidate URLs and preserves notes with malformed provenance", () => {
+  const merged = mergeDuplicateCandidates([
+    { url: "javascript:alert(1)", title: "Unsafe URL", notes: "must be discarded" },
+    { url: "https://example.com/safe", title: "Safe candidate", notes: "Owner note.\\n[DISCOVERY PROVENANCE]\\n{not-json}" },
+  ]);
+  assertEquals(merged.length, 1);
+  assertEquals(merged[0].url, "https://example.com/safe");
+  assertEquals(String(merged[0].notes).includes("Owner note."), true);
+  assertEquals(String(merged[0].notes).includes("{not-json}"), true);
+});
+
 Deno.test("does not merge candidates with different functional URL parameters", () => {
   const merged = mergeDuplicateCandidates([
     { url: "https://example.com/game?level=1", title: "Level one" },
