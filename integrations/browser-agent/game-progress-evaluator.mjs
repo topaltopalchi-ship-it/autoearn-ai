@@ -69,6 +69,27 @@ export function evaluateGameProgress(before, after) {
     signals.push("moved-away-from-hazard");
   }
 
+  // Numeric metrics are trusted only when explicitly sourced from DOM attributes.
+  const oldMetrics = before?.gameState?.metrics;
+  const newMetrics = after?.gameState?.metrics;
+  const trustedMetrics = before?.gameState?.metricsSource === "dom-attribute" &&
+    after?.gameState?.metricsSource === "dom-attribute" &&
+    oldMetrics && newMetrics && typeof oldMetrics === "object" && typeof newMetrics === "object";
+  if (trustedMetrics) {
+    for (const [key, direction, signal] of [
+      ["score", 1, "score-increased"],
+      ["level", 1, "level-increased"],
+      ["lives", 1, "lives-increased"],
+      ["mistakes", -1, "mistakes-decreased"]
+    ]) {
+      const oldValue = oldMetrics[key], newValue = newMetrics[key];
+      if (!Number.isFinite(oldValue) || !Number.isFinite(newValue) || oldValue === newValue) continue;
+      const improved = (newValue - oldValue) * direction > 0;
+      reward += improved ? 1 : -1;
+      signals.push(improved ? signal : signal.replace("increased", "decreased").replace("decreased", "increased"));
+    }
+  }
+
   const feedback = reward >= 1 ? "good" : reward <= -1 ? "bad" : "neutral";
   return {
     reward,
