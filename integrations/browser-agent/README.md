@@ -199,7 +199,7 @@ npm run play:auto
 
 ## Othello browser runner
 
-The combined `npm run play:auto` runner also supports Othello/Reversi when the page exposes exactly 64 indexed `[data-game-cell][data-game-cell-index]` cells inside one `[data-game-board]` and an explicit `data-current-player="B|W"` (or BLACK/WHITE) attribute. Cells must expose B/W or BLACK/WHITE marks (X/O is accepted as a documented alias). The strategy computes legal captures and uses a bounded depth-3 search with corner, mobility, edge, and disc-count evaluation. It verifies the complete expected board after each placement.
+The combined `npm run play:auto` runner also supports Othello/Reversi when the page exposes exactly 64 indexed `[data-game-cell][data-game-cell-index]` cells inside one `[data-game-board]` and an explicit `data-current-player="B|W"` (or BLACK/WHITE) attribute. Cells must expose B/W or BLACK/WHITE marks (X/O is accepted as a documented alias). The strategy computes legal captures and uses a bounded depth-3 search with positional weights for corners and dangerous corner-adjacent squares, mobility scoring, and alpha-beta move ordering that explores corner moves first. The search is capped at depth 5; positional weights are heuristics, not a guarantee of winning. It verifies the complete expected board after each placement.
 
 Set `AUTOEARN_OTHELLO_PLAYER=B` or `W`. If the configured side has no legal move, the agent only passes when the page exposes one unique visible `[data-game-pass]` control; otherwise it stops rather than guessing. If neither side can move, the game is reported as finished. The site's published rules must explicitly permit automation, and all normal origin/verification/time limits still apply. No live third-party Othello site has been tested.
 
