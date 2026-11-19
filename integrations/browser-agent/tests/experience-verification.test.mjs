@@ -56,3 +56,17 @@ test("does not store non-keyboard actions while preserving successful state veri
   }), true);
   assert.equal(saved, false);
 });
+
+
+test("records a verified indexed game-cell click for owner feedback", async () => {
+  const calls = [];
+  const memory = { async recordPending(value) { calls.push(value); return "cell-exp-1"; } };
+  const pending = [];
+  const before = { snapshot: "board before", gameState: { gameType: "memory", stateSummary: "two covered cards" } };
+  const after = { snapshot: "board after", gameState: { gameType: "memory", stateSummary: "one revealed pair" } };
+  assert.equal(await recordVerifiedExperience(memory, pending, {
+    before, action: { type: "click-cell", index: 4 }, after
+  }), true);
+  assert.deepEqual(calls, [{ gameType: "memory", stateSummary: "two covered cards", objective: "", action: { type: "click-cell", index: 4 } }]);
+  assert.deepEqual(pending, [{ id: "cell-exp-1", gameType: "memory", actionKey: "click-cell:4" }]);
+});
