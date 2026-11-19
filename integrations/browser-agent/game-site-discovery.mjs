@@ -48,7 +48,7 @@ async function inspectPage(page, origin) {
   const candidates = await body.evaluate(element => {
     return Array.from(element.querySelectorAll("[data-game-board]")).slice(0, 10).map((board, index) => {
       const boardKey = board.getAttribute("data-game-board") || String(index);
-      const cells = Array.from(board.querySelectorAll("[data-index]")).map(cell => ({
+      const connectFourCells = Array.from(board.querySelectorAll("[data-game-cell][data-game-cell-index]")).map(cell => ({\n        index: cell.getAttribute("data-game-cell-index"),\n        mark: cell.getAttribute("data-mark") ?? cell.textContent\n      }));\n      const cells = Array.from(board.querySelectorAll("[data-index]")).map(cell => ({
         index: cell.getAttribute("data-index"),
         mark: cell.getAttribute("data-mark") ?? cell.textContent
       }));
