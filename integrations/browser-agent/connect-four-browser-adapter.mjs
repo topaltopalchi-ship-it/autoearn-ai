@@ -77,7 +77,7 @@ export function createConnectFourBrowserAdapter(page, {
       if (await column.count() !== 1) throw new Error("Column target must be uniquely marked with data-game-column and data-game-column-index.");
       const safe = await column.evaluate(element => {
         const rect = element.getBoundingClientRect();
-        const style = getComputedStyle(element);
+        const style = typeof getComputedStyle === "function" ? getComputedStyle(element) : (element.style || { display: "block", visibility: "visible" });
         return !element.hasAttribute("disabled") && element.getAttribute("aria-disabled") !== "true" &&
           style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
       });
