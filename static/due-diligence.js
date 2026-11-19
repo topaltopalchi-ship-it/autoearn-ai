@@ -32,8 +32,24 @@
     };
   }
 
+  function sortOpportunities(opportunities, mode = "evidence") {
+    const rows = Array.isArray(opportunities) ? [...opportunities] : [];
+    const evidenceScore = (item) =>
+      calculateEvidenceCompleteness(item?.notes, item?.terms_url)?.score ?? -1;
+    rows.sort((a, b) => {
+      if (mode === "newest") {
+        return String(b?.created_at || "").localeCompare(String(a?.created_at || ""));
+      }
+      const delta = evidenceScore(b) - evidenceScore(a);
+      if (delta !== 0) return mode === "evidence-low" ? -delta : delta;
+      return String(b?.created_at || "").localeCompare(String(a?.created_at || ""));
+    });
+    return rows;
+  }
+
   root.AutoEarnDueDiligence = Object.freeze({
     extractReviewFlags,
     calculateEvidenceCompleteness,
+    sortOpportunities,
   });
 })(globalThis);
