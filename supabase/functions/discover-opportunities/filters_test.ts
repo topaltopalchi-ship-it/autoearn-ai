@@ -371,7 +371,7 @@ Deno.test("merges duplicate discovery URLs and preserves distinct search provena
 Deno.test("ignores invalid candidate URLs and preserves notes with malformed provenance", () => {
   const merged = mergeDuplicateCandidates([
     { url: "javascript:alert(1)", title: "Unsafe URL", notes: "must be discarded" },
-    { url: "https://example.com/safe", title: "Safe candidate", notes: "Owner note.\\n[DISCOVERY PROVENANCE]\\n{not-json}" },
+    { url: "https://example.com/safe", title: "Safe candidate", notes: "Owner note.\n[DISCOVERY PROVENANCE]\n{not-json}" },
   ]);
   assertEquals(merged.length, 1);
   assertEquals(merged[0].url, "https://example.com/safe");
