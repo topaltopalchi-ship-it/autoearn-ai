@@ -70,3 +70,14 @@ test("state keys are stable and do not expose source text", () => {
   assert.match(a, /^[a-f0-9]{64}$/);
   assert.equal(a.includes("private"), false);
 });
+
+
+test("stores and rates bounded indexed cell-click experiences", async () => {
+  await withMemory(async memory => {
+    const input = { gameType: "memory", stateSummary: "two covered cards", action: { type: "click-cell", index: 4 } };
+    const id = await memory.recordPending(input);
+    await memory.rate(id, "good");
+    assert.deepEqual(await memory.getHints(input), [{ key: "click-cell:4", good: 1, bad: 0, net: 1 }]);
+    await assert.rejects(() => memory.recordPending({ ...input, action: { type: "click-cell", index: 100 } }), /allowlisted/);
+  });
+});
