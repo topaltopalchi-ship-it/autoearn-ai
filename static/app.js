@@ -102,7 +102,7 @@ function renderOpportunities(){
     const termsUrl=o.terms_url?safePublicHttpsUrl(o.terms_url):null;
     const platformLink=platformUrl?'<a href="'+esc(platformUrl)+'" target="_blank" rel="noopener noreferrer">Open platform ↗</a>':'<span>Platform link unavailable (invalid HTTPS URL)</span>';
     const termsLink=termsUrl?' · <a href="'+esc(termsUrl)+'" target="_blank" rel="noopener noreferrer">Terms ↗</a>':'';
-    return `<div class="item"><div><h3>${esc(o.title)} <span class="pill">${esc(o.status==="eligible"?"Owner-cleared · not independently verified":o.status)}</span></h3><p>${esc(o.platform)} · ${esc(categoryLabel(o.category))} · Review score ${o.score}/60<br>${platformLink}${termsLink}<br>${esc(o.reward_description||"No reward details entered")}${discoveryProvenanceHtml(o)}<br><strong>Eligibility review:</strong> ${eligibilityReviewHtml(o)}</p></div><div class="item-actions">${'<button class="secondary" data-review="'+o.id+'">Review eligibility</button>'}<button class="primary" data-start="${o.id}" ${["ineligible","archived"].includes(o.status)?"disabled":""}>Open manually</button><button class="secondary" data-status="${o.id}" data-next="reviewing">Mark reviewing</button></div></div>`;
+    return `<div class="item"><div><h3>${esc(o.title)} <span class="pill">${esc(o.status==="eligible"?"Owner-cleared · not independently verified":o.status)}</span></h3><p>${esc(o.platform)} · ${esc(categoryLabel(o.category))} · Review score ${o.score}/60<br>${platformLink}${termsLink}<br>${esc(o.reward_description||"No reward details entered")}${discoveryProvenanceHtml(o)}<br><strong>Eligibility review:</strong> ${eligibilityReviewHtml(o)}</p></div><div class="item-actions">${'<button class="secondary" data-review="'+o.id+'">Review eligibility</button>'}<button class="primary" data-start="${o.id}" ${!AutoEarnDueDiligence.canStartGuidedSession(o)?"disabled":""}>Open manually</button><button class="secondary" data-status="${o.id}" data-next="reviewing">Mark reviewing</button></div></div>`;
   }).join(""):'<div class="empty">No matching opportunities.</div>';
   $("opportunity-list").querySelectorAll("[data-review]").forEach(b=>b.onclick=()=>verifyEligibility(Number(b.dataset.review)));
   $("opportunity-list").querySelectorAll("[data-start]").forEach(b=>b.onclick=()=>createTask(Number(b.dataset.start)));
@@ -121,7 +121,7 @@ async function verifyEligibility(id){
 async function createTask(id){
   const opportunity=opportunities.find(item=>Number(item.id)===Number(id));
   if(!opportunity)return toast("Opportunity not found. Refresh and try again.");
-  if(["ineligible","archived"].includes(opportunity.status))return toast("This opportunity is marked ineligible or archived and cannot be opened from a guided session.");
+  if(!AutoEarnDueDiligence.canStartGuidedSession(opportunity))return toast("This opportunity is not independently verified as eligible yet; guided sessions are blocked.");
   let target;
   try {
     const safeUrl=safePublicHttpsUrl(opportunity.url);
