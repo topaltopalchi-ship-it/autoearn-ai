@@ -1,3 +1,4 @@
+import { readDomGameMetrics } from "./dom-game-metrics.mjs";
 import { chromium } from "playwright";
 import { collectNavigationTargets } from "./site-navigation.mjs";
 import { crawlSameOriginSite } from "./crawl-site.mjs";
@@ -52,7 +53,8 @@ async function observe(page, origin) {
         tiles.length ? { kind: "2048", boardKey, tiles } : null;
     }).filter(Boolean)
   ).catch(() => []);
-  return { title, url: page.url(), snapshot: snapshot.slice(0, 18_000), navigationTargets, domSignals, gameCandidates };
+  const gameMetrics = await readDomGameMetrics(page).catch(() => null);
+  return { title, url: page.url(), snapshot: snapshot.slice(0, 18_000), navigationTargets, domSignals, gameCandidates, ...(gameMetrics || {}) };
 }
 
 async function main() {
