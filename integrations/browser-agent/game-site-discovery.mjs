@@ -54,7 +54,8 @@ async function inspectPage(page, origin) {
       const tiles = Array.from(board.querySelectorAll("[data-x][data-y][data-value]")).map(tile => ({
         x: tile.getAttribute("data-x"), y: tile.getAttribute("data-y"), value: tile.getAttribute("data-value")
       }));
-      if (connectFourCells.length === 42) return { kind: "connect-four", boardKey, cells: connectFourCells };\n      if (othelloCells.length === 64) return { kind: "othello", boardKey, cells: othelloCells, currentPlayer };
+      if (connectFourCells.length === 42) return { kind: "connect-four", boardKey, cells: connectFourCells };
+      if (othelloCells.length === 64) return { kind: "othello", boardKey, cells: othelloCells, currentPlayer };
       if (cells.length) return { kind: "tic-tac-toe", boardKey, cells };
       if (tiles.length) return { kind: "2048", boardKey, tiles };
       return null;
