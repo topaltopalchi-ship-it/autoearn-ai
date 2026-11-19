@@ -135,3 +135,25 @@ test("adaptive search respects configured depth bounds and rejects invalid bound
   assert.throws(() => select2048SearchDepth(board, { minDepth: 3, maxDepth: 2 }), /bounds/);
   assert.throws(() => select2048SearchDepth(board, { minDepth: 0, maxDepth: 2 }), /bounds/);
 });
+
+
+test("bounds expectimax work and reports when its node budget is exhausted", () => {
+  const board = [
+    [2, 4, 8, 16],
+    [4, 8, 16, 32],
+    [8, 16, 32, 64],
+    [16, 32, 64, 0]
+  ];
+  const move = choose2048Move(board, { depth: 4, maxNodes: 1 });
+  assert.ok(move);
+  assert.equal(move.searchStats.maxNodes, 1);
+  assert.equal(move.searchStats.nodesVisited, 1);
+  assert.equal(move.searchStats.budgetExhausted, true);
+  assert.ok(move.searchStats.cacheHits >= 0);
+});
+
+test("rejects an invalid expectimax node budget", () => {
+  const board = Array.from({ length: 4 }, () => [0, 0, 0, 0]);
+  assert.throws(() => choose2048Move(board, { maxNodes: 0 }), /maxNodes/);
+  assert.throws(() => choose2048Move(board, { maxNodes: 200001 }), /maxNodes/);
+});
