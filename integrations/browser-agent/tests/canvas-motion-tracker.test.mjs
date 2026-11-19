@@ -63,3 +63,22 @@ test("flags a hazard moving closer to a confidently detected player", () => {
   assert.equal(result.tracks.find(track => track.role === "hazard").approachingPlayer, true);
   assert.equal(result.predictedHazards[0].approachingPlayer, true);
 });
+
+
+test("measures hazard approach relative to the player's previous position", () => {
+  const tracker = createCanvasMotionTracker();
+  const player = (x) => ({ role: "player", label: "hero", x, y: 0.4, width: 0.05, height: 0.05, confidence: 0.95 });
+  const hazard = (x) => ({ role: "hazard", label: "enemy", x, y: 0.4, width: 0.05, height: 0.05, confidence: 0.95 });
+  tracker.update([player(0.1), hazard(0.5)], 1000);
+  const result = tracker.update([player(0.2), hazard(0.55)], 1250);
+  assert.equal(result.tracks.find(track => track.role === "hazard").approachingPlayer, true);
+});
+
+test("does not label a hazard as approaching when relative distance grows", () => {
+  const tracker = createCanvasMotionTracker();
+  const player = (x) => ({ role: "player", label: "hero", x, y: 0.4, width: 0.05, height: 0.05, confidence: 0.95 });
+  const hazard = (x) => ({ role: "hazard", label: "enemy", x, y: 0.4, width: 0.05, height: 0.05, confidence: 0.95 });
+  tracker.update([player(0.1), hazard(0.4)], 1000);
+  const result = tracker.update([player(0.15), hazard(0.5)], 1250);
+  assert.equal(result.tracks.find(track => track.role === "hazard").approachingPlayer, false);
+});
