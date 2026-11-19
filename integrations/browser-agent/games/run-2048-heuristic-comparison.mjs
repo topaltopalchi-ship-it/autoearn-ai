@@ -14,7 +14,7 @@ function readBoundedInteger(name, fallback, min, max) {
 function readBoundedNumber(name, fallback, min, max) {
   const raw = process.env[name];
   if (raw === undefined || raw === "") return fallback;
-  if (!/^(?:\\d+(?:\\.\\d+)?|\\.\\d+)$/.test(raw)) {
+  if (!/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(raw)) {
     throw new RangeError(`${name} must be a number from ${min} to ${max}.`);
   }
   const value = Number(raw);
