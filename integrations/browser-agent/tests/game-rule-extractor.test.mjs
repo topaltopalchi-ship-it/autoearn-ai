@@ -67,10 +67,18 @@ test("downgrades claimed sufficient rules when objective or controls are missing
   assert.equal(result.rulesSufficient, false);
 });
 
-test("refuses mouse-only games because this runner currently supports keyboard controls only", async () => {
+test("accepts an explicitly described game-cell click as a supported control", async () => {
+  const clickRules = { ...sufficientRules, controls: [{ input: "Click a cell", actionFa: "روی خانه بازی کلیک کن" }] };
+  const extract = createOllamaGameRulesExtractor({ model: "local-model", fetchImpl: mockFetch(clickRules) });
+  const result = await extract({ text: "Click a cell to select it." });
+  assert.equal(result.controls.length, 1);
+  assert.equal(result.rulesSufficient, true);
+});
+
+test("refuses arbitrary mouse-only controls that are not game-cell selections", async () => {
   const mouseOnly = {
     ...sufficientRules,
-    controls: [{ input: "Mouse click", actionFa: "روی خانه موردنظر کلیک کن" }]
+    controls: [{ input: "Click the menu", actionFa: "منو را باز کن" }]
   };
   const extract = createOllamaGameRulesExtractor({ model: "local-model", fetchImpl: mockFetch(mouseOnly) });
   const result = await extract({ text: "Click a tile to play." });
