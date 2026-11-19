@@ -250,6 +250,6 @@ Deno.test("recognizes the official Zoa Agent Season prize when the amount uses a
     "AI agent Agent Season 1 game",
     "Agents play free with free chips. Agent Season 1 prize pool is $490 USDC with payout to the winner.",
   );
-  if (!result.accepted) throw new Error(\`Expected official Zoa season candidate to be accepted, got: \${result.reason}\`);
+  if (!result.accepted) throw new Error("Expected official Zoa season candidate to be accepted, got: " + result.reason);
   assertEquals(result.payoutMethods, ["Crypto"]);
 });
