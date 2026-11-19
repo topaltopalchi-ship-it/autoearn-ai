@@ -1,4 +1,5 @@
 import { chromium } from "playwright";
+import { collectNavigationTargets } from "./site-navigation.mjs";
 
 const gameUrl = process.env.AUTOEARN_GAME_URL;
 const allowedOrigins = new Set(
@@ -7,7 +8,6 @@ const allowedOrigins = new Set(
 );
 const maxSteps = Math.min(200, Math.max(1, Number(process.env.AUTOEARN_MAX_STEPS || 40)));
 const maxDurationMs = Math.min(5 * 60_000, Math.max(5_000, Number(process.env.AUTOEARN_MAX_DURATION_MS || 60_000)));
-const allowedKeys = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "Space", "Escape"]);
 
 function validateTarget(value) {
   let url;
@@ -19,14 +19,15 @@ function validateTarget(value) {
 }
 
 function looksLikeVerificationGate(snapshot, title) {
-  const text = (title + "\n" + snapshot).toLowerCase();
+  const text = (title + "\\n" + snapshot).toLowerCase();
   return /captcha|are you human|verify you are human|robot check|bot detection|security challenge|cloudflare turnstile|hcaptcha|recaptcha/.test(text);
 }
 
-async function observe(page) {
+async function observe(page, origin) {
   const title = await page.title().catch(() => "");
-  const snapshot = await page.locator("body").ariaSnapshot({ mode: "ai" }).catch(() => "");
-  return { title, url: page.url(), snapshot: snapshot.slice(0, 18_000) };
+  const snapshot = await page.locator("body").ariaSnapshot().catch(() => "");
+  const navigationTargets = await collectNavigationTargets(page, origin).catch(() => []);
+  return { title, url: page.url(), snapshot: snapshot.slice(0, 18_000), navigationTargets };
 }
 
 async function main() {
@@ -40,16 +41,18 @@ async function main() {
   const page = await context.newPage();
   page.setDefaultTimeout(5_000);
   let steps = 0;
+  let navigationBlocked = false;
 
   page.on("framenavigated", frame => {
     if (frame === page.mainFrame()) {
       try {
-        const next = new URL(frame.url());
-        if (next.origin !== target.origin) {
+        if (new URL(frame.url()).origin !== target.origin) {
+          navigationBlocked = true;
           console.error("STOP: navigation left the approved origin.");
           void context.close();
         }
       } catch {
+        navigationBlocked = true;
         console.error("STOP: invalid navigation target.");
         void context.close();
       }
@@ -58,19 +61,26 @@ async function main() {
 
   try {
     await page.goto(target.href, { waitUntil: "domcontentloaded", timeout: 20_000 });
-    while (steps < maxSteps && Date.now() - started < maxDurationMs && !page.isClosed()) {
-      const state = await observe(page);
-      if (new URL(state.url).origin !== target.origin) throw new Error("Navigation outside approved origin.");
+    while (steps < maxSteps && Date.now() - started < maxDurationMs && !page.isClosed() && !navigationBlocked) {
+      const state = await observe(page, target.origin);
+      if (navigationBlocked || new URL(state.url).origin !== target.origin) throw new Error("Navigation outside approved origin.");
       if (looksLikeVerificationGate(state.snapshot, state.title)) {
-        console.log(JSON.stringify({ status: "human_required", reason: "verification_gate_detected", observation: state }, null, 2));
+        console.log(JSON.stringify({ status: "human_required", reason: "verification_gate_detected" }, null, 2));
         break;
       }
-      console.log(JSON.stringify({ type: "observation", step: steps, ...state }));
-      console.log("No strategy adapter is configured. Browser remains available for manual inspection; stopping safely.");
+      console.log(JSON.stringify({
+        type: "site_observation",
+        step: steps,
+        url: state.url,
+        title: state.title,
+        navigationTargets: state.navigationTargets
+      }, null, 2));
+      console.log("Folder and category targets were discovered. No AI decision strategy is connected yet; stopping without clicking.");
       break;
     }
     if (steps >= maxSteps) console.log(JSON.stringify({ status: "limited", reason: "step_limit" }));
     else if (Date.now() - started >= maxDurationMs) console.log(JSON.stringify({ status: "limited", reason: "time_limit" }));
+    else if (navigationBlocked) console.log(JSON.stringify({ status: "stopped", reason: "origin_boundary" }));
   } finally {
     await context.close().catch(() => {});
     await browser.close().catch(() => {});
