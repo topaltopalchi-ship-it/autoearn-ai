@@ -172,3 +172,8 @@ The conservative `play:auto` runner can now inspect the starting page and up to 
 ## Guarded mouse selection for explicitly marked game cells
 
 The experimental local AI runner supports a narrow mouse action: `click-cell` with an index from 0 to 99. It is enabled only when exactly one `[data-game-board]` exists and the target is a unique visible `[data-game-cell][data-game-cell-index="N"]` descendant. The target and its ancestors must not be links, buttons, form controls, or role=button/link elements. Arbitrary screen coordinates, selectors, page buttons, links, menus, and form controls are never sent to Playwright. Observations include available safe cell indices and short labels. This requires site markup to expose explicit data attributes; canvas-only or unmarked mouse games remain unsupported. The rule extractor accepts game-cell/tile/square click descriptions, not generic page clicks.
+
+
+## Conservative win/loss state reporting
+
+The local AI runner now checks explicit `data-game-outcome` and `data-game-status` markers before using clear visible win/loss phrases. Explicit active-state markers override incidental text elsewhere on the page. Unknown states remain unknown; a page change or a higher score is not counted as a win. This reports a game's visible/DOM terminal state only and does not prove a cash reward, prize eligibility, or withdrawable income.
