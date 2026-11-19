@@ -27,10 +27,29 @@ Configure optional bounds with `AUTOEARN_MAX_PAGES` (default 12, maximum 30), `A
 
 Each visited page is heuristically labeled as `folder`, `game`, `help`, `login`, `verification`, or `unknown`. The result includes a confidence estimate and signal list. It uses title/text, visible navigation labels, and DOM signals such as canvas and score indicators. These are clues, not proof: sites can use custom canvases, misleading labels, or inaccessible controls. A human or a site-specific adapter must validate the classification before play.
 
+
+## First playable game: 2048
+
+A first deterministic game strategy and a site-configured Playwright adapter are included. The strategy simulates legal moves, evaluates empty cells, tile smoothness, monotonicity and keeping the largest tile in a corner, then chooses the highest-scoring move. It is a heuristic baseline, not a guarantee of winning.
+
+The separate runner is deliberately opt-in. Use it only on a game whose official rules allow automation, and configure selectors for that site's actual board markup:
+
+```sh
+AUTOEARN_GAME_URL=https://your-approved-game.example/2048 \
+AUTOEARN_ALLOWED_ORIGINS=https://your-approved-game.example \
+AUTOEARN_AUTOMATION_APPROVED=YES \
+AUTOEARN_2048_BOARD_SELECTOR='[data-game-board]' \
+AUTOEARN_2048_TILE_SELECTOR='[data-tile]' \
+npm run play:2048
+```
+
+By default, each tile must expose `data-x`, `data-y`, and `data-value` attributes (zero-based x/y coordinates). For one-based coordinates, change the adapter's `coordinateBase` when wiring it into a site-specific runner. The runner starts a fresh logged-out browser context, does not import cookies, refuses non-allowlisted origins, stops at verification gates, and limits moves/time. It does not solve arbitrary games; only the 2048 adapter is currently wired to an autonomous decision strategy. The browser runner has not been executed against a real game site in this development session.
+
 ## Current stage and boundaries
 
 - **Implemented:** isolated Chromium context; exact HTTPS origin allowlist; bounded same-origin page traversal; duplicate/loop avoidance; visible link/button discovery; limited in-page expansion of folder-like controls; same-origin iframe inspection; heuristic folder/game/help/login/verification classification; limited safe button/link and keyboard adapter actions; and page/depth/time/interaction budgets.
-- **Not yet implemented:** autonomous AI decision-making, reliable classification across arbitrary sites, game-specific control mapping, gameplay strategy, and end-to-end win verification. The current runner maps and classifies pages; it does not yet choose a game or play it.
+- **Implemented for one game only:** a deterministic 2048 strategy, a configurable DOM-to-board adapter, and a separate guarded runner that can execute and verify arrow-key moves when the site's board selectors are configured.
+- **Not yet implemented:** an AI model provider, reliable classification across arbitrary sites, automatic site-specific selector discovery, strategies for other games, and robust end-to-end prize/win verification. The 2048 runner has not yet been tested against a live third-party game site.
 - Only use game sites whose official rules explicitly permit automated play.
 - CAPTCHA, anti-bot, anti-fraud, access-control, geolocation and payment safeguards are never bypassed. Detection pauses the run for a human.
 - No login, signup, form submission, purchases, deposits, withdrawals, prize claims, or personal-data entry are implemented.
