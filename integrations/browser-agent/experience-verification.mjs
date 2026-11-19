@@ -14,8 +14,12 @@ export async function recordVerifiedExperience(memory, pending, { before, action
   if (!memory || typeof memory.recordPending !== "function") return true;
   const isKeyboardAction = action?.type === "press" && typeof action.key === "string";
   const isCellAction = action?.type === "click-cell" && Number.isInteger(action.index) && action.index >= 0 && action.index <= 99;
-  if (!isKeyboardAction && !isCellAction) return true;
-  const actionKey = isKeyboardAction ? action.key : `click-cell:${action.index}`;
+  const isCanvasAction = action?.type === "click-canvas" && Number.isFinite(action.x) && action.x >= 0 && action.x <= 1 &&
+    Number.isFinite(action.y) && action.y >= 0 && action.y <= 1 && Number.isFinite(action.confidence) && action.confidence >= 0.8 && action.confidence <= 1;
+  if (!isKeyboardAction && !isCellAction && !isCanvasAction) return true;
+  const actionKey = isKeyboardAction ? action.key : isCellAction
+    ? `click-cell:${action.index}`
+    : `click-canvas:${Math.min(9, Math.floor(action.x * 10))}:${Math.min(9, Math.floor(action.y * 10))}`;
   const gameType = before.gameState?.gameType || "unknown";
   try {
     const id = await memory.recordPending({
