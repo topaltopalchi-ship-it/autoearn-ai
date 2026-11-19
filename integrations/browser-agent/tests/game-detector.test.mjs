@@ -17,6 +17,15 @@ test("recognizes Connect Four only from exactly 42 uniquely indexed X/O/empty ce
   assert.equal(result.gameType, "connect-four");
   assert.equal(isSupportedGameType("connect-four"), true);
   assert.equal(detectKnownGame({ gameCandidates: [{ kind: "connect-four", cells: cells.slice(1) }] }).gameType, null);
+
+  const floating = cells.map(cell => ({ ...cell, mark: cell.index === 23 ? "X" : "" }));
+  assert.equal(detectKnownGame({ gameCandidates: [{ kind: "connect-four", cells: floating }] }).gameType, null);
+
+  const dualWin = cells.map(cell => {
+    const row = Math.floor(cell.index / 7), col = cell.index % 7;
+    return { ...cell, mark: row === 5 && col < 4 ? "X" : row === 4 && col < 4 ? "O" : "" };
+  });
+  assert.equal(detectKnownGame({ gameCandidates: [{ kind: "connect-four", cells: dualWin }] }).gameType, null);
 });
 
 test("recognizes Othello only from 64 indexed cells and an explicit current player", () => {
