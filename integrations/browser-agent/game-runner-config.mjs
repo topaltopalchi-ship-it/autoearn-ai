@@ -1,6 +1,6 @@
 /** Pure, conservative dispatch for the detected game runner. */
 export function resolveDetectedGame(detected, player = "") {
-  if (!detected || !["2048", "tic-tac-toe"].includes(detected.gameType)) {
+  if (!detected || !["2048", "tic-tac-toe", "connect-four"].includes(detected.gameType)) {
     return { ok: false, reason: detected?.reason || "unsupported_or_ambiguous_game" };
   }
   if (detected.gameType === "2048") {
