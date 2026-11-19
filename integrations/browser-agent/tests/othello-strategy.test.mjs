@@ -48,3 +48,14 @@ test("accepts a two-dimensional board and normalizes documented disc aliases",()
   board[3][3]="white"; board[3][4]="x"; board[4][3]="black"; board[4][4]="o";
   assert.deepEqual(getOthelloLegalMoves(board,"B"),[19,26,37,44]);
 });
+
+test("prioritizes an available corner over an ordinary legal move",()=>{
+  const board=Array(64).fill("");
+  board[1]="W"; board[2]="B";
+  board[8]="W"; board[16]="B";
+  board[10]="W"; board[11]="B";
+  const legal=getOthelloLegalMoves(board,"B");
+  assert.ok(legal.includes(0));
+  assert.ok(legal.includes(9));
+  assert.equal(chooseOthelloMove(board,{player:"B",depth:1}).index,0);
+});
