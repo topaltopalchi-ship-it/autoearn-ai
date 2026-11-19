@@ -2,12 +2,6 @@ name: Deploy AutoEarn AI to Netlify
 
 on:
   workflow_dispatch:
-  push:
-    branches: [develop]
-    paths:
-      - "static/**"
-      - "netlify.toml"
-      - ".github/workflows/netlify-deploy.yml"
 
 jobs:
   deploy:
@@ -15,6 +9,14 @@ jobs:
     steps:
       - name: Checkout develop
         uses: actions/checkout@v4
+
+      - name: Check deployment credentials
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          test -n "$NETLIFY_AUTH_TOKEN" || (echo "Missing NETLIFY_AUTH_TOKEN repository secret" && exit 1)
+          test -n "$NETLIFY_SITE_ID" || (echo "Missing NETLIFY_SITE_ID repository secret" && exit 1)
 
       - name: Deploy static workspace
         run: npx --yes netlify-cli@latest deploy --prod --dir=static --site="$NETLIFY_SITE_ID"
