@@ -38,6 +38,28 @@ test("selects only a legal arrow-key move", () => {
   assert.ok(move.expectedBoard.flat().includes(2));
 });
 
+test("expectimax evaluates future random tile spawns and returns a legal move", () => {
+  const board = [
+    [2, 4, 8, 16],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0]
+  ];
+  const shallow = choose2048Move(board, { depth: 1 });
+  const lookahead = choose2048Move(board, { depth: 3 });
+  for (const move of [shallow, lookahead]) {
+    assert.ok(move);
+    assert.ok(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(move.key));
+    assert.equal(move.expectedBoard.length, 4);
+  }
+});
+
+test("rejects unsupported expectimax search depths", () => {
+  const board = Array.from({ length: 4 }, () => [0, 0, 0, 0]);
+  assert.throws(() => choose2048Move(board, { depth: 0 }), /search depth/);
+  assert.throws(() => choose2048Move(board, { depth: 5 }), /search depth/);
+});
+
 test("prefers boards with more empty cells", () => {
   const sparse = [
     [2, 0, 0, 0],
