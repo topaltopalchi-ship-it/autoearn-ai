@@ -63,6 +63,11 @@ export function createOllamaGameDecision({
       gameState: observation.gameState ?? observation.state ?? null,
       clickTargets: Array.isArray(observation.clickTargets) ? observation.clickTargets.slice(0, 100) : [],
       visualObjects: Array.isArray(observation.canvasObjects) ? observation.canvasObjects.slice(0, 30) : [],
+      canvasMotion: observation.canvasMotion && typeof observation.canvasMotion === "object" ? {
+        horizonMs: Number.isFinite(observation.canvasMotion.horizonMs) ? observation.canvasMotion.horizonMs : 0,
+        predictedHazards: Array.isArray(observation.canvasMotion.predictedHazards)
+          ? observation.canvasMotion.predictedHazards.slice(0, 30) : []
+      } : null,
       canvasAvailable: observation.canvasAvailable === true
     };
     const images = [];
@@ -98,6 +103,7 @@ export function createOllamaGameDecision({
       "Allowed keys: " + [...keys].join(", "),
       "If the game is unclear, blocked, requests CAPTCHA/verification, or no safe move is evident, return {\"action\":\"stop\"}.",
       "Visual object detections are estimates in normalized coordinates relative to the game canvas. Treat roles and boxes as visual clues, not guarantees; prefer high-confidence player, target, hazard and goal detections, and stop if their meaning or a safe path is unclear.",
+      "canvasMotion contains rough short-horizon predictions from successive frames, not guaranteed trajectories. Use predictedHazards conservatively; if a moving hazard could intersect the proposed click/movement region, wait or choose a clearly safer action. Do not infer a safe path from missing predictions.",
       "Owner-rated experience hints for this exact state (not guarantees; do not blindly follow): " + JSON.stringify(memoryHints),
       "For canvas clicks, the supplied decision image is cropped to the game canvas when available. Choose x and y as normalized fractions relative to that entire image (0 is left/top, 1 is right/bottom), and include confidence from 0 to 1. Only act when confidence is at least 0.8; otherwise return stop.",
       "Observation JSON: " + JSON.stringify(snapshot)
