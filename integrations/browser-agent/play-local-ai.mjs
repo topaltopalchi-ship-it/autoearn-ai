@@ -130,6 +130,7 @@ async function main() {
           } : { ...gameState, outcome: domOutcome.outcome, outcomeSource: domOutcome.source },
           rules: extractedRules,
           clickTargets: await readSafeGameCells(page),
+          canvasAvailable: await page.locator("[data-game-board] canvas[data-game-canvas]").count() === 1,
           screenshot: screenshotData
         };
       },
@@ -145,7 +146,11 @@ async function main() {
           await clickSafeGameCell(page, action.index);
           return { type: "click-cell", index: action.index };
         }
-        throw new Error("Only allowlisted keyboard actions or explicitly marked game-cell clicks are permitted.");
+        if (action.type === "click-canvas" && Number.isFinite(action.x) && Number.isFinite(action.y)) {
+          await clickSafeGameCanvas(page, action.x, action.y);
+          return { type: "click-canvas", x: action.x, y: action.y };
+        }
+        throw new Error("Only allowlisted keyboard actions, explicitly marked game-cell clicks, or marked game-canvas clicks are permitted.");
       },
       async verify({ before, action, after }) {
         try {
