@@ -110,3 +110,28 @@ test("rejects game-cell clicks when disabled or outside the bounded index range"
   });
   await assert.rejects(() => enabled({}), /unsupported action/);
 });
+
+
+test("accepts normalized canvas points only when canvas clicks are enabled and available", async () => {
+  const decide = createOllamaGameDecision({
+    model: "local-model", allowCanvasClicks: true,
+    fetchImpl: mockFetch({ message: { content: '{"type":"click-canvas","x":0.25,"y":0.8}' } })
+  });
+  assert.deepEqual(await decide({ canvasAvailable: true }), {
+    type: "click-canvas", x: 0.25, y: 0.8
+  });
+  await assert.rejects(() => decide({ canvasAvailable: false }), /canvas is available/);
+});
+
+test("rejects canvas clicks when disabled or outside normalized bounds", async () => {
+  const disabled = createOllamaGameDecision({
+    model: "local-model",
+    fetchImpl: mockFetch({ message: { content: '{"type":"click-canvas","x":0.5,"y":0.5}' } })
+  });
+  await assert.rejects(() => disabled({ canvasAvailable: true }), /unsupported action/);
+  const enabled = createOllamaGameDecision({
+    model: "local-model", allowCanvasClicks: true,
+    fetchImpl: mockFetch({ message: { content: '{"type":"click-canvas","x":1.2,"y":0.5}' } })
+  });
+  await assert.rejects(() => enabled({ canvasAvailable: true }), /unsupported action/);
+});
