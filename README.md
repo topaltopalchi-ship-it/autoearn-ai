@@ -71,3 +71,8 @@ Run `node integrations/browser-agent/games/run-2048-benchmark.mjs` to compare ex
 ### Full-episode 2048 simulation (experimental)
 
 Run `node integrations/browser-agent/games/run-2048-episodes.mjs` to simulate complete games with seeded tile spawns and compare expectimax depths 1–3. The report includes score, median score, highest tile, games reaching 2048, game-over count, move-limit stops, and move counts. Defaults are 5 episodes per depth with a 500-move cap; the simulator accepts bounded custom settings through `simulate2048Episodes`. Results are reproducible local simulations, not real-site win rates or a promise of winning or earning money.
+
+
+### Adaptive 2048 search depth (experimental)
+
+The dedicated 2048 browser runner now chooses expectimax depth from board occupancy: depth 1 with 10–16 empty cells, depth 2 with 6–9 empty cells, and depth 3 with 0–5 empty cells. This is a bounded compute heuristic intended to spend more lookahead on crowded boards, not a proven optimal policy. The fixed-depth `create2048Decision` remains available for controlled comparisons; `createAdaptive2048Decision` is used by `play-2048.mjs`.
