@@ -66,3 +66,8 @@ The local Playwright observer reads `data-game-score`, `data-game-level`, `data-
 ### Reproducible 2048 strategy benchmark (experimental)
 
 Run `node integrations/browser-agent/games/run-2048-benchmark.mjs` to compare expectimax depths 1–3 over 12 seeded synthetic boards. The report includes immediate heuristic mean/median, legal-decision counts, and selected directions. Use `create2048BenchmarkBoards` and `benchmark2048Strategies` from `2048-strategy-benchmark.mjs` to provide a fixed seed, board count, occupancy, or custom positions. This is a deterministic strategy-regression aid—not a measured win rate, a real website test, or evidence of earnings. Keep third-party automation disabled unless the game's official rules explicitly allow it.
+
+
+### Full-episode 2048 simulation (experimental)
+
+Run `node integrations/browser-agent/games/run-2048-episodes.mjs` to simulate complete games with seeded tile spawns and compare expectimax depths 1–3. The report includes score, median score, highest tile, games reaching 2048, game-over count, move-limit stops, and move counts. Defaults are 5 episodes per depth with a 500-move cap; the simulator accepts bounded custom settings through `simulate2048Episodes`. Results are reproducible local simulations, not real-site win rates or a promise of winning or earning money.
