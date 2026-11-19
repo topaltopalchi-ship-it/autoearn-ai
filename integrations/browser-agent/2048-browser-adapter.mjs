@@ -1,4 +1,4 @@
-import { choose2048Move } from "./games/2048-strategy.mjs";
+import { get2048Outcome } from "./games/2048-strategy.mjs";
 
 const ARROW_KEYS = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
 
@@ -41,7 +41,8 @@ export function create2048BrowserAdapter(page, {
 
   return {
     async observe() {
-      return { url: page.url(), board: await readBoard() };
+      const board = await readBoard();
+      return { url: page.url(), board, outcome: get2048Outcome(board) };
     },
     async execute(action) {
       if (action?.type !== "press" || !ARROW_KEYS.has(action.key)) {
@@ -55,7 +56,7 @@ export function create2048BrowserAdapter(page, {
         before.board.some((row, y) => row.some((value, x) => value !== after.board[y][x])));
     },
     isTerminal(observation) {
-      return Boolean(observation?.board && choose2048Move(observation.board) === null);
+      return observation?.outcome === "won" || observation?.outcome === "game_over";
     }
   };
 }
