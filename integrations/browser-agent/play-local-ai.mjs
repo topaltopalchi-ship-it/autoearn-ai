@@ -1,6 +1,7 @@
 import { chromium } from "playwright";
 import "../../static/game-agent.js";
 import { createOllamaGameDecision } from "./ollama-decision-provider.mjs";
+import { createOllamaGamePerception } from "./ollama-game-perception.mjs";
 
 const gameUrl = process.env.AUTOEARN_GAME_URL;
 const approvedOrigins = new Set(String(process.env.AUTOEARN_ALLOWED_ORIGINS || "")
@@ -61,6 +62,7 @@ async function main() {
     }
 
     const decide = createOllamaGameDecision({ model, maxCalls: maxModelCalls });
+    const perceive = createOllamaGamePerception({ model, maxCalls: maxModelCalls });
     const adapter = {
       async observe() {
         if (blocked || page.isClosed()) throw new Error("Browser session was stopped.");
@@ -70,13 +72,22 @@ async function main() {
         if (verificationGate(title + "\n" + snapshot + "\n" + visibleText)) {
           throw new Error("Verification or anti-bot gate detected. Human action is required; no bypass was attempted.");
         }
-        const screenshot = await page.screenshot({ type: "png", fullPage: false, timeout: 5_000 });
+        const screenshot = await page.screenshot({ type: "jpeg", quality: 65, fullPage: false, timeout: 5_000 });
+        const screenshotData = "data:image/jpeg;base64," + screenshot.toString("base64");
+        const gameState = await perceive({ screenshot: screenshotData, title, text: visibleText });
+        if (gameState.scene === "verification") {
+          throw new Error("Local visual model detected a verification gate. Human action is required; no bypass was attempted.");
+        }
+        if (gameState.scene !== "game" || gameState.confidence < 0.65) {
+          throw new Error("Local visual model could not confidently identify a playable game state; stopping instead of guessing.");
+        }
         return {
           title,
           url: page.url(),
-          snapshot: snapshot.slice(0, 10_000),
-          text: visibleText.slice(0, 3_000),
-          screenshot: "data:image/png;base64," + screenshot.toString("base64")
+          snapshot: (snapshot + "\\nVisual state: " + gameState.stateSummary).slice(0, 10_000),
+          text: (visibleText + "\\nObjective: " + gameState.objective + "\\nControls: " + gameState.controls.join(", ")).slice(0, 3_000),
+          gameState,
+          screenshot: screenshotData
         };
       },
       async execute(action) {
@@ -111,7 +122,8 @@ async function main() {
             step: event.steps,
             key: event.action?.key,
             verified: event.verified,
-            localModelCalls: decide.usage.calls
+            localModelCalls: decide.usage.calls,
+            localVisionCalls: perceive.usage.calls
           }));
         }
       }
@@ -123,6 +135,7 @@ async function main() {
     console.log(JSON.stringify({
       result,
       localModelUsage: decide.usage,
+      localVisionUsage: perceive.usage,
       finalUrl: page.isClosed() ? null : page.url()
     }, null, 2));
   } finally {
