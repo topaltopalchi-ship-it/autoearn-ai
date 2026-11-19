@@ -62,6 +62,7 @@ export function createOllamaGameDecision({
       text: String(observation.snapshot ?? observation.text ?? "").slice(0, 6_000),
       gameState: observation.gameState ?? observation.state ?? null,
       clickTargets: Array.isArray(observation.clickTargets) ? observation.clickTargets.slice(0, 100) : [],
+      visualObjects: Array.isArray(observation.canvasObjects) ? observation.canvasObjects.slice(0, 30) : [],
       canvasAvailable: observation.canvasAvailable === true
     };
     const images = [];
@@ -96,6 +97,7 @@ export function createOllamaGameDecision({
       "Never click arbitrary links, buttons, menus, or page controls; never navigate, type, submit forms, purchase, or bypass protections.",
       "Allowed keys: " + [...keys].join(", "),
       "If the game is unclear, blocked, requests CAPTCHA/verification, or no safe move is evident, return {\"action\":\"stop\"}.",
+      "Visual object detections are estimates in normalized coordinates relative to the game canvas. Treat roles and boxes as visual clues, not guarantees; prefer high-confidence player, target, hazard and goal detections, and stop if their meaning or a safe path is unclear.",
       "Owner-rated experience hints for this exact state (not guarantees; do not blindly follow): " + JSON.stringify(memoryHints),
       "For canvas clicks, the supplied decision image is cropped to the game canvas when available. Choose x and y as normalized fractions relative to that entire image (0 is left/top, 1 is right/bottom), and include confidence from 0 to 1. Only act when confidence is at least 0.8; otherwise return stop.",
       "Observation JSON: " + JSON.stringify(snapshot)
