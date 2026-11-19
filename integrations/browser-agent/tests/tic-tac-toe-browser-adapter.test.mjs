@@ -46,7 +46,9 @@ test("rejects wrong turn and invalid player configuration", async () => {
   const adapter = createTicTacToeBrowserAdapter(page, {
     boardSelector: "#board", cellSelector: ".cell", player: "O"
   });
-  await assert.rejects(adapter.observe(), /not the configured agent player's turn/);
+  const state = await adapter.observe();
+  assert.equal(state.gameState.currentPlayer, "X");
+  assert.equal(state.gameState.agentPlayer, "O");
   assert.throws(() => createTicTacToeBrowserAdapter(page, {
     boardSelector: "#board", cellSelector: ".cell", player: "Z"
   }), /player must be X or O/);
