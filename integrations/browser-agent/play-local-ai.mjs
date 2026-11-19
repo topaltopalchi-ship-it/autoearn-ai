@@ -95,9 +95,12 @@ async function main() {
             status: element.getAttribute("data-game-status") || ""
           }))
         ).catch(() => []);
-        const domOutcome = outcomeMarkers.map(marker => detectGameOutcome({
+        const markerOutcomes = outcomeMarkers.map(marker => detectGameOutcome({
           outcomeAttribute: marker.outcome, statusAttribute: marker.status
-        })).find(result => result.outcome !== "unknown") || detectGameOutcome({ bodyText: visibleText });
+        }));
+        const domOutcome = markerOutcomes.find(result => ["won", "lost"].includes(result.outcome)) ||
+          markerOutcomes.find(result => result.outcome === "playing") ||
+          detectGameOutcome({ bodyText: visibleText });
         if (gameState.scene === "verification") {
           throw new Error("Local visual model detected a verification gate. Human action is required; no bypass was attempted.");
         }
@@ -153,7 +156,9 @@ async function main() {
         }
       },
       isTerminal(observation) {
-        if (["won", "lost"].includes(observation?.gameState?.outcome)) return true;
+        if (observation?.gameState?.outcomeSource && observation.gameState.outcome !== "unknown") {
+          return ["won", "lost"].includes(observation.gameState.outcome);
+        }
         return /game over|you win|you won|you lost|victory|defeat|بازی تمام شد|برنده شدی|باختی/i
           .test((observation?.snapshot || "") + "\\n" + (observation?.text || ""));
       }
