@@ -161,3 +161,13 @@ test("replaces an earlier owner eligibility review instead of accumulating inval
   const json = updated.slice(updated.indexOf("[OWNER OFFICIAL ELIGIBILITY REVIEW]") + "[OWNER OFFICIAL ELIGIBILITY REVIEW]".length).trim();
   assert.deepEqual(JSON.parse(json), second);
 });
+
+test("rejects unknown or placeholder values in owner eligibility details", () => {
+  const known = globalThis.AutoEarnDueDiligence.hasKnownReviewValue;
+  for (const value of ["", "   ", "Not stated", " UNKNOWN ", "n/a", "NA", "not available", "unspecified", "to be confirmed", "TBD", "-", "—"]) {
+    assert.equal(known(value), false, JSON.stringify(value));
+  }
+  for (const value of ["10 USD", "18", "0%", "No fee", "Required"]) {
+    assert.equal(known(value), true, value);
+  }
+});
