@@ -40,11 +40,9 @@ function median(values) {
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
-export function benchmark2048Strategies({
-  boards = create2048BenchmarkBoards(),
-  depths = [1, 2, 3]
-} = {}) {
-  if (!Array.isArray(boards) || boards.length < 1 || boards.length > 100) {
+export function benchmark2048Strategies({ boards = null, seed = 2048, count = 12, occupied = 8, depths = [1, 2, 3] } = {}) {
+  const positions = boards ?? create2048BenchmarkBoards({ seed, count, occupied });
+  if (!Array.isArray(positions) || positions.length < 1 || positions.length > 100) {
     throw new TypeError("Benchmark requires 1..100 boards.");
   }
   if (!Array.isArray(depths) || depths.length < 1 ||
@@ -52,34 +50,33 @@ export function benchmark2048Strategies({
     throw new RangeError("Benchmark depths must be integers from 1 to 3.");
   }
   const results = depths.map(depth => {
-    const decisions = boards.map(board => {
+    const decisions = positions.map(board => {
       const decision = choose2048Move(board, { depth });
       if (!decision) return { terminal: true, score: evaluate2048Board(board), key: null };
       const moved = move2048(board, decision.direction);
       return {
         terminal: false,
         score: evaluate2048Board(moved.board),
-        searchScore: decision.score,
         key: decision.key,
         won: get2048Outcome(moved.board) === "won"
       };
     });
     const scores = decisions.map(item => item.score);
-    const counts = Object.fromEntries(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]
+    const directionCounts = Object.fromEntries(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]
       .map(key => [key, decisions.filter(item => item.key === key).length]));
     return {
       depth,
-      positions: boards.length,
+      positions: positions.length,
       legalDecisions: decisions.filter(item => !item.terminal).length,
       terminalPositions: decisions.filter(item => item.terminal).length,
       immediateHeuristicMean: scores.reduce((sum, value) => sum + value, 0) / scores.length,
       immediateHeuristicMedian: median(scores),
       predictedWinningBoards: decisions.filter(item => item.won).length,
-      directionCounts: counts
+      directionCounts
     };
   });
   return {
-    seed: null,
+    seed: boards ? null : seed,
     note: "Synthetic deterministic benchmark only; immediate heuristic is not a win-rate or real-game result.",
     results
   };
