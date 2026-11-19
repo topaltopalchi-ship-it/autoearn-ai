@@ -53,7 +53,8 @@ export function createOllamaGameDecision({
       title: String(observation.title ?? "").slice(0, 160),
       url: (() => { try { const u = new URL(String(observation.url ?? "")); return u.origin + u.pathname.slice(0, 300); } catch { return ""; } })(),
       text: String(observation.snapshot ?? observation.text ?? "").slice(0, 6_000),
-      gameState: observation.gameState ?? observation.state ?? null
+      gameState: observation.gameState ?? observation.state ?? null,
+      clickTargets: Array.isArray(observation.clickTargets) ? observation.clickTargets.slice(0, 100) : []
     };
     const images = [];
     if (typeof observation.screenshot === "string") {
@@ -75,6 +76,7 @@ export function createOllamaGameDecision({
       "Allowed keys: " + [...keys].join(", "),
       "If the game is unclear, blocked, requests CAPTCHA/verification, or no safe move is evident, return {\"action\":\"stop\"}.",
       "Owner-rated experience hints for this exact state (not guarantees; do not blindly follow): " + JSON.stringify(memoryHints),
+      "If clickTargets are provided, only those numbered targets are eligible for click-cell actions; use the screenshot to choose the matching visible cell, and stop if mapping is uncertain.",
       "Observation JSON: " + JSON.stringify(snapshot)
     ].join("\n");
     calls++;
