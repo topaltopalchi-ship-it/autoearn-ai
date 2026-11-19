@@ -103,3 +103,11 @@ npm run play:tic-tac-toe
 Set `AUTOEARN_TTT_PLAYER` to the mark assigned to the agent on that site. The runner starts logged out, uses a fresh browser context, checks the exact HTTPS origin, stops at verification gates, and has a maximum of nine moves. It does not sign in, submit forms, make purchases, or claim prizes. No live third-party site test has been performed yet.
 
 The tic-tac-toe adapter now labels its normalized observation as `tic-tac-toe` for registry dispatch. When it is the opponent's turn, the strategy emits a bounded `wait-for-turn` action (up to 30 seconds); the adapter polls the board and verifies that the agent's turn has arrived before another move. Waiting is counted against the runner's step/time budgets, and a timeout stops the run rather than guessing or clicking.
+
+## Conservative game-type detection
+
+The site crawler now reports a separate `gameDetection` result for each visited page. It recognizes only explicit, unambiguous board signatures inside elements marked `data-game-board`:
+- Tic-tac-toe: exactly nine descendants with unique `data-index="0..8"` and readable `data-mark`/text values limited to X, O, or empty.
+- 2048: descendants with explicit `data-x`, `data-y`, and `data-value` attributes describing unique 4×4 coordinates and power-of-two tile values.
+
+Text such as “2048”, “score”, or “play game” is never enough to identify a playable game. Multiple or malformed candidates return no game type. Detection is metadata only: it does not automatically click or play. The matching site's selectors and player configuration still need to be reviewed before using a dedicated adapter; arbitrary canvas-only boards and games without these explicit attributes remain unsupported.
