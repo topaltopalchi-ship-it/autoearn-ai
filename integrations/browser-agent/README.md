@@ -207,3 +207,7 @@ Set `AUTOEARN_OTHELLO_PLAYER=B` or `W`. If the configured side has no legal move
 ## Explicit expandable game folders
 
 Game discovery can now inspect a site's explicitly marked expandable folder buttons. It activates only visible, enabled `button[data-game-folder-toggle]` elements whose type is `button` and which are not inside a form; it never clicks generic buttons, links, or unlabeled page controls to guess where a game might be. Each toggle is opened only long enough to read newly revealed same-origin game links, then collapsed again. The discovery pass is limited to eight such controls per page and still obeys the existing page/depth/time budgets. If a toggle navigates away from the approved HTTPS origin or cannot be safely collapsed, discovery stops. Sites that do not mark folder toggles explicitly remain unsupported by this path.
+
+
+### Canvas-only rule handling
+The local rule extractor accepts canvas-only controls only when the browser confirms exactly one visible, explicitly marked game canvas ([data-game-board] canvas[data-game-canvas]). That verified fact is passed to the local rules model. Generic mouse controls, menus, and unmarked canvases remain unsupported. This compatibility gate does not prove that the visual model can reliably identify every game's hit target.
