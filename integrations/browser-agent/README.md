@@ -101,3 +101,5 @@ npm run play:tic-tac-toe
 ```
 
 Set `AUTOEARN_TTT_PLAYER` to the mark assigned to the agent on that site. The runner starts logged out, uses a fresh browser context, checks the exact HTTPS origin, stops at verification gates, and has a maximum of nine moves. It does not sign in, submit forms, make purchases, or claim prizes. No live third-party site test has been performed yet.
+
+The tic-tac-toe adapter now labels its normalized observation as `tic-tac-toe` for registry dispatch. When it is the opponent's turn, the strategy emits a bounded `wait-for-turn` action (up to 30 seconds); the adapter polls the board and verifies that the agent's turn has arrived before another move. Waiting is counted against the runner's step/time budgets, and a timeout stops the run rather than guessing or clicking.
