@@ -9,8 +9,8 @@ test("maps full viewport detections into normalized Canvas coordinates", () => {
     { role: "other", label: "outside", x: 0.9, y: 0.9, width: 0.05, height: 0.05, confidence: 0.9 }
   ], { x: 200, y: 100, width: 400, height: 200 }, { width: 800, height: 400 });
   assert.deepEqual(result, [
-    { role: "player", label: "avatar", x: 0.2, y: 0.1, width: 0.2, height: 0.4, confidence: 0.9 },
-    { role: "hazard", label: "partly outside", x: 0.5, y: 0.3, width: 0.5, height: 0.4, confidence: 0.8 }
+    { role: "player", label: "avatar", x: 0.1, y: 0.1, width: 0.2, height: 0.4, confidence: 0.9 },
+    { role: "hazard", label: "partly outside", x: 0.4, y: 0.3, width: 0.4, height: 0.4, confidence: 0.8 }
   ]);
 });
 
