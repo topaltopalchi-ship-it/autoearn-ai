@@ -18,11 +18,25 @@ class NormalizeUrlTests(unittest.TestCase):
 
 class OpportunityTests(unittest.TestCase):
     def test_score_is_weighted_and_explained(self):
-        item = Opportunity("Demo", "https://example.com", 100, 100, 100, 100, 100)
+        item = Opportunity("Demo", "https://example.com", 100, 100, 100, 100)
         result = score_opportunity(item)
         self.assertEqual(result["score"], 100)
         self.assertEqual(result["risk"], "low")
-        self.assertEqual(len(result["reasons"]), 5)
+        self.assertEqual(len(result["reasons"]), 4)
+
+    def test_scoring_does_not_use_region_or_country_fit(self):
+        item = Opportunity(
+            "Demo",
+            "https://example.com",
+            reward_clarity=100,
+            terms_clarity=100,
+            source_trust=100,
+            effort_fit=0,
+        )
+        result = score_opportunity(item)
+        self.assertEqual(result["score"], 90)
+        self.assertFalse(any("region" in reason.lower() or "country" in reason.lower()
+                             for reason in result["reasons"]))
 
     def test_rejects_out_of_range_values(self):
         with self.assertRaises(ValueError):
