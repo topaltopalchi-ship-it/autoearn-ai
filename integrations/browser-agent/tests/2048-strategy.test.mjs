@@ -58,3 +58,19 @@ test("rejects malformed boards and directions", () => {
   assert.throws(() => choose2048Move([[2, 2]]), /4x4 board/);
   assert.throws(() => move2048(Array.from({length:4}, () => [0,0,0,0]), "diagonal"), /direction/);
 });
+
+test("recognizes a 2048 win and a no-moves game over", async () => {
+  const { get2048Outcome } = await import("../games/2048-strategy.mjs");
+  assert.equal(get2048Outcome([
+    [2048, 0, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0]
+  ]), "won");
+  assert.equal(get2048Outcome([
+    [2, 4, 8, 16],
+    [4, 8, 16, 32],
+    [8, 16, 32, 64],
+    [16, 32, 64, 128]
+  ]), "game_over");
+});
