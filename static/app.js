@@ -101,6 +101,10 @@ function renderOpportunities(){
   const rows=opportunities.filter(o=>(!status||o.status===status)&&[o.title,o.platform,o.category].some(x=>(x||"").toLowerCase().includes(q)));
   const sortMode=$("opportunity-sort")?.value||"evidence";
   const sortedRows=window.AutoEarnDueDiligence.sortOpportunities(rows,sortMode);
+  const summary=window.AutoEarnDueDiligence.summarizeOpportunities(rows);
+  $("opportunity-summary").textContent=summary.total
+    ? `Showing ${summary.total} opportunities · ${summary.scored} scored · Average evidence completeness: ${summary.averageScore===null?"—":summary.averageScore+"/100"} · High: ${summary.counts.high} · Medium: ${summary.counts.medium} · Needs review: ${summary.counts.low} · Unscored: ${summary.counts.unscored}`
+    : "No opportunities match the current search and status filters.";
   $("opportunity-list").innerHTML=sortedRows.length?sortedRows.map(o=>`<div class="item"><div><h3>${esc(o.title)} <span class="pill">${esc(o.status==="eligible"?"Owner-cleared · not independently verified":o.status)}</span></h3><p>${esc(o.platform)} · ${esc(categoryLabel(o.category))} · Review score ${o.score}/60<br><a href="${esc(o.url)}" target="_blank" rel="noopener noreferrer">Open platform ↗</a> ${o.terms_url?'· <a href="'+esc(o.terms_url)+'" target="_blank" rel="noopener noreferrer">Terms ↗</a>':''}<br>${esc(o.reward_description||"No reward details entered")}${discoveryProvenanceHtml(o)}<br><strong>Eligibility review:</strong> ${eligibilityReviewHtml(o)}</p></div><div class="item-actions">${'<button class="secondary" data-review="'+o.id+'">Review eligibility</button>'}<button class="primary" data-start="${o.id}" ${["ineligible","archived"].includes(o.status)?"disabled":""}>Open manually</button><button class="secondary" data-status="${o.id}" data-next="reviewing">Mark reviewing</button></div></div>`).join(""):'<div class="empty">No matching opportunities.</div>';
   $("opportunity-list").querySelectorAll("[data-review]").forEach(b=>b.onclick=()=>verifyEligibility(Number(b.dataset.review)));
   $("opportunity-list").querySelectorAll("[data-start]").forEach(b=>b.onclick=()=>createTask(Number(b.dataset.start)));
