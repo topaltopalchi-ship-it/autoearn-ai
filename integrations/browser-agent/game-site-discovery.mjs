@@ -69,14 +69,14 @@ async function inspectPage(page, origin) {
     const toggle = toggleLocator.nth(index);
     const safe = await toggle.evaluate(element => {
       const rect = element.getBoundingClientRect();
-      const style = getComputedStyle(element);
+      const style = element.ownerDocument?.defaultView?.getComputedStyle?.(element);
       return element.tagName === "BUTTON" &&
         element.type === "button" &&
         !element.disabled &&
         element.getAttribute("aria-disabled") !== "true" &&
         element.getAttribute("aria-expanded") !== "true" &&
         !element.closest("form") &&
-        style.display !== "none" && style.visibility !== "hidden" &&
+        (!style || (style.display !== "none" && style.visibility !== "hidden")) &&
         rect.width > 0 && rect.height > 0;
     }).catch(() => false);
     if (!safe) continue;
