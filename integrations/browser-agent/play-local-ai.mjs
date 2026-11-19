@@ -6,7 +6,7 @@ import { createOllamaGameRulesExtractor } from "./game-rule-extractor.mjs";
 import { discoverGameInstructions } from "./game-instruction-discovery.mjs";
 import { createGameExperienceMemory } from "./game-experience-memory.mjs";
 import { recordVerifiedExperience } from "./experience-verification.mjs";
-import { readSafeGameCells, clickSafeGameCell } from "./game-cell-browser-adapter.mjs";
+import { readSafeGameCells, clickSafeGameCell, clickSafeGameCanvas } from "./game-cell-browser-adapter.mjs";
 import { detectGameOutcome } from "./game-outcome-detector.mjs";
 
 const gameUrl = process.env.AUTOEARN_GAME_URL;
@@ -73,7 +73,7 @@ async function main() {
     });
     await experienceMemory.load();
     const pendingFeedback = [];
-    const decide = createOllamaGameDecision({ model, maxCalls: maxModelCalls, experienceMemory, allowCellClicks: true });
+    const decide = createOllamaGameDecision({ model, maxCalls: maxModelCalls, experienceMemory, allowCellClicks: true, allowCanvasClicks: true });
     const perceive = createOllamaGamePerception({ model, maxCalls: maxModelCalls });
     const extractRules = createOllamaGameRulesExtractor({ model, maxCalls: 3 });
     let extractedRules = null;
@@ -167,13 +167,13 @@ async function main() {
     const agent = globalThis.AutoEarnGameAgent.createAgent({
       adapter,
       decide,
-      limits: { maxSteps, maxDurationMs, allowedActions: ["press", "click-cell"] },
+      limits: { maxSteps, maxDurationMs, allowedActions: ["press", "click-cell", "click-canvas"] },
       onEvent: event => {
         if (event.type === "step") {
           console.log(JSON.stringify({
             step: event.steps,
             key: event.action?.key,
-            cellIndex: event.action?.index,
+            cellIndex: event.action?.index,\n            canvasPoint: event.action?.type === "click-canvas" ? { x: event.action.x, y: event.action.y } : undefined,
             actionType: event.action?.type,
             verified: event.verified,
             localModelCalls: decide.usage.calls,
