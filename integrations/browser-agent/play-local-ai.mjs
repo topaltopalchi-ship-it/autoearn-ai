@@ -201,8 +201,11 @@ async function main() {
       },
       async verify({ before, action, after }) {
         try {
+          const pendingCountBefore = pendingFeedback.length;
           const verified = await recordVerifiedExperience(experienceMemory, pendingFeedback, { before, action, after });
-          const latest = pendingFeedback[pendingFeedback.length - 1];
+          const latest = pendingFeedback.length > pendingCountBefore
+            ? pendingFeedback[pendingFeedback.length - 1]
+            : null;
           if (verified && latest) {
             recentProgress.push({
               actionKey: latest.actionKey,
