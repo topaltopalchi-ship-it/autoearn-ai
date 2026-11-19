@@ -1,0 +1,33 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { chooseConnectFourMove, getConnectFourOutcome } from "../games/connect-four-strategy.mjs";
+
+const empty = () => Array.from({ length: 6 }, () => Array(7).fill(""));
+
+test("Connect Four takes an immediate winning move", () => {
+  const board = empty();
+  for (let c = 0; c < 3; c++) board[5][c] = "X";
+  assert.deepEqual(chooseConnectFourMove(board, { player: "X" }), {
+    type: "drop-column", column: 3, index: 38
+  });
+});
+
+test("Connect Four blocks an opponent's immediate horizontal win", () => {
+  const board = empty();
+  for (let c = 0; c < 3; c++) board[5][c] = "O";
+  const move = chooseConnectFourMove(board, { player: "X" });
+  assert.equal(move.column, 3);
+});
+
+test("Connect Four prefers the center on an empty board", () => {
+  assert.equal(chooseConnectFourMove(empty(), { player: "X" }).column, 3);
+});
+
+test("Connect Four detects win, draw and invalid board shapes", () => {
+  const won = empty();
+  for (let c = 0; c < 4; c++) won[5][c] = "X";
+  assert.equal(getConnectFourOutcome(won), "X");
+  const draw = Array.from({ length: 6 }, (_, r) => Array.from({ length: 7 }, (_, c) => (r+c)%2 ? "X" : "O"));
+  assert.equal(getConnectFourOutcome(draw), "draw");
+  assert.throws(() => chooseConnectFourMove([[ "X" ]]), /42 valid/);
+});
