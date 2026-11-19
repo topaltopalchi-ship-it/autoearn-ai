@@ -234,3 +234,8 @@ The local runner now carries at most five recent verified action outcomes into t
 Automatic positive/negative experience rating is restricted to a changed outcome explicitly read from a site's `data-game-outcome` or `data-game-status` attribute. Visible-text phrases such as “you win” remain lower-confidence hints and cannot automatically rate memory. Owner review remains the preferred source of strategy feedback.
 
 Local memory now discards records older than 30 days when it loads, in addition to its 1,000-record cap. This limits stale strategy hints; it does not change the local-only storage or privacy boundaries above.
+
+
+## Repeated-state loop watchdog
+
+The generic game loop can now accept a compact semantic state key from a site adapter. If the same board state is observed three times in one run, the agent stops with `stalled / repeated_state` rather than repeatedly issuing moves into a cycle. The local visual runner builds this key from the perceived game type, short state summary, objective, and rounded high-confidence object geometry. This is a conservative loop guard: a legitimate game may revisit a board state, so the stop is a request for review, not a claim that no winning strategy exists. The watchdog is bounded and does not alter the step/time budgets.
