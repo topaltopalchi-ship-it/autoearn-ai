@@ -67,6 +67,17 @@ test("downgrades claimed sufficient rules when objective or controls are missing
   assert.equal(result.rulesSufficient, false);
 });
 
+test("refuses mouse-only games because this runner currently supports keyboard controls only", async () => {
+  const mouseOnly = {
+    ...sufficientRules,
+    controls: [{ input: "Mouse click", actionFa: "روی خانه موردنظر کلیک کن" }]
+  };
+  const extract = createOllamaGameRulesExtractor({ model: "local-model", fetchImpl: mockFetch(mouseOnly) });
+  const result = await extract({ text: "Click a tile to play." });
+  assert.equal(result.controls.length, 0);
+  assert.equal(result.rulesSufficient, false);
+});
+
 test("does not infer permission to automate from silence", async () => {
   const extract = createOllamaGameRulesExtractor({ model: "local-model", fetchImpl: mockFetch(sufficientRules) });
   const result = await extract({ text: "Reach the exit with arrow keys." });
