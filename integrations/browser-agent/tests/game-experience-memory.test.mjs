@@ -104,3 +104,26 @@ test("stores confident canvas clicks as coarse regions without retaining raw coo
     }), /confidence/);
   });
 });
+
+
+test("expires stale rated experiences so old strategies do not bias new sessions", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "autoearn-memory-expiry-"));
+  const filePath = join(dir, "memory.json");
+  try {
+    const oldMemory = createGameExperienceMemory({
+      filePath,
+      now: () => "2026-01-01T00:00:00.000Z"
+    });
+    const input = { gameType: "runner", stateSummary: "same obstacle", action: { type: "press", key: "ArrowUp" } };
+    const id = await oldMemory.recordPending(input);
+    await oldMemory.rate(id, "good");
+    const freshMemory = createGameExperienceMemory({
+      filePath,
+      now: () => "2026-02-15T00:00:00.000Z"
+    });
+    assert.deepEqual(await freshMemory.getHints(input), []);
+    assert.deepEqual(await freshMemory.pending(), []);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
