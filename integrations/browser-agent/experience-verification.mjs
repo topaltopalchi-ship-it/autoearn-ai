@@ -1,3 +1,5 @@
+import { evaluateGameProgress } from "./game-progress-evaluator.mjs";
+
 export function hasMeaningfulStateChange(before, after) {
   if (!before || !after) return false;
   const beforeState = before.gameState || {};
@@ -28,7 +30,8 @@ export async function recordVerifiedExperience(memory, pending, { before, action
       objective: before.gameState?.objective || "",
       action
     });
-    pending?.push({ id, gameType, actionKey });
+    const progress = evaluateGameProgress(before, after);
+    pending?.push({ id, gameType, actionKey, progress });
   } catch (error) {
     onMemoryError(error);
   }
