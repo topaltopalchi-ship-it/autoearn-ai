@@ -161,6 +161,12 @@ function renderRewards(){
   const confirmedTotals=ledger?.sumByCurrency(summary.confirmed)||{};
   const currencies=[...new Set([...Object.keys(paidTotals),...Object.keys(pendingTotals),...Object.keys(confirmedTotals)])].sort();
   $("reward-summary").innerHTML=currencies.length?currencies.map(currency=>`<div class="item"><div><strong>${esc(currency)}</strong><p>Paid with reference: ${money(paidTotals[currency]||0,currency)} · Confirmed: ${money(confirmedTotals[currency]||0,currency)} · Pending: ${money(pendingTotals[currency]||0,currency)}</p></div></div>`).join(""):'<p class="translator-privacy">No validated reward totals yet. Paid totals include only records with a payment reference; all figures are manually entered, not bank-verified.</p>';
+  const monthly=ledger?.summarizeByMonth(rewards)||[];
+  $("reward-monthly").innerHTML=monthly.length?monthly.slice(0,6).map(group=>{
+    const label=new Intl.DateTimeFormat(undefined,{month:"long",year:"numeric",timeZone:"UTC"}).format(new Date(group.month+"-01T00:00:00Z"));
+    const detail=Object.entries(group.currencies).map(([currency,total])=>`${esc(currency)} · Paid ${money(total.paid,currency)} · Confirmed ${money(total.confirmed,currency)} · Pending ${money(total.pending,currency)}`).join("<br>");
+    return `<div class="item"><div><strong>${esc(label)}</strong><p>${detail}</p></div></div>`;
+  }).join(""):'<p class="translator-privacy">Monthly totals will appear after rewards with valid dates are recorded.</p>';
   $("reward-list").innerHTML=rewards.length?rewards.map(r=>{const recordedPaid=r.status==="paid"&&(r.reference||"").trim();const label=recordedPaid?"Paid (reference recorded)":r.status==="paid"?"Paid status missing reference":r.status;return `<div class="item"><div><h3>${money(r.amount,r.currency)} <span class="pill">${esc(label)}</span></h3><p>${esc(r.opportunities?.title||"Unlinked reward")} · ${esc(r.reference||"No transaction reference recorded")}</p></div></div>`}).join(""):'<div class="empty">No rewards recorded.</div>';
 }
 function fillRewardOptions(){$("reward-opportunity").innerHTML='<option value="">Not linked</option>'+opportunities.map(o=>'<option value="'+o.id+'">'+esc(o.title)+'</option>').join("")}
