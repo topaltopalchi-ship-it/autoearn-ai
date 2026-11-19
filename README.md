@@ -61,6 +61,10 @@ Guided sessions are available only after the owner reviews the official terms UR
 
 The local browser agent can attach a conservative progress assessment to a verified action. It uses only high-confidence visible player/target boxes, predicted hazard overlap, and explicit terminal outcome markers. It labels a step good, bad, or neutral as a review suggestion; neutral is the default when evidence is missing. The evaluator also accepts score, level, lives and mistake counters only when both observations explicitly mark their source as a DOM attribute; untrusted visual/text estimates are ignored. This metric path is an evaluator capability and is not automatically populated by every game adapter. These suggestions are not automatically promoted into owner ratings or model training, and visual geometry can be wrong. No win-rate or earnings guarantee is made.
 
+### Authoritative terminal-outcome feedback
+
+When a game adapter exposes a new, explicit `won` or `lost` outcome from a DOM attribute, the evaluator now returns that terminal result immediately. Lower-confidence geometry, hazard, or score signals cannot contradict a confirmed terminal outcome or reverse its owner-feedback label. Visible-text hints and non-terminal progress continue through the conservative heuristic path. This precedence applies only to explicitly sourced DOM terminal markers.
+
 ### Trusted score and state metrics
 
 The local Playwright observer reads `data-game-score`, `data-game-level`, `data-game-lives`, and `data-game-mistakes` only from exactly one explicitly marked `[data-game-board]`. Values must be non-negative integers. These attributes are merged into the game observation with `metricsSource: "dom-attribute"`; absent, malformed, ambiguous, or unmarked values are ignored. Progress feedback can then compare successive observations. The observer does not infer these values from page text or screenshots.
