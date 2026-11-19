@@ -59,7 +59,7 @@
       const url = new URL(String(value || "").trim());
       const host = url.hostname.toLowerCase().replace(/\.$/, "");
       if (url.protocol !== "https:" || url.username || url.password || (url.port && url.port !== "443")) return null;
-      if (!host || host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.startsWith("[") || /^\d{1,3}(?:\.\d{1,3}){3}$/.test(host)) return null;
+      if (!host || host === "localhost" || [".localhost", ".local", ".internal", ".test", ".invalid", ".example"].some((suffix) => host.endsWith(suffix)) || host.startsWith("[") || /^\d{1,3}(?:\.\d{1,3}){3}$/.test(host)) return null;
       const labels = host.split(".");
       if (labels.length < 2 || labels.some((label) => !label || label.length > 63 || !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label))) return null;
       return url.href;
