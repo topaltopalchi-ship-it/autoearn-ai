@@ -91,6 +91,9 @@ async function inspectPage(page, origin) {
       gameLink: anchor.hasAttribute("data-game-link"), folderLink: anchor.hasAttribute("data-game-folder")
     }))).catch(() => []);
     expandedLinks.push(...revealed);
+    // Keep the folder expanded when its visible contents are the actual game board.
+    // The runner must receive the page in the same observable state used for detection.
+    if (revealedCandidates.length > 0) continue;
     const stillExpanded = await toggle.getAttribute("aria-expanded").catch(() => null);
     if (stillExpanded === "true" || stillExpanded === null) {
       await toggle.click().catch(() => {});
