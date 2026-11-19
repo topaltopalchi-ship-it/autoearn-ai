@@ -59,13 +59,31 @@ Deno.serve((req: Request) => {
     let acceptedCandidates = 0;
     const searchStats: Array<{ category: string; query: string; results: number; status: number }> = [];
 
+    // Keep the edge function bounded even when the public search service is slow.
+    const discoveryStartedAt = Date.now();
+    const maxDiscoveryMs = 55_000;
+    const requestTimeoutMs = 6_000;
+    const maxResultsPerQuery = 8;
+
     for (let index = 0; index < SEARCHES.length; index++) {
+      if (Date.now() - discoveryStartedAt >= maxDiscoveryMs) {
+        errors.push("Discovery time budget reached; remaining searches were skipped.");
+        break;
+      }
       const search = SEARCHES[index];
       try {
-        if (index > 0) await new Promise((resolve) => setTimeout(resolve, 1100));
+        if (index > 0) await new Promise((resolve) => setTimeout(resolve, 350));
         const endpoint = new URL("https://api.mwmbl.org/api/v1/search/");
         endpoint.searchParams.set("s", search.query);
-        const response = await fetch(endpoint, { headers: { "Accept": "application/json" } });
+        const remainingMs = maxDiscoveryMs - (Date.now() - discoveryStartedAt);
+        if (remainingMs <= 0) {
+          errors.push("Discovery time budget reached; remaining searches were skipped.");
+          break;
+        }
+        const response = await fetch(endpoint, {
+          headers: { "Accept": "application/json" },
+          signal: AbortSignal.timeout(Math.min(requestTimeoutMs, remainingMs)),
+        });
         if (!response.ok) {
           errors.push(`${search.category} (${search.query}): Mwmbl returned ${response.status}`);
           searchStats.push({ category: search.category, query: search.query, results: 0, status: response.status });
@@ -73,8 +91,11 @@ Deno.serve((req: Request) => {
         }
 
         const payload = await response.json();
-        const results = Array.isArray(payload) ? payload : [];
+        const results = Array.isArray(payload) ? payload.slice(0, maxResultsPerQuery) : [];
         searchStats.push({ category: search.category, query: search.query, results: results.length, status: response.status });
+        if (Array.isArray(payload) && payload.length > maxResultsPerQuery) {
+          errors.push(search.category + ": result list capped at " + maxResultsPerQuery + " items.");
+        }
         if (!Array.isArray(payload)) errors.push(`${search.query}: unexpected response format`);
 
         for (const item of results) {
