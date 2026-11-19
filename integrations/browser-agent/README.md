@@ -202,3 +202,8 @@ npm run play:auto
 The combined `npm run play:auto` runner also supports Othello/Reversi when the page exposes exactly 64 indexed `[data-game-cell][data-game-cell-index]` cells inside one `[data-game-board]` and an explicit `data-current-player="B|W"` (or BLACK/WHITE) attribute. Cells must expose B/W or BLACK/WHITE marks (X/O is accepted as a documented alias). The strategy computes legal captures and uses a bounded depth-3 search with corner, mobility, edge, and disc-count evaluation. It verifies the complete expected board after each placement.
 
 Set `AUTOEARN_OTHELLO_PLAYER=B` or `W`. If the configured side has no legal move, the agent only passes when the page exposes one unique visible `[data-game-pass]` control; otherwise it stops rather than guessing. If neither side can move, the game is reported as finished. The site's published rules must explicitly permit automation, and all normal origin/verification/time limits still apply. No live third-party Othello site has been tested.
+
+
+## Explicit expandable game folders
+
+Game discovery can now inspect a site's explicitly marked expandable folder buttons. It activates only visible, enabled `button[data-game-folder-toggle]` elements whose type is `button` and which are not inside a form; it never clicks generic buttons, links, or unlabeled page controls to guess where a game might be. Each toggle is opened only long enough to read newly revealed same-origin game links, then collapsed again. The discovery pass is limited to eight such controls per page and still obeys the existing page/depth/time budgets. If a toggle navigates away from the approved HTTPS origin or cannot be safely collapsed, discovery stops. Sites that do not mark folder toggles explicitly remain unsupported by this path.
