@@ -158,3 +158,43 @@ test("opens only an explicitly marked folder-toggle button and discovers its rev
   assert.equal(clickCount, 2, "the explicit toggle is opened and then collapsed");
   assert.equal(expanded, false);
 });
+
+
+test("detects a game board revealed directly inside an explicitly expanded folder", async () => {
+  const start = "https://site.example/home";
+  let current = start, expanded = false, clickCount = 0;
+  const page = {
+    url: () => current,
+    isClosed: () => false,
+    title: async () => "Game folders",
+    goto: async url => { current = url; },
+    locator(selector) {
+      if (selector === "body") return {
+        innerText: async () => "",
+        evaluate: async () => expanded && current === start
+          ? [{ kind: "tic-tac-toe", boardKey: "revealed-board", cells: ttt }]
+          : []
+      };
+      if (selector === "button[data-game-folder-toggle]") return {
+        count: async () => current === start ? 1 : 0,
+        nth: () => ({
+          evaluate: async callback => callback({
+            tagName: "BUTTON", type: "button", disabled: false,
+            getAttribute: () => null, closest: () => null,
+            getBoundingClientRect: () => ({ width: 20, height: 20 }),
+            ownerDocument: null
+          }),
+          getAttribute: async name => name === "aria-expanded" ? String(expanded) : null,
+          click: async () => { expanded = !expanded; clickCount++; }
+        })
+      };
+      if (selector === "a[href]") return { evaluateAll: async callback => callback([]) };
+      return { evaluateAll: async () => [] };
+    }
+  };
+  const result = await discoverSupportedGame(page, { maxPages: 2, maxDepth: 0 });
+  assert.equal(result.selected?.detection.gameType, "tic-tac-toe");
+  assert.equal(result.selected?.url, start);
+  assert.equal(clickCount, 2);
+  assert.equal(expanded, false);
+});
