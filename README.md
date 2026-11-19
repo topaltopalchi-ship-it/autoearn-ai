@@ -76,3 +76,7 @@ Run `node integrations/browser-agent/games/run-2048-episodes.mjs` to simulate co
 ### Adaptive 2048 search depth (experimental)
 
 The dedicated 2048 browser runner now chooses expectimax depth from board occupancy: depth 1 with 10–16 empty cells, depth 2 with 6–9 empty cells, and depth 3 with 0–5 empty cells. This is a bounded compute heuristic intended to spend more lookahead on crowded boards, not a proven optimal policy. The fixed-depth `create2048Decision` remains available for controlled comparisons; `createAdaptive2048Decision` is used by `play-2048.mjs`.
+
+### Paired 2048 policy comparison (experimental)
+
+Run `node integrations/browser-agent/games/run-2048-policy-comparison.mjs` to compare fixed depths 1–3 with the adaptive policy on the same deterministic episode seeds. The report includes paired score differences against fixed depth 3, score win/tie/loss counts, maximum tiles, move-limit stops, and the adaptive policy's depth-use counts. Identical seeds provide a reproducible paired experiment, but different board trajectories mean this remains synthetic evidence—not a real-site win rate or earnings claim.
