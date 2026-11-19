@@ -43,6 +43,11 @@ test("recognizes Othello only from 64 indexed cells and an explicit current play
   const cells = Array.from({ length: 64 }, (_, index) => ({ index, mark: index === 27 || index === 36 ? "W" : index === 28 || index === 35 ? "B" : "" }));
   assert.equal(detectKnownGame({ gameCandidates: [{ kind: "othello", cells, currentPlayer: "B" }] }).gameType, "othello");
   assert.equal(detectKnownGame({ gameCandidates: [{ kind: "othello", cells, currentPlayer: "" }] }).gameType, null);
+  assert.equal(detectKnownGame({ gameCandidates: [{ kind: "othello", cells: cells.slice(1), currentPlayer: "B" }] }).gameType, null);
+  const duplicate = cells.map(cell => ({ ...cell, index: cell.index === 63 ? 62 : cell.index }));
+  assert.equal(detectKnownGame({ gameCandidates: [{ kind: "othello", cells: duplicate, currentPlayer: "B" }] }).gameType, null);
+  const unknownMark = cells.map(cell => ({ ...cell, mark: cell.index === 0 ? "RED" : cell.mark }));
+  assert.equal(detectKnownGame({ gameCandidates: [{ kind: "othello", cells: unknownMark, currentPlayer: "B" }] }).gameType, null);
 });
 
 test("recognizes 2048 only from valid coordinate and power-of-two tile metadata", () => {
