@@ -40,7 +40,10 @@
       if (mode === "newest") {
         return String(b?.created_at || "").localeCompare(String(a?.created_at || ""));
       }
-      const delta = evidenceScore(b) - evidenceScore(a);
+      const scoreA = evidenceScore(a);
+      const scoreB = evidenceScore(b);
+      if ((scoreA < 0) !== (scoreB < 0)) return scoreA < 0 ? 1 : -1;
+      const delta = scoreB - scoreA;
       if (delta !== 0) return mode === "evidence-low" ? -delta : delta;
       return String(b?.created_at || "").localeCompare(String(a?.created_at || ""));
     });
