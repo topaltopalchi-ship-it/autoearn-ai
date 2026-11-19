@@ -100,6 +100,9 @@ export function createOllamaGameDecision({
         break;
       }
     }
+    const allowedCellIndices = new Set(snapshot.clickTargets
+      .filter(target => target && Number.isInteger(target.index) && target.index >= 0 && target.index < 100)
+      .map(target => target.index));
     const recentActions = Array.isArray(history) ? history.slice(-6).map(record => {
       const action = record?.action || {};
       if (action.type === "press" && DEFAULT_KEYS.has(action.key)) {
@@ -169,6 +172,9 @@ export function createOllamaGameDecision({
       const payload = await response.json();
       const action = parseAction(payload?.message?.content, allowCellClicks, allowCanvasClicks);
       if (action?.type === "press" && !keys.has(action.key)) throw new Error("Local model selected a key outside the configured allowlist.");
+      if (action?.type === "click-cell" && !allowedCellIndices.has(action.index)) {
+        throw new Error("Local model selected a cell that is not in the observed safe click-target list.");
+      }
       if (action?.type === "click-canvas" && observation.canvasAvailable !== true) {
         throw new Error("Local model requested a canvas click but no explicitly marked game canvas is available.");
       }
