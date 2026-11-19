@@ -167,3 +167,8 @@ Before visual game-state detection, `play:local-ai` reads the current page and m
 ## Nested game/folder discovery
 
 The conservative `play:auto` runner can now inspect the starting page and up to seven additional same-origin HTTPS pages (maximum depth two), following only links whose visible label/path clearly indicates games, puzzles, arcade, levels, folders, or categories, or which carry explicit `data-game-link` / `data-game-folder` markers. It detects only the existing explicit 2048 and tic-tac-toe board signatures. If it finds exactly one supported board, it navigates to that board and runs the matching strategy; if it finds none or multiple candidates, it stops rather than guessing. Account/payment/security paths, external origins, verification gates, arbitrary buttons, forms, and login flows are not followed. This is bounded discovery, not a universal website crawler.
+
+
+## Guarded mouse selection for explicitly marked game cells
+
+The experimental local AI runner supports a narrow mouse action: `click-cell` with an index from 0 to 99. It is enabled only when exactly one `[data-game-board]` exists and the target is a unique visible `[data-game-cell][data-game-cell-index="N"]` descendant. The target and its ancestors must not be links, buttons, form controls, or role=button/link elements. Arbitrary screen coordinates, selectors, page buttons, links, menus, and form controls are never sent to Playwright. Observations include available safe cell indices and short labels. This requires site markup to expose explicit data attributes; canvas-only or unmarked mouse games remain unsupported. The rule extractor accepts game-cell/tile/square click descriptions, not generic page clicks.
