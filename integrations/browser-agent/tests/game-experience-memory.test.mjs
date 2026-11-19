@@ -15,7 +15,7 @@ async function withMemory(run) {
   }
 }
 
-test("stores only a hashed state and allowlisted action, then reloads rated hints", async () => {
+test("stores only a hashed state and allowlisted action, then reloads evidence-backed hints", async () => {
   await withMemory(async memory => {
     const input = {
       gameType: "2048",
@@ -23,29 +23,54 @@ test("stores only a hashed state and allowlisted action, then reloads rated hint
       objective: "Combine equal tiles",
       action: { type: "press", key: "ArrowLeft" }
     };
-    const id = await memory.recordPending(input);
-    assert.match(id, /^[0-9a-f-]{36}$/);
+    const firstId = await memory.recordPending(input);
+    assert.match(firstId, /^[0-9a-f-]{36}$/);
     assert.deepEqual(await memory.pending(), [{
-      id, gameType: "2048", actionKey: "ArrowLeft",
+      id: firstId, gameType: "2048", actionKey: "ArrowLeft",
       createdAt: (await memory.pending())[0].createdAt
     }]);
-    await memory.rate(id, "good");
+    await memory.rate(firstId, "good");
+    assert.deepEqual(await memory.getHints(input), []);
+    const secondId = await memory.recordPending(input);
+    await memory.rate(secondId, "good");
     assert.deepEqual(await memory.getHints(input), [
-      { key: "ArrowLeft", good: 1, bad: 0, net: 1 }
+      { key: "ArrowLeft", good: 2, bad: 0, net: 2, sampleCount: 2, successRate: 0.75 }
     ]);
   });
 });
 
-test("keeps pending feedback out of hints and rejects repeat ratings", async () => {
+test("keeps pending and single-rating feedback out of hints; rejects repeat ratings", async () => {
   await withMemory(async memory => {
     const input = { gameType: "platformer", stateSummary: "At start", action: { type: "press", key: " " } };
     const id = await memory.recordPending(input);
     assert.deepEqual(await memory.getHints(input), []);
     await memory.rate(id, "bad");
+    assert.deepEqual(await memory.getHints(input), []);
+    const secondId = await memory.recordPending(input);
+    await memory.rate(secondId, "bad");
     await assert.rejects(() => memory.rate(id, "good"), /already been rated/);
     assert.deepEqual(await memory.getHints(input), [
-      { key: " ", good: 0, bad: 1, net: -1 }
+      { key: " ", good: 0, bad: 2, net: -2, sampleCount: 2, successRate: 0.25 }
     ]);
+  });
+});
+
+test("smooths conflicting evidence and ranks it below consistently positive evidence", async () => {
+  await withMemory(async memory => {
+    const input = { gameType: "puzzle", stateSummary: "same board" };
+    for (const feedback of ["good", "bad"]) {
+      const id = await memory.recordPending({ ...input, action: { type: "press", key: "ArrowLeft" } });
+      await memory.rate(id, feedback);
+    }
+    for (const feedback of ["good", "good", "good"]) {
+      const id = await memory.recordPending({ ...input, action: { type: "press", key: "ArrowRight" } });
+      await memory.rate(id, feedback);
+    }
+    const hints = await memory.getHints(input);
+    assert.equal(hints[0].key, "ArrowRight");
+    assert.equal(hints[0].successRate, 0.8);
+    assert.equal(hints[1].key, "ArrowLeft");
+    assert.equal(hints[1].successRate, 0.5);
   });
 });
 
@@ -71,17 +96,19 @@ test("state keys are stable and do not expose source text", () => {
   assert.equal(a.includes("private"), false);
 });
 
-
 test("stores and rates bounded indexed cell-click experiences", async () => {
   await withMemory(async memory => {
     const input = { gameType: "memory", stateSummary: "two covered cards", action: { type: "click-cell", index: 4 } };
-    const id = await memory.recordPending(input);
-    await memory.rate(id, "good");
-    assert.deepEqual(await memory.getHints(input), [{ key: "click-cell:4", good: 1, bad: 0, net: 1 }]);
+    for (let i = 0; i < 2; i++) {
+      const id = await memory.recordPending(input);
+      await memory.rate(id, "good");
+    }
+    assert.deepEqual(await memory.getHints(input), [
+      { key: "click-cell:4", good: 2, bad: 0, net: 2, sampleCount: 2, successRate: 0.75 }
+    ]);
     await assert.rejects(() => memory.recordPending({ ...input, action: { type: "click-cell", index: 100 } }), /allowlisted/);
   });
 });
-
 
 test("stores confident canvas clicks as coarse regions without retaining raw coordinates", async () => {
   await withMemory(async memory => {
@@ -91,10 +118,12 @@ test("stores confident canvas clicks as coarse regions without retaining raw coo
       objective: "hit the target",
       action: { type: "click-canvas", x: 0.14, y: 0.28, confidence: 0.91 }
     };
-    const id = await memory.recordPending(input);
-    await memory.rate(id, "good");
+    for (let i = 0; i < 2; i++) {
+      const id = await memory.recordPending(input);
+      await memory.rate(id, "good");
+    }
     assert.deepEqual(await memory.getHints(input), [
-      { key: "click-canvas:1:2", good: 1, bad: 0, net: 1 }
+      { key: "click-canvas:1:2", good: 2, bad: 0, net: 2, sampleCount: 2, successRate: 0.75 }
     ]);
     await assert.rejects(() => memory.recordPending({
       ...input, action: { ...input.action, confidence: 0.79 }
@@ -104,7 +133,6 @@ test("stores confident canvas clicks as coarse regions without retaining raw coo
     }), /confidence/);
   });
 });
-
 
 test("expires stale rated experiences so old strategies do not bias new sessions", async () => {
   const dir = await mkdtemp(join(tmpdir(), "autoearn-memory-expiry-"));
