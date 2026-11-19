@@ -239,3 +239,6 @@ Local memory now discards records older than 30 days when it loads, in addition 
 ## Repeated-state loop watchdog
 
 The generic game loop can now accept a compact semantic state key from a site adapter. If the same board state is observed three times in one run, the agent stops with `stalled / repeated_state` rather than repeatedly issuing moves into a cycle. The local visual runner builds this key from the perceived game type, short state summary, objective, and rounded high-confidence object geometry. This is a conservative loop guard: a legitimate game may revisit a board state, so the stop is a request for review, not a claim that no winning strategy exists. The watchdog is bounded and does not alter the step/time budgets.
+
+
+The local decision prompt also receives the last six sanitized actions from the current run (keyboard key, bounded cell index, or coarse canvas bucket). It can use this short sequence to avoid repeating moves without considering their effects. A successful verification means the board changed; it does not mean the move was strategically good. The action history is in-memory for the current run and is not added to the persistent experience ledger.
