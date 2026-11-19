@@ -91,7 +91,7 @@ export function createOllamaGameDecision({
         ? "You may return {\"type\":\"click-cell\",\"index\":0} only for an index listed in clickTargets."
         : "Do not request indexed cell clicks.",
       allowCanvasClicks
-        ? "You may return {\"type\":\"click-canvas\",\"x\":0.5,\"y\":0.5} only when canvasAvailable is true. x and y are normalized fractions from 0 to 1 within the game canvas."
+        ? "You may return {\"type\":\"click-canvas\",\"x\":0.5,\"y\":0.5,\"confidence\":0.9} only when canvasAvailable is true. x and y are normalized fractions from 0 to 1 within the game canvas, and confidence is your estimated certainty from 0 to 1; it must be at least 0.8."
         : "Do not request canvas clicks.",
       "Never click arbitrary links, buttons, menus, or page controls; never navigate, type, submit forms, purchase, or bypass protections.",
       "Allowed keys: " + [...keys].join(", "),
