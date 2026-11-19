@@ -2,6 +2,8 @@
   "use strict";
 
   const PENALTIES = Object.freeze({
+    official_source_not_verified: 15,
+    official_terms_source_not_verified: 15,
     minimum_withdrawal_not_found: 12,
     specific_payout_method_not_found: 10,
     withdrawal_fees_not_found: 8,
