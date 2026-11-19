@@ -30,6 +30,48 @@ test("clean text signals score 90 without official terms and 100 when terms are 
   assert.equal(globalThis.AutoEarnDueDiligence.calculateEvidenceCompleteness(notes, "https://example.com/terms").score, 100);
 });
 
+test("sorts opportunities by evidence completeness without mutating input", () => {
+  const low = {
+    id: 1,
+    created_at: "2026-01-01",
+    notes: "Due-diligence flags: organizer_identity_not_found, prize_amount_not_found.",
+    terms_url: "",
+  };
+  const high = {
+    id: 2,
+    created_at: "2026-01-02",
+    notes: "Due-diligence flags: no missing details detected by text heuristics.",
+    terms_url: "https://example.com/terms",
+  };
+  const input = [low, high];
+  assert.deepEqual(
+    globalThis.AutoEarnDueDiligence.sortOpportunities(input, "evidence").map((item) => item.id),
+    [2, 1],
+  );
+  assert.deepEqual(input.map((item) => item.id), [1, 2]);
+  assert.deepEqual(
+    globalThis.AutoEarnDueDiligence.sortOpportunities(input, "evidence-low").map((item) => item.id),
+    [1, 2],
+  );
+  assert.deepEqual(
+    globalThis.AutoEarnDueDiligence.sortOpportunities(input, "newest").map((item) => item.id),
+    [2, 1],
+  );
+});
+
+test("unscored manual entries sort after scored discovery candidates", () => {
+  const manual = { id: "manual", notes: "Owner-entered notes", terms_url: "" };
+  const discovered = {
+    id: "discovered",
+    notes: "Due-diligence flags: no missing details detected by text heuristics.",
+    terms_url: "https://example.com/terms",
+  };
+  assert.deepEqual(
+    globalThis.AutoEarnDueDiligence.sortOpportunities([manual, discovered]).map((item) => item.id),
+    ["discovered", "manual"],
+  );
+});
+
 test("returns null when no discovery due-diligence result exists", () => {
   assert.equal(globalThis.AutoEarnDueDiligence.calculateEvidenceCompleteness("No flags", ""), null);
 });
