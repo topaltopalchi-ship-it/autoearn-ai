@@ -52,16 +52,18 @@ export function benchmark2048Strategies({ boards = null, seed = 2048, count = 12
   const results = depths.map(depth => {
     const decisions = positions.map(board => {
       const decision = choose2048Move(board, { depth });
-      if (!decision) return { terminal: true, score: evaluate2048Board(board), key: null };
+      if (!decision) return { terminal: true, score: evaluate2048Board(board), key: null, searchScore: null };
       const moved = move2048(board, decision.direction);
       return {
         terminal: false,
         score: evaluate2048Board(moved.board),
+        searchScore: decision.score,
         key: decision.key,
         won: get2048Outcome(moved.board) === "won"
       };
     });
     const scores = decisions.map(item => item.score);
+    const searchScores = decisions.filter(item => Number.isFinite(item.searchScore)).map(item => item.searchScore);
     const directionCounts = Object.fromEntries(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]
       .map(key => [key, decisions.filter(item => item.key === key).length]));
     return {
@@ -71,13 +73,16 @@ export function benchmark2048Strategies({ boards = null, seed = 2048, count = 12
       terminalPositions: decisions.filter(item => item.terminal).length,
       immediateHeuristicMean: scores.reduce((sum, value) => sum + value, 0) / scores.length,
       immediateHeuristicMedian: median(scores),
+      expectedSearchValueMean: searchScores.length
+        ? searchScores.reduce((sum, value) => sum + value, 0) / searchScores.length
+        : null,
       predictedWinningBoards: decisions.filter(item => item.won).length,
       directionCounts
     };
   });
   return {
     seed: boards ? null : seed,
-    note: "Synthetic deterministic benchmark only; immediate heuristic is not a win-rate or real-game result.",
+    note: "Synthetic deterministic benchmark only; heuristic and search values are not measured win rates or real-game results.",
     results
   };
 }
