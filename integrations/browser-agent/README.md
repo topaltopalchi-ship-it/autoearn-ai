@@ -162,3 +162,8 @@ Set `AUTOEARN_MEMORY_FILE` to choose a different local file path. Do not place t
 ## Bounded instruction-page discovery
 
 Before visual game-state detection, `play:local-ai` reads the current page and may visit up to four clearly-labelled same-origin HTTPS help, rules, guide, tutorial, or instructions links (five pages total including the starting page). It collects bounded visible text and same-origin iframe text, strips query strings/fragments from discovered links, then returns to the original game URL before play. It never clicks arbitrary page controls or follows external links. CAPTCHA/verification text or an origin change stops the run. This helps when instructions live on a separate help page, but it does not automatically navigate folder widgets or start a game from a help-only landing page.
+
+
+## Nested game/folder discovery
+
+The conservative `play:auto` runner can now inspect the starting page and up to seven additional same-origin HTTPS pages (maximum depth two), following only links whose visible label/path clearly indicates games, puzzles, arcade, levels, folders, or categories, or which carry explicit `data-game-link` / `data-game-folder` markers. It detects only the existing explicit 2048 and tic-tac-toe board signatures. If it finds exactly one supported board, it navigates to that board and runs the matching strategy; if it finds none or multiple candidates, it stops rather than guessing. Account/payment/security paths, external origins, verification gates, arbitrary buttons, forms, and login flows are not followed. This is bounded discovery, not a universal website crawler.
