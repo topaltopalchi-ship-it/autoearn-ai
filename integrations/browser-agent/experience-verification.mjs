@@ -4,11 +4,26 @@ export function hasMeaningfulStateChange(before, after) {
   if (!before || !after) return false;
   const beforeState = before.gameState || {};
   const afterState = after.gameState || {};
+  const oldOutcome = beforeState.outcome;
+  const newOutcome = afterState.outcome;
+  if (oldOutcome !== newOutcome) return true;
+  const oldObjects = Array.isArray(before.canvasObjects) ? before.canvasObjects : [];
+  const newObjects = Array.isArray(after.canvasObjects) ? after.canvasObjects : [];
+  const objectMoved = oldObjects.some(oldItem => {
+    if (!oldItem || typeof oldItem.role !== "string" || !Number.isFinite(oldItem.confidence) || oldItem.confidence < 0.8) return false;
+    const match = newObjects.find(item => item?.role === oldItem.role &&
+      (item.label || "") === (oldItem.label || "") && item.confidence >= 0.8);
+    if (!match) return false;
+    return ["x", "y", "width", "height"].some(key =>
+      Number.isFinite(oldItem[key]) && Number.isFinite(match[key]) && Math.abs(oldItem[key] - match[key]) >= 0.02
+    );
+  });
   return before.url !== after.url ||
     before.snapshot !== after.snapshot ||
     beforeState.stateSummary !== afterState.stateSummary ||
     beforeState.objective !== afterState.objective ||
-    beforeState.scene !== afterState.scene;
+    beforeState.scene !== afterState.scene ||
+    objectMoved;
 }
 
 export async function recordVerifiedExperience(memory, pending, { before, action, after, onMemoryError = () => {} }) {
