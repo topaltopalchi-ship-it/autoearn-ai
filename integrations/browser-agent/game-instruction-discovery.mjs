@@ -1,5 +1,5 @@
-const HELP_LABEL = /\\b(help|instructions?|rules?|how to play|game guide|guide|tutorial|faq)\\b|راهنما|قوانین|چطور بازی|آموزش|دستورالعمل/i;
-const HELP_PATH = /(?:^|\\/)(?:help|rules?|instructions?|guide|tutorial|how-to|faq|راهنما|قوانین|آموزش)(?:\\/|$)/i;
+const HELP_LABEL = /\b(help|instructions?|rules?|how to play|game guide|guide|tutorial|faq)\b|راهنما|قوانین|چطور بازی|آموزش|دستورالعمل/i;
+const HELP_PATH = /(?:^|\/)(?:help|rules?|instructions?|guide|tutorial|how-to|faq|راهنما|قوانین|آموزش)(?:\/|$)/i;
 const SENSITIVE_PATH = /(?:logout|log-out|delete|remove|claim|checkout|purchase|deposit|withdraw|payment|submit|login|signin|sign-in|register|signup|sign-up|start-game|play-now)/i;
 const VERIFICATION = /captcha|are you human|verify you are human|robot check|security challenge|cloudflare turnstile|hcaptcha|recaptcha|تأیید انسان|کد امنیتی/i;
 
@@ -39,7 +39,7 @@ async function readPage(page, origin) {
   const body = page.locator("body");
   const text = await body.innerText().catch(() => "");
   const snapshot = await body.ariaSnapshot().catch(() => "");
-  if (VERIFICATION.test(title + "\\n" + text + "\\n" + snapshot)) {
+  if (VERIFICATION.test(title + "\n" + text + "\n" + snapshot)) {
     throw new Error("Verification or anti-bot gate found during instruction discovery; human action is required.");
   }
   const frameTexts = [];
@@ -59,7 +59,7 @@ async function readPage(page, origin) {
   return {
     title: String(title).slice(0, 160),
     url,
-    text: (String(text).slice(0, 8_000) + "\\n" + frameTexts.join("\\n").slice(0, 4_000)).slice(0, 10_000),
+    text: (String(text).slice(0, 8_000) + "\n" + frameTexts.join("\n").slice(0, 4_000)).slice(0, 10_000),
     snapshot: String(snapshot).slice(0, 5_000),
     links
   };
@@ -128,7 +128,7 @@ export async function discoverGameInstructions(page, {
     pages,
     visitedUrls: pages.map(item => item.url),
     title: pages[0]?.title || "",
-    text: pages.map(item => "[صفحه: " + item.title + "]\\n" + item.text).join("\\n\\n").slice(0, 16_000),
-    snapshot: pages.map(item => item.snapshot).filter(Boolean).join("\\n").slice(0, 8_000)
+    text: pages.map(item => "[صفحه: " + item.title + "]\n" + item.text).join("\n\n").slice(0, 16_000),
+    snapshot: pages.map(item => item.snapshot).filter(Boolean).join("\n").slice(0, 8_000)
   };
 }
