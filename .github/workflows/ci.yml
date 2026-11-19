@@ -25,7 +25,10 @@ jobs:
           AUTOEARN_2048_EPISODES: "20"
           AUTOEARN_2048_DEPTH: "2"
           AUTOEARN_2048_MAX_MOVES: "500"
-        run: node games/run-2048-heuristic-comparison.mjs
+        run: |
+          AUTOEARN_2048_SNAKE_WEIGHT=0.25 node games/run-2048-heuristic-comparison.mjs
+          AUTOEARN_2048_SNAKE_WEIGHT=0.5 node games/run-2048-heuristic-comparison.mjs
+          AUTOEARN_2048_SNAKE_WEIGHT=1 node games/run-2048-heuristic-comparison.mjs
       - run: deno check --minimum-dependency-age=60m --node-modules-dir=auto supabase/functions/discover-opportunities/index.ts
       - run: deno test --minimum-dependency-age=60m --node-modules-dir=auto supabase/functions/discover-opportunities/filters_test.ts
       - uses: actions/setup-python@v5
