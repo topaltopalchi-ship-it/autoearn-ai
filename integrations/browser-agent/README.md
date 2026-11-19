@@ -83,3 +83,21 @@ Ollama inference is local and has no per-request API fee, but downloading model 
 - No login, signup, form submission, purchases, deposits, withdrawals, prize claims, or personal-data entry are implemented.
 - No cookies or browser profile are imported or persisted. This runtime starts logged out.
 - To use the local provider, install Ollama on the computer running this browser agent, start `ollama serve`, and pull a vision-capable model such as `ollama pull qwen2.5vl:3b`. This downloads model weights to your computer; inference is local and has no per-call API charge. Hardware needs depend on the selected model. The provider is implemented and tested but is not yet connected to the general site runner.
+
+## Tic-tac-toe browser runner
+
+A deterministic minimax strategy is now connected to an explicit, site-configured DOM adapter. The adapter requires exactly nine cells with unique `data-index="0"` through `data-index="8"` attributes and readable marks via `data-mark` (or cell text). It clicks only the selected empty cell, checks that the configured player is actually next, and verifies that the intended mark appeared after the click. This is not a universal visual detector; a site-specific selector and mark mapping are required.
+
+Use only on sites whose published rules explicitly permit automated play:
+
+```sh
+AUTOEARN_GAME_URL=https://your-approved-game.example/tic-tac-toe \
+AUTOEARN_ALLOWED_ORIGINS=https://your-approved-game.example \
+AUTOEARN_AUTOMATION_APPROVED=YES \
+AUTOEARN_TTT_BOARD_SELECTOR='[data-game-board]' \
+AUTOEARN_TTT_CELL_SELECTOR='[data-index]' \
+AUTOEARN_TTT_PLAYER=X \
+npm run play:tic-tac-toe
+```
+
+Set `AUTOEARN_TTT_PLAYER` to the mark assigned to the agent on that site. The runner starts logged out, uses a fresh browser context, checks the exact HTTPS origin, stops at verification gates, and has a maximum of nine moves. It does not sign in, submit forms, make purchases, or claim prizes. No live third-party site test has been performed yet.
