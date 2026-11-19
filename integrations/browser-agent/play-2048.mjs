@@ -82,7 +82,11 @@ async function main() {
     console.log(JSON.stringify({ status: "started", url: page.url(), initialBoard: initial.board }));
     const result = await agent.run();
     const finalState = await adapter.observe().catch(() => null);
-    console.log(JSON.stringify({ result, finalBoard: finalState?.board || null }, null, 2));
+    console.log(JSON.stringify({
+      result,
+      finalBoard: finalState?.board || null,
+      finalOutcome: finalState?.outcome || "unknown"
+    }, null, 2));
   } finally {
     await context.close().catch(() => {});
     await browser.close().catch(() => {});
