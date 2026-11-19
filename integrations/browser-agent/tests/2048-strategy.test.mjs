@@ -225,7 +225,7 @@ test("snake positional preference distinguishes orderly high-tile rows", async (
     [1, 256, 16, 512],
     [0, 0, 0, 0]
   ];
-  assert.ok(evaluate2048Board(orderly) > evaluate2048Board(scrambled));
+  assert.ok(evaluate2048Board(orderly, { snakeWeight: 1 }) > evaluate2048Board(scrambled, { snakeWeight: 1 }));
 });
 
 test("paired heuristic comparison is reproducible and reports both variants", async () => {
