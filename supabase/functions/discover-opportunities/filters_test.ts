@@ -222,3 +222,13 @@ Deno.test("does not allow unrelated betting sites through the Zoa exception", ()
     "excluded_category"
   );
 });
+
+Deno.test("rejects gambling sites even when they advertise free entry and payouts", () => {
+  assertRejected("https://example.com/predictions", "Free football prediction contest cash prize", "Free entry. Gambling platform with cash payout and optional play.", "excluded_category");
+});
+Deno.test("rejects bookmaker and betting exchange results", () => {
+  assertRejected("https://example.com/picks", "Free match prediction contest prize money", "No purchase necessary. Bookmaker offers betting exchange markets and cash payouts.", "excluded_category");
+});
+Deno.test("rejects poker and roulette promotions", () => {
+  assertRejected("https://example.com/casino", "Free poker tournament cash prize", "Free entry. Poker and roulette games with cash prize payout by bank transfer.", "excluded_category");
+});
