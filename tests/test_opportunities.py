@@ -1,6 +1,6 @@
 import unittest
 
-from autoearn.opportunities import Opportunity, normalize_url, score_opportunity
+from autoearn.opportunities import (\n    EligibilityReview, Opportunity, evaluate_eligibility, normalize_url, score_opportunity,\n)
 
 
 class NormalizeUrlTests(unittest.TestCase):
@@ -45,6 +45,37 @@ class OpportunityTests(unittest.TestCase):
     def test_low_score_is_high_risk(self):
         item = Opportunity("Demo", "https://example.com")
         self.assertEqual(score_opportunity(item)["risk"], "high")
+
+
+class EligibilityReviewTests(unittest.TestCase):
+    def test_fails_closed_when_any_confirmation_is_missing(self):
+        review = EligibilityReview(
+            official_terms_reviewed=True,
+            country_eligible=True,
+            supported_cash_payout=True,
+            no_deposit_or_purchase=False,
+            platform_rules_reviewed=True,
+        )
+        result = evaluate_eligibility(review)
+        self.assertFalse(result["eligible_for_manual_review"])
+        self.assertEqual(result["missing_confirmations"], ["no_deposit_or_purchase"])
+        self.assertFalse(result["automation_permitted"])
+
+    def test_all_confirmations_allow_only_manual_review(self):
+        review = EligibilityReview(True, True, True, True, True)
+        result = evaluate_eligibility(review)
+        self.assertTrue(result["eligible_for_manual_review"])
+        self.assertEqual(result["missing_confirmations"], [])
+        self.assertFalse(result["automation_permitted"])
+
+    def test_rejects_truthy_non_boolean_values(self):
+        with self.assertRaises(ValueError):
+            EligibilityReview(country_eligible=1)
+
+    def test_rejects_wrong_review_type(self):
+        with self.assertRaises(TypeError):
+            evaluate_eligibility({"country_eligible": True})
+
 
 
 if __name__ == "__main__":
