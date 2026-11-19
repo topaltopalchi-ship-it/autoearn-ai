@@ -212,8 +212,8 @@ test("eligible status alone cannot bypass the complete official evidence review"
     })
   };
   assert.equal(canStart({ status: "eligible" }), false);
-  assert.equal(canStart({ ...valid, notes: valid.notes.replace('"fees":"0%"', '"fees":"Not stated"') }), false);
-  assert.equal(canStart({ ...valid, notes: valid.notes.replace('"automation_explicitly_allowed":"yes"', '"automation_explicitly_allowed":"unknown"') }), false);
+  assert.equal(canStart({ ...valid, notes: valid.notes.replace(/("fees"\\s*:\\s*)"0%"/, '$1"Not stated"') }), false);
+  assert.equal(canStart({ ...valid, notes: valid.notes.replace(/("automation_explicitly_allowed"\\s*:\\s*)"yes"/, '$1"unknown"') }), false);
   assert.equal(canStart({ ...valid, terms_url: "javascript:alert(1)" }), false);
   assert.equal(canStart(valid), true);
 });
