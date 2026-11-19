@@ -18,6 +18,7 @@ export function createCanvasMotionTracker({ horizonMs = PREDICTION_HORIZON_MS, m
   let previous = [];
   let previousAt = null;
   let nextId = 1;
+  const histories = new Map();
 
   return {
     update(objects, now = Date.now()) {
@@ -43,6 +44,24 @@ export function createCanvasMotionTracker({ horizonMs = PREDICTION_HORIZON_MS, m
         const vx = match ? (point.x - center(match).x) / deltaMs : 0;
         const vy = match ? (point.y - center(match).y) / deltaMs : 0;
         const lead = canCompare && match ? horizonMs : 0;
+        const history = match ? (histories.get(id) || []).slice(-4) : [];
+        history.push({ x: point.x, y: point.y, at: now });
+        histories.set(id, history);
+        const deltas = history.slice(1).map((sample, index) => ({
+          x: sample.x - history[index].x,
+          y: sample.y - history[index].y
+        }));
+        const reversals = axis => deltas.slice(1).filter((delta, index) =>
+          Math.abs(deltas[index][axis]) > 0.002 && Math.abs(delta[axis]) > 0.002 &&
+          Math.sign(deltas[index][axis]) !== Math.sign(delta[axis])
+        ).length;
+        const horizontalReversals = reversals("x");
+        const verticalReversals = reversals("y");
+        const pattern = horizontalReversals >= 2 || verticalReversals >= 2
+          ? "oscillating"
+          : Math.hypot(vx, vy) <= 0.00002 ? "stationary"
+          : Math.abs(vx) > Math.abs(vy) * 1.8 ? "horizontal"
+          : Math.abs(vy) > Math.abs(vx) * 1.8 ? "vertical" : "diagonal";
         const predictedCenterX = clamp(point.x + vx * lead, item.width / 2, 1 - item.width / 2);
         const predictedCenterY = clamp(point.y + vy * lead, item.height / 2, 1 - item.height / 2);
         return {
@@ -55,9 +74,23 @@ export function createCanvasMotionTracker({ horizonMs = PREDICTION_HORIZON_MS, m
             y: predictedCenterY - item.height / 2,
             width: item.width, height: item.height
           },
-          moving: Boolean(match && Math.hypot(vx, vy) > 0.00002)
+          moving: Boolean(match && Math.hypot(vx, vy) > 0.00002),
+          pattern,
+          samples: history.length
         };
       });
+      const player = tracks.find(track => track.role === "player" && track.confidence >= 0.8);
+      const playerCenter = player ? center(player) : null;
+      if (playerCenter) {
+        for (const track of tracks) {
+          if (!["hazard", "obstacle"].includes(track.role)) continue;
+          const currentDistance = Math.hypot(center(track).x - playerCenter.x, center(track).y - playerCenter.y);
+          const oldDistance = (histories.get(track.id) || []).length > 1
+            ? Math.hypot((histories.get(track.id).at(-2).x) - playerCenter.x, (histories.get(track.id).at(-2).y) - playerCenter.y)
+            : currentDistance;
+          track.approachingPlayer = currentDistance + 0.005 < oldDistance;
+        }
+      }
       previous = current.map((item, index) => ({ ...item, label: item.label || "", id: tracks[index].id }));
       previousAt = now;
       return {
@@ -68,10 +101,11 @@ export function createCanvasMotionTracker({ horizonMs = PREDICTION_HORIZON_MS, m
         ).map(track => ({
           x: track.predicted.x, y: track.predicted.y,
           width: track.predicted.width, height: track.predicted.height,
-          confidence: track.confidence, moving: track.moving
+          confidence: track.confidence, moving: track.moving,
+          pattern: track.pattern, approachingPlayer: track.approachingPlayer === true
         }))
       };
     },
-    reset() { previous = []; previousAt = null; }
+    reset() { previous = []; previousAt = null; histories.clear(); nextId = 1; }
   };
 }
