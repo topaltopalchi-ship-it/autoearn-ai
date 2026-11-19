@@ -147,7 +147,7 @@ async function main() {
           return { type: "click-cell", index: action.index };
         }
         if (action.type === "click-canvas" && Number.isFinite(action.x) && Number.isFinite(action.y)) {
-          await clickSafeGameCanvas(page, action.x, action.y);
+          await clickSafeGameCanvas(page, action.x, action.y, action.confidence);
           return { type: "click-canvas", x: action.x, y: action.y };
         }
         throw new Error("Only allowlisted keyboard actions, explicitly marked game-cell clicks, or marked game-canvas clicks are permitted.");
