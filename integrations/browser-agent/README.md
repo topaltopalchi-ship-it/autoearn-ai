@@ -211,3 +211,6 @@ Game discovery can now inspect a site's explicitly marked expandable folder butt
 
 ### Canvas-only rule handling
 The local rule extractor accepts canvas-only controls only when the browser confirms exactly one visible, explicitly marked game canvas ([data-game-board] canvas[data-game-canvas]). That verified fact is passed to the local rules model. Generic mouse controls, menus, and unmarked canvases remain unsupported. This compatibility gate does not prove that the visual model can reliably identify every game's hit target.
+
+
+Canvas click decisions also require the local model to report confidence of at least 0.8. The decision parser and the browser adapter both enforce this threshold; it is a conservative self-reported confidence gate, not a calibrated probability or guarantee of a correct move.
