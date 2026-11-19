@@ -86,12 +86,16 @@ test("includes only owner-rated experience hints for the observed state", async 
 });
 
 
-test("accepts only bounded indexed game-cell clicks when explicitly enabled", async () => {
+test("accepts bounded indexed game-cell clicks and supplies targets to the local model", async () => {
+  const capture = {};
   const decide = createOllamaGameDecision({
     model: "local-model", allowCellClicks: true,
-    fetchImpl: mockFetch({ message: { content: '{"type":"click-cell","index":7}' } })
+    fetchImpl: mockFetch({ message: { content: '{"type":"click-cell","index":7}' } }, 200, capture)
   });
-  assert.deepEqual(await decide({}), { type: "click-cell", index: 7 });
+  assert.deepEqual(await decide({ clickTargets: [{ index: 7, label: "safe cell" }] }), { type: "click-cell", index: 7 });
+  const body = JSON.parse(capture.options.body);
+  assert.match(body.messages[0].content, /only for an index listed in clickTargets/);
+  assert.match(body.messages[0].content, /safe cell/);
 });
 
 test("rejects game-cell clicks when disabled or outside the bounded index range", async () => {
