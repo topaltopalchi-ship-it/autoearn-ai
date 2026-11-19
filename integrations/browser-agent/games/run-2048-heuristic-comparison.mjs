@@ -3,7 +3,7 @@ import { compare2048HeuristicWeights } from "./2048-episode-simulator.mjs";
 function readBoundedInteger(name, fallback, min, max) {
   const raw = process.env[name];
   if (raw === undefined || raw === "") return fallback;
-  if (!/^\\d+$/.test(raw)) throw new RangeError(`${name} must be an integer from ${min} to ${max}.`);
+  if (!/^\d+$/.test(raw)) throw new RangeError(`${name} must be an integer from ${min} to ${max}.`);
   const value = Number(raw);
   if (!Number.isSafeInteger(value) || value < min || value > max) {
     throw new RangeError(`${name} must be an integer from ${min} to ${max}.`);
