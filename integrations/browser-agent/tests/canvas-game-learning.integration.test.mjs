@@ -65,11 +65,19 @@ test("canvas agent click changes a synthetic game and stores a rateable verified
     assert.equal(pending[0].actionKey, "click-canvas:2:5");
 
     await memory.rate(pending[0].id, "good");
+    // A second independently rated sample is required before memory can advise.
+    const secondId = await memory.recordPending({
+      gameType: "canvas-target",
+      stateSummary: "target-awaiting-click",
+      objective: "click the visible target",
+      action
+    });
+    await memory.rate(secondId, "good");
     assert.deepEqual(await memory.getHints({
       gameType: "canvas-target",
       stateSummary: "target-awaiting-click",
       objective: "click the visible target"
-    }), [{ key: "click-canvas:2:5", good: 1, bad: 0, net: 1 }]);
+    }), [{ key: "click-canvas:2:5", good: 2, bad: 0, net: 2, sampleCount: 2, successRate: 0.75 }]);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
