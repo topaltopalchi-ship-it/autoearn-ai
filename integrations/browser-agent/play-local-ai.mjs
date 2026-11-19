@@ -1,3 +1,4 @@
+import { readDomGameMetrics } from "./dom-game-metrics.mjs";
 import { chromium } from "playwright";
 import "../../static/game-agent.js";
 import { createOllamaGameDecision } from "./ollama-decision-provider.mjs";
@@ -121,6 +122,7 @@ async function main() {
           ? "data:image/jpeg;base64," + (await canvasLocator.screenshot({ type: "jpeg", quality: 75, timeout: 5_000 })).toString("base64")
           : screenshotData;
         const gameState = await perceive({ screenshot: screenshotData, title, text: visibleText });
+        const domMetrics = await readDomGameMetrics(page).catch(() => null);
         const canvasObjects = canvasCount === 1
           ? mapViewportObjectsToCanvas(
               gameState.objects || [],
@@ -158,6 +160,7 @@ async function main() {
               "\\nControls: " + extractedRules.controls.map(item => item.input + " = " + item.actionFa).join("; ") : "")).slice(0, 5_000),
           gameState: extractedRules ? {
             ...gameState,
+            ...(domMetrics?.gameState || {}),
             outcome: domOutcome.outcome,
             outcomeSource: domOutcome.source,
             objective: extractedRules.objectiveFa,
@@ -169,7 +172,7 @@ async function main() {
               winConditionFa: extractedRules.winConditionFa,
               loseConditionFa: extractedRules.loseConditionFa
             }
-          } : { ...gameState, outcome: domOutcome.outcome, outcomeSource: domOutcome.source },
+          } : { ...gameState, ...(domMetrics?.gameState || {}), outcome: domOutcome.outcome, outcomeSource: domOutcome.source },
           rules: extractedRules,
           clickTargets: await readSafeGameCells(page),
           canvasAvailable: canvasCount === 1,
