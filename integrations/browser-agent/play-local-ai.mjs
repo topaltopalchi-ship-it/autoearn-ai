@@ -31,6 +31,26 @@ function verificationGate(text) {
   return /captcha|are you human|verify you are human|robot check|security challenge|cloudflare turnstile|hcaptcha|recaptcha|تأیید انسان|کد امنیتی/i.test(text);
 }
 
+async function readSafeGameCells(page) {
+  const board = page.locator("[data-game-board]");
+  if (await board.count() !== 1) return [];
+  const cells = await board.locator("[data-game-cell][data-game-cell-index]").evaluateAll(elements =>
+    elements.slice(0, 100).map(element => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      const forbidden = element.closest("a,button,input,select,textarea,form,[role=button],[role=link]");
+      return {
+        index: Number(element.getAttribute("data-game-cell-index")),
+        label: (element.getAttribute("aria-label") || element.textContent || "").trim().slice(0, 80),
+        visible: !forbidden && !element.hasAttribute("disabled") &&
+          style.display !== "none" && style.visibility !== "hidden" &&
+          rect.width > 0 && rect.height > 0
+      };
+    })
+  );
+  return cells.filter(cell => Number.isInteger(cell.index) && cell.index >= 0 && cell.index < 100 && cell.visible);
+}
+
 async function main() {
   const target = validateTarget();
   const browser = await chromium.launch({ headless: false });
@@ -70,7 +90,7 @@ async function main() {
     });
     await experienceMemory.load();
     const pendingFeedback = [];
-    const decide = createOllamaGameDecision({ model, maxCalls: maxModelCalls, experienceMemory });
+    const decide = createOllamaGameDecision({ model, maxCalls: maxModelCalls, experienceMemory, allowCellClicks: true });
     const perceive = createOllamaGamePerception({ model, maxCalls: maxModelCalls });
     const extractRules = createOllamaGameRulesExtractor({ model, maxCalls: 3 });
     let extractedRules = null;
@@ -112,17 +132,36 @@ async function main() {
             }
           } : gameState,
           rules: extractedRules,
+          clickTargets: await readSafeGameCells(page),
           screenshot: screenshotData
         };
       },
       async execute(action) {
         if (blocked || page.isClosed()) throw new Error("Browser session was stopped.");
-        if (!action || action.type !== "press" ||
-            !["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "Escape", " "].includes(action.key)) {
-          throw new Error("Only allowlisted game keyboard actions are permitted.");
+        if (!action) throw new Error("An explicit game action is required.");
+        if (action.type === "press" &&
+            ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "Escape", " "].includes(action.key)) {
+          await page.keyboard.press(action.key === " " ? "Space" : action.key);
+          return { type: "press", key: action.key };
         }
-        await page.keyboard.press(action.key === " " ? "Space" : action.key);
-        return { type: "press", key: action.key };
+        if (action.type === "click-cell" && Number.isInteger(action.index) && action.index >= 0 && action.index < 100) {
+          const board = page.locator("[data-game-board]");
+          if (await board.count() !== 1) throw new Error("Mouse action requires exactly one explicitly marked game board.");
+          const cell = board.locator(`[data-game-cell][data-game-cell-index="${action.index}"]`);
+          if (await cell.count() !== 1) throw new Error("Mouse action target is not one unique marked game cell.");
+          const safe = await cell.evaluate(element => {
+            const forbidden = element.closest("a,button,input,select,textarea,form,[role=button],[role=link]");
+            const rect = element.getBoundingClientRect();
+            const style = getComputedStyle(element);
+            return !forbidden && !element.hasAttribute("disabled") &&
+              style.display !== "none" && style.visibility !== "hidden" &&
+              rect.width > 0 && rect.height > 0;
+          });
+          if (!safe) throw new Error("Refusing to click a hidden, disabled, or interactive non-cell element.");
+          await cell.click();
+          return { type: "click-cell", index: action.index };
+        }
+        throw new Error("Only allowlisted keyboard actions or explicitly marked game-cell clicks are permitted.");
       },
       async verify({ before, action, after }) {
         try {
@@ -141,12 +180,14 @@ async function main() {
     const agent = globalThis.AutoEarnGameAgent.createAgent({
       adapter,
       decide,
-      limits: { maxSteps, maxDurationMs, allowedActions: ["press"] },
+      limits: { maxSteps, maxDurationMs, allowedActions: ["press", "click-cell"] },
       onEvent: event => {
         if (event.type === "step") {
           console.log(JSON.stringify({
             step: event.steps,
             key: event.action?.key,
+            cellIndex: event.action?.index,
+            actionType: event.action?.type,
             verified: event.verified,
             localModelCalls: decide.usage.calls,
             localVisionCalls: perceive.usage.calls
