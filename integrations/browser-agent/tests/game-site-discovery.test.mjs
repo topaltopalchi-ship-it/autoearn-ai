@@ -29,7 +29,7 @@ function fakePage(startUrl, routes) {
     url: () => current,
     isClosed: () => false,
     title: async () => getRoute().title || "",
-    locator: selector => selector === "body" ? body : {
+    locator: selector => selector === "body" ? body : selector === "button[data-game-folder-toggle]" ? { count: async () => 0 } : {
       evaluateAll: async () => (getRoute().links || []).map(link => ({
         href: new URL(link.href, current).href,
         label: link.label || "",
