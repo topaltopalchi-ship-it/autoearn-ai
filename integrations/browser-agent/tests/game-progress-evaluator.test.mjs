@@ -21,9 +21,23 @@ test("penalizes movement farther from a target", () => {
 });
 
 test("uses explicit win and loss markers as strongest signals", () => {
-  const before = { gameState: { outcome: "playing" } };
-  assert.equal(evaluateGameProgress(before, { gameState: { outcome: "won" } }).reward, 3);
-  assert.equal(evaluateGameProgress(before, { gameState: { outcome: "lost" } }).reward, -3);
+  const before = { gameState: { outcome: "playing", outcomeSource: "dom-attribute" } };
+  assert.equal(evaluateGameProgress(before, {
+    gameState: { outcome: "won", outcomeSource: "dom-attribute" }
+  }).reward, 3);
+  assert.equal(evaluateGameProgress(before, {
+    gameState: { outcome: "lost", outcomeSource: "dom-attribute" }
+  }).reward, -3);
+});
+
+test("visible-text outcome hints never receive automatic-rating confidence", () => {
+  const before = { gameState: { outcome: "playing", outcomeSource: "none" } };
+  const result = evaluateGameProgress(before, {
+    gameState: { outcome: "won", outcomeSource: "visible-text" }
+  });
+  assert.equal(result.feedback, "good");
+  assert.equal(result.confidence, 0.75);
+  assert.deepEqual(result.signals, ["visible-win-hint"]);
 });
 
 test("rewards moving clear of a predicted hazard and penalizes overlap", () => {
