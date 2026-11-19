@@ -1,7 +1,7 @@
 import { chromium } from "playwright";
 import "../../static/game-agent.js";
 import { create2048BrowserAdapter } from "./2048-browser-adapter.mjs";
-import { create2048Decision } from "./games/2048-strategy.mjs";
+import { createAdaptive2048Decision } from "./games/2048-strategy.mjs";
 
 const gameUrl = process.env.AUTOEARN_GAME_URL;
 const allowedOrigins = new Set(String(process.env.AUTOEARN_ALLOWED_ORIGINS || "")
@@ -67,7 +67,7 @@ async function main() {
     const initial = await adapter.observe();
     const agent = globalThis.AutoEarnGameAgent.createAgent({
       adapter,
-      decide: create2048Decision(),
+      decide: createAdaptive2048Decision(),
       limits: { maxSteps, maxDurationMs, allowedActions: ["press"] },
       onEvent: event => {
         if (event.type === "step") {
