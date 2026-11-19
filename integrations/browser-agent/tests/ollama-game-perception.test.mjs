@@ -65,3 +65,38 @@ test("enforces a local visual-perception call budget", async () => {
   await perceive({ screenshot: image });
   await assert.rejects(() => perceive({ screenshot: image }), /budget exhausted/);
 });
+
+
+test("returns only bounded visible object boxes with recognized roles", async () => {
+  const perceive = createOllamaGamePerception({
+    model: "local-vlm",
+    fetchImpl: mockFetch(JSON.stringify({
+      scene: "game", confidence: 0.91,
+      objects: [
+        { role: "player", label: "blue avatar", x: 0.1, y: 0.2, width: 0.1, height: 0.2, confidence: 0.95 },
+        { role: "hazard", label: "spikes", x: 0.5, y: 0.7, width: 0.2, height: 0.1, confidence: 0.88 },
+        { role: "target", x: 0.9, y: 0.1, width: 0.2, height: 0.2, confidence: 0.9 },
+        { role: "unknown-role", x: 0.2, y: 0.2, width: 0.1, height: 0.1, confidence: 1 },
+        { role: "goal", x: 0.2, y: 0.2, width: 0.1, height: 0.1, confidence: 1 }
+      ]
+    }))
+  });
+  const result = await perceive({ screenshot: image });
+  assert.deepEqual(result.objects, [
+    { role: "player", label: "blue avatar", x: 0.1, y: 0.2, width: 0.1, height: 0.2, confidence: 0.95 },
+    { role: "hazard", label: "spikes", x: 0.5, y: 0.7, width: 0.2, height: 0.1, confidence: 0.88 }
+  ]);
+});
+
+test("limits object detections to thirty and rejects malformed boxes", async () => {
+  const objects = Array.from({ length: 35 }, (_, i) => ({
+    role: "target", x: i / 100, y: 0.2, width: 0.01, height: 0.1, confidence: 0.9
+  }));
+  const perceive = createOllamaGamePerception({
+    model: "local-vlm",
+    fetchImpl: mockFetch(JSON.stringify({ scene: "game", confidence: 0.9, objects }))
+  });
+  const result = await perceive({ screenshot: image });
+  assert.equal(result.objects.length, 30);
+  assert.equal(result.objects.every(item => item.x + item.width <= 1), true);
+});
