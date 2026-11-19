@@ -76,6 +76,7 @@ async function main() {
     });
     await experienceMemory.load();
     const pendingFeedback = [];
+    const recentProgress = [];
     const decide = createOllamaGameDecision({ model, maxCalls: maxModelCalls, experienceMemory, allowCellClicks: true, allowCanvasClicks: true });
     const perceive = createOllamaGamePerception({ model, maxCalls: maxModelCalls });
     const extractRules = createOllamaGameRulesExtractor({ model, maxCalls: 3 });
@@ -153,6 +154,7 @@ async function main() {
           canvasObjects,
           canvasMotion,
           canvasTactics,
+          recentProgress: recentProgress.slice(-5),
           screenshot: screenshotData,
           decisionScreenshot
         };
@@ -177,7 +179,18 @@ async function main() {
       },
       async verify({ before, action, after }) {
         try {
-          return await recordVerifiedExperience(experienceMemory, pendingFeedback, { before, action, after });
+          const verified = await recordVerifiedExperience(experienceMemory, pendingFeedback, { before, action, after });
+          const latest = pendingFeedback[pendingFeedback.length - 1];
+          if (verified && latest) {
+            recentProgress.push({
+              actionKey: latest.actionKey,
+              feedback: latest.progress?.feedback || "neutral",
+              confidence: latest.progress?.confidence || 0,
+              signals: Array.isArray(latest.progress?.signals) ? latest.progress.signals.slice(0, 4) : []
+            });
+            if (recentProgress.length > 5) recentProgress.shift();
+          }
+          return verified;
         } catch (error) {
           console.warn("Experience memory was not saved:", error.message);
           return false;
