@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { clickSafeGameCell, readSafeGameCells } from "../game-cell-browser-adapter.mjs";
+import { clickSafeGameCell, readSafeGameCells, clickSafeGameCanvas } from "../game-cell-browser-adapter.mjs";
 
 function makeElement(index, { label = "", hidden = false, nestedInteractive = false } = {}) {
   const parent = nestedInteractive ? {} : null;
@@ -64,4 +64,29 @@ test("rejects arbitrary indices, ambiguous boards, and unsafe cells", async () =
 test("rejects missing or duplicate cell targets", async () => {
   await assert.rejects(() => clickSafeGameCell(fakePage([]), 2), /unique marked game cell/);
   await assert.rejects(() => clickSafeGameCell(fakePage([makeElement(2), makeElement(2)]), 2), /unique marked game cell/);
+});
+
+
+test("canvas click uses normalized coordinates inside one explicitly marked visible game canvas", async () => {
+  let clickOptions;
+  const canvas = {
+    count: async () => 1,
+    evaluate: async () => true,
+    boundingBox: async () => ({ x: 10, y: 20, width: 200, height: 100 }),
+    click: async options => { clickOptions = options; }
+  };
+  const page = { locator: selector => {
+    assert.equal(selector, '[data-game-board] canvas[data-game-canvas]');
+    return canvas;
+  }};
+  assert.deepEqual(await clickSafeGameCanvas(page, 0.25, 0.8), {
+    type: "click-canvas", x: 0.25, y: 0.8
+  });
+  assert.deepEqual(clickOptions, { position: { x: 50, y: 80 } });
+});
+
+test("refuses canvas clicks without one explicit canvas or with invalid coordinates", async () => {
+  const page = { locator: () => ({ count: async () => 0 }) };
+  await assert.rejects(() => clickSafeGameCanvas(page, 0.5, 0.5), /exactly one/);
+  await assert.rejects(() => clickSafeGameCanvas(page, -0.1, 0.5), /normalized/);
 });
