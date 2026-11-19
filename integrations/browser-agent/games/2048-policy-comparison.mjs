@@ -118,13 +118,20 @@ export function compare2048Policies({ seed = 2048, episodes = 5, maxMoves = 500 
     const pairs = item.games.map((game, index) => ({
       seed: game.seed,
       scoreDifference: game.score - baseline.games[index].score,
-      maxTileDifference: game.maxTile - baseline.games[index].maxTile
+      maxTileDifference: game.maxTile - baseline.games[index].maxTile,
+      searchNodesDifference: game.searchStats.nodesVisited - baseline.games[index].searchStats.nodesVisited,
+      cacheHitsDifference: game.searchStats.cacheHits - baseline.games[index].searchStats.cacheHits,
+      budgetExhaustionDifference: game.searchStats.budgetExhaustedMoves - baseline.games[index].searchStats.budgetExhaustedMoves
     }));
     return {
       policy: item.policy,
       comparedWith: baseline.policy,
       averagePairedScoreDifference: average(pairs.map(pair => pair.scoreDifference)),
       medianPairedScoreDifference: median(pairs.map(pair => pair.scoreDifference)),
+      averagePairedSearchNodesDifference: average(pairs.map(pair => pair.searchNodesDifference)),
+      medianPairedSearchNodesDifference: median(pairs.map(pair => pair.searchNodesDifference)),
+      averagePairedCacheHitsDifference: average(pairs.map(pair => pair.cacheHitsDifference)),
+      averagePairedBudgetExhaustionDifference: average(pairs.map(pair => pair.budgetExhaustionDifference)),
       scoreWins: pairs.filter(pair => pair.scoreDifference > 0).length,
       scoreTies: pairs.filter(pair => pair.scoreDifference === 0).length,
       scoreLosses: pairs.filter(pair => pair.scoreDifference < 0).length,
