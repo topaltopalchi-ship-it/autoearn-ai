@@ -9,6 +9,15 @@ test("recognizes a uniquely indexed nine-cell tic-tac-toe board", () => {
   const result = detectKnownGame({ gameCandidates: [{ kind: "tic-tac-toe", boardKey: "board-a", cells }] });
   assert.equal(result.gameType, "tic-tac-toe");
   assert.equal(result.confidence, 0.99);
+
+  const wrongTurn = cells.map(cell => ({ ...cell, mark: cell.index === 0 ? "O" : "" }));
+  assert.equal(detectKnownGame({ gameCandidates: [{ kind: "tic-tac-toe", cells: wrongTurn }] }).gameType, null);
+  const dualWinner = cells.map(cell => ({ ...cell, mark:
+    cell.index <= 2 ? "X" : cell.index >= 3 && cell.index <= 5 ? "O" : "" }));
+  assert.equal(detectKnownGame({ gameCandidates: [{ kind: "tic-tac-toe", cells: dualWinner }] }).gameType, null);
+  const winnerOutOfTurn = cells.map(cell => ({ ...cell, mark:
+    cell.index <= 2 ? "O" : cell.index === 3 || cell.index === 4 || cell.index === 6 || cell.index === 7 ? "X" : "" }));
+  assert.equal(detectKnownGame({ gameCandidates: [{ kind: "tic-tac-toe", cells: winnerOutOfTurn }] }).gameType, null);
 });
 
 test("recognizes Connect Four only from exactly 42 uniquely indexed X/O/empty cells", () => {
