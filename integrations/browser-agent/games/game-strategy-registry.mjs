@@ -44,5 +44,5 @@ registerGameStrategy("connect-four", async state => {
   if (state.agentPlayer && state.currentPlayer !== state.agentPlayer) return { type: "wait-for-turn" };
   if (getConnectFourOutcome(state.board) !== "playing") return null;
   const move = chooseConnectFourMove(state.board, { player: state.player, depth: 4 });
-  return move ? { type: "click-cell", index: move.index, column: move.column } : null;
+  return move ? { type: "click-column", column: move.column } : null;
 });
