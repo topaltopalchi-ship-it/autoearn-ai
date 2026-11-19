@@ -4,29 +4,33 @@ This is a separate Node.js runtime. It is not loaded by the public website and d
 
 ## Setup
 
-\`\`\`sh
+```sh
 cd integrations/browser-agent
 npm install
 npx playwright install chromium
 npm test
-\`\`\`
+```
 
-Set \`AUTOEARN_GAME_URL\` to the starting game-site URL and \`AUTOEARN_ALLOWED_ORIGINS\` to the exact HTTPS origin reviewed and explicitly approved for automated play.
+Set `AUTOEARN_GAME_URL` to the starting game-site URL and `AUTOEARN_ALLOWED_ORIGINS` to the exact HTTPS origin reviewed and explicitly approved for automated play.
 
-\`\`\`sh
-AUTOEARN_GAME_URL=https://example-game.invalid/arcade \\
-AUTOEARN_ALLOWED_ORIGINS=https://example-game.invalid \\
+```sh
+AUTOEARN_GAME_URL=https://example-game.invalid/arcade \
+AUTOEARN_ALLOWED_ORIGINS=https://example-game.invalid \
 npm start
-\`\`\`
+```
 
-The crawler now performs a bounded breadth-first walk of same-origin HTTPS links. It records the visited pages, their titles, and visible navigation targets; avoids URL loops; and can inspect links found in same-origin iframes. Playwright locators also work through open Shadow DOM; closed Shadow DOM is not supported by Playwright. See the official [locator documentation](https://playwright.dev/docs/locators) and [frame documentation](https://playwright.dev/docs/api/class-page).
+The crawler performs a bounded breadth-first walk of same-origin HTTPS links. It records visited pages, titles, navigation targets, and a preliminary page classification; avoids URL loops; and inspects links found in same-origin iframes. Playwright supports iframe interaction and open Shadow DOM through locators; closed Shadow DOM is not supported. See [Playwright locators](https://playwright.dev/docs/locators), [frames](https://playwright.dev/docs/frames), and [locator ARIA snapshots](https://playwright.dev/docs/api/class-locator).
 
-Configure optional bounds with \`AUTOEARN_MAX_PAGES\` (default 12, maximum 30), \`AUTOEARN_MAX_DEPTH\` (default 3, maximum 6), and \`AUTOEARN_MAX_DURATION_MS\` (default 60 seconds, maximum 5 minutes).
+Configure optional bounds with `AUTOEARN_MAX_PAGES` (default 12, maximum 30), `AUTOEARN_MAX_DEPTH` (default 3, maximum 6), and `AUTOEARN_MAX_DURATION_MS` (default 60 seconds, maximum 5 minutes).
+
+## Page classification
+
+Each visited page is heuristically labeled as `folder`, `game`, `help`, `login`, `verification`, or `unknown`. The result includes a confidence estimate and signal list. It uses title/text, visible navigation labels, and DOM signals such as canvas and score indicators. These are clues, not proof: sites can use custom canvases, misleading labels, or inaccessible controls. A human or a site-specific adapter must validate the classification before play.
 
 ## Current stage and boundaries
 
-- **Implemented:** isolated Chromium context; exact HTTPS origin allowlist; bounded same-origin page traversal; duplicate/loop avoidance; visible link/button discovery; same-origin iframe inspection; limited safe button/link and keyboard adapter actions; step/time/page/depth budgets; and basic verification-gate detection.
-- **Not yet implemented:** autonomous AI decision-making, reliable semantic classification of every folder versus game, automated gameplay strategy, and end-to-end win verification. The current runner maps pages and stops; it does not yet choose games or play them.
+- **Implemented:** isolated Chromium context; exact HTTPS origin allowlist; bounded same-origin page traversal; duplicate/loop avoidance; visible link/button discovery; same-origin iframe inspection; heuristic folder/game/help/login/verification classification; limited safe button/link and keyboard adapter actions; and page/depth/time budgets.
+- **Not yet implemented:** autonomous AI decision-making, reliable classification across arbitrary sites, game-specific control mapping, gameplay strategy, and end-to-end win verification. The current runner maps and classifies pages; it does not yet choose a game or play it.
 - Only use game sites whose official rules explicitly permit automated play.
 - CAPTCHA, anti-bot, anti-fraud, access-control, geolocation and payment safeguards are never bypassed. Detection pauses the run for a human.
 - No login, signup, form submission, purchases, deposits, withdrawals, prize claims, or personal-data entry are implemented.
