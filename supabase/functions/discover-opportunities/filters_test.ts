@@ -333,6 +333,7 @@ Deno.test("merges duplicate discovery URLs and preserves distinct search provena
     {
       url: "https://example.com/game?utm_source=one",
       title: "Free puzzle game",
+      category: "game",
       reward_description: "Prize: $100. Free entry.",
       eligibility: "Payout method hints: PayPal. Due-diligence flags: fees missing.",
       notes: "Review the official terms.\\n[DISCOVERY PROVENANCE]\\n" + JSON.stringify({
@@ -342,6 +343,7 @@ Deno.test("merges duplicate discovery URLs and preserves distinct search provena
     {
       url: "https://example.com/game?utm_source=two",
       title: "Free puzzle game official contest",
+      category: "contest",
       reward_description: "Winners receive $100 payout within 30 days.",
       eligibility: "Payout method hints: Skrill. Due-diligence flags: organizer missing.",
       notes: "Other notes.\\n[DISCOVERY PROVENANCE]\\n" + JSON.stringify({
@@ -352,6 +354,9 @@ Deno.test("merges duplicate discovery URLs and preserves distinct search provena
   assertEquals(merged.length, 1);
   assertEquals(merged[0].url, "https://example.com/game");
   assertEquals(merged[0].title, "Free puzzle game official contest");
+  assertEquals(merged[0].category, "game, contest");
+  assertEquals(String(merged[0].notes).includes("Other notes."), true);
+  assertEquals(String(merged[0].notes).includes("Review the official terms."), true);
   assertEquals(String(merged[0].reward_description).includes("Prize: $100."), true);
   assertEquals(String(merged[0].reward_description).includes("Winners receive $100 payout"), true);
   assertEquals(String(merged[0].eligibility).includes("PayPal"), true);
