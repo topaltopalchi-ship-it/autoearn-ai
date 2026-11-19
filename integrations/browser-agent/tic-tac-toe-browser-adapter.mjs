@@ -45,10 +45,7 @@ export function createTicTacToeBrowserAdapter(page, {
     const oCount = board.filter(mark => mark === "O").length;
     const currentPlayer = xCount === oCount ? "X" : "O";
     const outcome = getTicTacToeOutcome(board);
-    if (outcome === "playing" && currentPlayer !== player) {
-      throw new Error("It is not the configured agent player's turn.");
-    }
-    return { board, player, currentPlayer, outcome };
+    return { board, player: currentPlayer, agentPlayer: player, currentPlayer, outcome };
   }
 
   return {
