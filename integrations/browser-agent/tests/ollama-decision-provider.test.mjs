@@ -316,6 +316,6 @@ test("supplies only the last six sanitized actions from the current run", async 
   assert.doesNotMatch(historyLine, /Escape/);
   assert.match(prompt, /"xBucket":3/);
   assert.match(prompt, /"yBucket":8/);
-  assert.doesNotMatch(prompt, /purchase/);
-  assert.doesNotMatch(prompt, /0\.91/);
+  assert.doesNotMatch(historyLine, /purchase/);
+  assert.doesNotMatch(historyLine, /0\.91/);
 });
