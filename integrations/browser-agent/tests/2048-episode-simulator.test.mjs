@@ -49,6 +49,7 @@ test("compares classic and snake heuristics on identical deterministic episodes"
   assert.equal(first.variants.length, 2);
   assert.equal(first.variants[0].variant, "classic-no-snake");
   assert.equal(first.variants[1].variant, "snake-weight-1");
+  assert.equal(first.snakeWeight, 1);
   assert.equal(first.paired.scoreWins + first.paired.scoreTies + first.paired.scoreLosses, 2);
   assert.equal(first.paired.maxTileWins + first.paired.maxTileTies + first.paired.maxTileLosses, 2);
   assert.equal(first.paired.baseline2048Wins, first.variants[0].reached2048);
@@ -80,4 +81,14 @@ test("supports the full 20-episode paired batch with bounded one-move games", as
   }
   assert.equal(report.paired.scoreWins + report.paired.scoreTies + report.paired.scoreLosses, 20);
   assert.equal(report.paired.maxTileWins + report.paired.maxTileTies + report.paired.maxTileLosses, 20);
+});
+
+
+test("supports bounded snake-weight tuning and rejects invalid weights", async () => {
+  const { compare2048HeuristicWeights } = await import("../games/2048-episode-simulator.mjs");
+  const report = compare2048HeuristicWeights({ seed: 77, episodes: 2, depth: 1, maxMoves: 20, snakeWeight: 0.25 });
+  assert.equal(report.snakeWeight, 0.25);
+  assert.equal(report.variants[1].variant, "snake-weight-0.25");
+  assert.throws(() => compare2048HeuristicWeights({ snakeWeight: -0.1 }), /Snake weight/);
+  assert.throws(() => compare2048HeuristicWeights({ snakeWeight: 2.1 }), /Snake weight/);
 });
