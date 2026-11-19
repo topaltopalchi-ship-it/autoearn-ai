@@ -173,7 +173,8 @@ async function main() {
           console.log(JSON.stringify({
             step: event.steps,
             key: event.action?.key,
-            cellIndex: event.action?.index,\n            canvasPoint: event.action?.type === "click-canvas" ? { x: event.action.x, y: event.action.y } : undefined,
+            cellIndex: event.action?.index,
+            canvasPoint: event.action?.type === "click-canvas" ? { x: event.action.x, y: event.action.y } : undefined,
             actionType: event.action?.type,
             verified: event.verified,
             localModelCalls: decide.usage.calls,
