@@ -11,11 +11,25 @@ function readBoundedInteger(name, fallback, min, max) {
   return value;
 }
 
+function readBoundedNumber(name, fallback, min, max) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") return fallback;
+  if (!/^(?:\\d+(?:\\.\\d+)?|\\.\\d+)$/.test(raw)) {
+    throw new RangeError(`${name} must be a number from ${min} to ${max}.`);
+  }
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < min || value > max) {
+    throw new RangeError(`${name} must be a number from ${min} to ${max}.`);
+  }
+  return value;
+}
+
 const options = {
   seed: readBoundedInteger("AUTOEARN_2048_SEED", 2048, 0, 0xffffffff),
   episodes: readBoundedInteger("AUTOEARN_2048_EPISODES", 20, 2, 20),
   depth: readBoundedInteger("AUTOEARN_2048_DEPTH", 2, 1, 3),
-  maxMoves: readBoundedInteger("AUTOEARN_2048_MAX_MOVES", 500, 1, 1000)
+  maxMoves: readBoundedInteger("AUTOEARN_2048_MAX_MOVES", 500, 1, 1000),
+  snakeWeight: readBoundedNumber("AUTOEARN_2048_SNAKE_WEIGHT", 1, 0, 2)
 };
 const report = compare2048HeuristicWeights(options);
 process.stdout.write(`${JSON.stringify(report, null, 2)}\\n`);
