@@ -74,7 +74,7 @@ export function evaluateCandidate(rawUrl: string, title: string, description: st
   const verifiedZoaAgentSeason = host === "play.zoagames.com"
     && /agent season 1/i.test(text)
     && /free chips|agents play free/i.test(text)
-    && /\\$490|490 usdc/i.test(text);
+    && /\$490|490 usdc/i.test(text);
   if ((EXCLUDED_RESULT_RE.test(text) && !verifiedZoaAgentSeason) || !GAME_ACTIVITY_RE.test(text)) {
     return { accepted: false, reason: "excluded_category" };
   }
