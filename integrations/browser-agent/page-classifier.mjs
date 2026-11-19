@@ -11,7 +11,8 @@ export function classifySitePage(observation = {}) {
   const url = String(observation.url || "");
   const snapshot = String(observation.snapshot || "");
   const targets = Array.isArray(observation.navigationTargets) ? observation.navigationTargets : [];
-  const text = (title + "\n" + url + "\n" + snapshot).slice(0, 30_000);
+  const domSignals = observation.domSignals || {};
+  const text = (title + "\n" + url + "\n" + snapshot + "\n" + String(domSignals.textSample || "")).slice(0, 30_000);
   const scores = { folder: 0, game: 0, help: 0, login: 0, verification: 0, unknown: 0 };
   const reasons = [];
   for (const rule of RULES) {
@@ -27,8 +28,9 @@ export function classifySitePage(observation = {}) {
   const folderTargets = targets.filter(target =>
     /folder|category|collection|arcade|room|level|پوشه|دسته|مجموعه|اتاق|مرحله/i.test(target.name || "")
   ).length;
-  const hasCanvas = /<canvas|canvas|application|game area|game board|صفحه بازی|زمین بازی/i.test(snapshot);
-  const hasScore = /score|points|امتیاز/i.test(snapshot);
+  const hasCanvas = Number(domSignals.canvasCount || 0) > 0 ||
+    /<canvas|canvas|application|game area|game board|صفحه بازی|زمین بازی/i.test(snapshot);
+  const hasScore = /score|points|امتیاز/i.test(text);
   if (gameControls) { scores.game += Math.min(4, gameControls); reasons.push("game_control_labels"); }
   if (hasCanvas) { scores.game += 3; reasons.push("canvas_or_game_area"); }
   if (hasScore) { scores.game += 2; reasons.push("score_indicator"); }
