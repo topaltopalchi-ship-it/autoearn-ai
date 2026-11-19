@@ -42,14 +42,14 @@ async function inspectPage(page, origin) {
         index: cell.getAttribute("data-game-cell-index"),
         mark: cell.getAttribute("data-mark") ?? cell.textContent
       }));
-      const cells = Array.from(board.querySelectorAll("[data-index]")).map(cell => ({
+      const othelloCells = Array.from(board.querySelectorAll("[data-game-cell][data-game-cell-index]")).map(cell => ({\n        index: cell.getAttribute("data-game-cell-index"),\n        mark: cell.getAttribute("data-mark") ?? cell.textContent\n      }));\n      const currentPlayer = board.getAttribute("data-current-player") || "";\n      const cells = Array.from(board.querySelectorAll("[data-index]")).map(cell => ({
         index: cell.getAttribute("data-index"),
         mark: cell.getAttribute("data-mark") ?? cell.textContent
       }));
       const tiles = Array.from(board.querySelectorAll("[data-x][data-y][data-value]")).map(tile => ({
         x: tile.getAttribute("data-x"), y: tile.getAttribute("data-y"), value: tile.getAttribute("data-value")
       }));
-      if (connectFourCells.length === 42) return { kind: "connect-four", boardKey, cells: connectFourCells };
+      if (connectFourCells.length === 42) return { kind: "connect-four", boardKey, cells: connectFourCells };\n      if (othelloCells.length === 64) return { kind: "othello", boardKey, cells: othelloCells, currentPlayer };
       if (cells.length) return { kind: "tic-tac-toe", boardKey, cells };
       if (tiles.length) return { kind: "2048", boardKey, tiles };
       return null;
