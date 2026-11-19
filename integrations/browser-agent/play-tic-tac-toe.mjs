@@ -68,10 +68,11 @@ async function main() {
     const agent = globalThis.AutoEarnGameAgent.createAgent({
       adapter,
       decide: decideKnownGame,
-      limits: { maxSteps, maxDurationMs, allowedActions: ["select-cell"] },
+      limits: { maxSteps, maxDurationMs, allowedActions: ["select-cell", "wait-for-turn"] },
       onEvent: event => {
         if (event.type === "step") console.log(JSON.stringify({
-          step: event.steps, index: event.action.index, mark: event.action.mark, verified: event.verified
+          step: event.steps, action: event.action.type, index: event.action.index,
+          mark: event.action.mark, verified: event.verified
         }));
       }
     });
