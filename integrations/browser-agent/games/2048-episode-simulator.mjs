@@ -115,14 +115,15 @@ function comparePairedEpisodes(comparisons, seed) {
   });
 }
 
-export function compare2048HeuristicWeights({ seed = 2048, episodes = 10, depth = 2, maxMoves = 500 } = {}) {
+export function compare2048HeuristicWeights({ seed = 2048, episodes = 10, depth = 2, maxMoves = 500, snakeWeight = 1 } = {}) {
   if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff) throw new RangeError("Simulation seed must be an unsigned 32-bit integer.");
   if (!Number.isInteger(episodes) || episodes < 2 || episodes > 20) throw new RangeError("Heuristic comparison episodes must be 2..20.");
   if (!Number.isInteger(depth) || depth < 1 || depth > 3) throw new RangeError("Heuristic comparison depth must be 1..3.");
   if (!Number.isInteger(maxMoves) || maxMoves < 1 || maxMoves > 1000) throw new RangeError("Move limit must be 1..1000.");
+  if (typeof snakeWeight !== "number" || !Number.isFinite(snakeWeight) || snakeWeight < 0 || snakeWeight > 2) throw new RangeError("Snake weight must be a number from 0 to 2.");
   const variants = [
     { label: "classic-no-snake", evaluationOptions: { snakeWeight: 0 } },
-    { label: "snake-weight-1", evaluationOptions: { snakeWeight: 1 } }
+    { label: `snake-weight-${snakeWeight}`, evaluationOptions: { snakeWeight } }
   ];
   const seeds = Array.from({ length: episodes }, (_, index) => (seed + index * 0x9e3779b9) >>> 0);
   const results = variants.map(variant => ({
@@ -140,7 +141,7 @@ export function compare2048HeuristicWeights({ seed = 2048, episodes = 10, depth 
   const baselineWins = baseline.filter(game => game.outcome === "won").length;
   const candidateWins = candidate.filter(game => game.outcome === "won").length;
   return {
-    seed, depth, episodes, maxMoves, pairedSeeds: seeds,
+    seed, depth, episodes, maxMoves, snakeWeight, pairedSeeds: seeds,
     note: "Controlled local simulation: both heuristic variants receive identical deterministic seeds and search depth. Results are not real-site win rates or earnings evidence.",
     variants: results.map(item => ({
       variant: item.variant, averageScore: average(item.games.map(game => game.score)),
