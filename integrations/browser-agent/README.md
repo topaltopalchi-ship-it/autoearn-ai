@@ -42,7 +42,7 @@ AUTOEARN_2048_TILE_SELECTOR='[data-tile]' \
 npm run play:2048
 ```
 
-By default, each rendered tile must expose `data-x`, `data-y`, and `data-value` attributes (zero-based x/y coordinates). For one-based coordinates, set `coordinateBase: 1` when wiring the adapter into a site-specific runner. The runner starts a fresh logged-out browser context, does not import cookies, refuses non-allowlisted origins, stops at verification gates, and limits moves/time. It does not solve arbitrary games; only the 2048 adapter is currently wired to an autonomous decision strategy. The browser runner has not been executed against a real game site in this development session.
+By default, each rendered tile must expose `data-x`, `data-y`, and `data-value` attributes (zero-based x/y coordinates). For one-based coordinates, set `coordinateBase: 1` when wiring the adapter into a site-specific runner. The runner starts a fresh logged-out browser context, does not import cookies, refuses non-allowlisted origins, stops at verification gates, and limits moves/time. It does not solve arbitrary games. The combined `play:auto` runner also has deterministic browser adapters for tic-tac-toe, Connect Four, and Othello/Reversi when a site exposes the exact documented DOM markers. None of these browser adapters has been validated against a live third-party game site in this development session.
 
 ## Run the local AI game agent (experimental)
 
@@ -81,8 +81,8 @@ The extractor strips URL query strings/fragments, limits page text, uses a loopb
 ## Current stage and boundaries
 
 - **Implemented:** isolated Chromium context; exact HTTPS origin allowlist; bounded same-origin page traversal; duplicate/loop avoidance; visible link/button discovery; limited in-page expansion of folder-like controls; same-origin iframe inspection; heuristic folder/game/help/login/verification classification; limited safe button/link and keyboard adapter actions; and page/depth/time/interaction budgets.
-- **Implemented for one wired game:** bounded expectimax 2048 strategy, a defensive configurable DOM-to-board adapter, and a separate guarded runner that can execute and verify arrow-key moves when the site's board selectors are configured. The 2048 runner has not yet been tested against a live third-party game site.
-- **Implemented as a tested strategy module:** exact minimax for tic-tac-toe, plus a strategy registry that accepts normalized game state. It is not yet connected to screenshot/DOM recognition or a browser click adapter, so it does not autonomously play tic-tac-toe on websites yet.
+- **Implemented and wired for four explicit DOM game formats:** bounded expectimax for 2048; exact minimax for tic-tac-toe; bounded alpha-beta Connect Four; and bounded Othello/Reversi search. Each turn-based game has a guarded, site-markup-specific browser adapter and move verification.
+- **Important live-test limitation:** the runners have passed repository CI and adapter tests, but have not yet been validated against a live third-party game site. Real sites must expose the documented board/cell/column attributes, and the site's official rules must permit automation.
 - **Implemented and wired into the experimental local AI runner:** local Ollama visual perception, a separate local decision call, and a private feedback memory that uses only owner-rated actions from matching hashed states. Both providers reject remote endpoints, validate responses, enforce timeouts and call budgets, and use no paid AI API or API key.
 - **Not yet implemented:** reliable classification across arbitrary sites, automatic site-specific selector discovery, more game strategies, and robust end-to-end prize/win verification.
 - Only use game sites whose official rules explicitly permit automated play.
@@ -169,7 +169,7 @@ Before visual game-state detection, `play:local-ai` reads the current page and m
 
 ## Nested game/folder discovery
 
-The conservative `play:auto` runner can now inspect the starting page and up to seven additional same-origin HTTPS pages (maximum depth two), following only links whose visible label/path clearly indicates games, puzzles, arcade, levels, folders, or categories, or which carry explicit `data-game-link` / `data-game-folder` markers. It detects only the existing explicit 2048 and tic-tac-toe board signatures. If it finds exactly one supported board, it navigates to that board and runs the matching strategy; if it finds none or multiple candidates, it stops rather than guessing. Account/payment/security paths, external origins, verification gates, arbitrary buttons, forms, and login flows are not followed. This is bounded discovery, not a universal website crawler.
+The conservative `play:auto` runner can inspect the starting page and up to seven additional same-origin HTTPS pages (maximum depth two), following only links whose visible label/path clearly indicates games, puzzles, arcade, levels, folders, or categories, or which carry explicit `data-game-link` / `data-game-folder` markers. It recognizes only the four implemented explicit board signatures: 2048, tic-tac-toe, Connect Four, and Othello/Reversi. If it finds exactly one supported board, it navigates to that board and runs the matching strategy; if it finds none or multiple candidates, it stops rather than guessing. Account/payment/security paths, external origins, verification gates, arbitrary buttons, forms, and login flows are not followed. This is bounded discovery, not a universal website crawler.
 
 
 ## Guarded mouse selection for explicitly marked game cells
