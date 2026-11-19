@@ -81,3 +81,26 @@ test("stores and rates bounded indexed cell-click experiences", async () => {
     await assert.rejects(() => memory.recordPending({ ...input, action: { type: "click-cell", index: 100 } }), /allowlisted/);
   });
 });
+
+
+test("stores confident canvas clicks as coarse regions without retaining raw coordinates", async () => {
+  await withMemory(async memory => {
+    const input = {
+      gameType: "canvas-puzzle",
+      stateSummary: "target near upper left",
+      objective: "hit the target",
+      action: { type: "click-canvas", x: 0.14, y: 0.28, confidence: 0.91 }
+    };
+    const id = await memory.recordPending(input);
+    await memory.rate(id, "good");
+    assert.deepEqual(await memory.getHints(input), [
+      { key: "click-canvas:1:2", good: 1, bad: 0, net: 1 }
+    ]);
+    await assert.rejects(() => memory.recordPending({
+      ...input, action: { ...input.action, confidence: 0.79 }
+    }), /confidence/);
+    await assert.rejects(() => memory.recordPending({
+      ...input, action: { ...input.action, x: 1.2 }
+    }), /confidence/);
+  });
+});
