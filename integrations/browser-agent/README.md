@@ -44,6 +44,34 @@ npm run play:2048
 
 By default, each rendered tile must expose `data-x`, `data-y`, and `data-value` attributes (zero-based x/y coordinates). For one-based coordinates, set `coordinateBase: 1` when wiring the adapter into a site-specific runner. The runner starts a fresh logged-out browser context, does not import cookies, refuses non-allowlisted origins, stops at verification gates, and limits moves/time. It does not solve arbitrary games; only the 2048 adapter is currently wired to an autonomous decision strategy. The browser runner has not been executed against a real game site in this development session.
 
+## Run the local AI game agent (experimental)
+
+This runner connects the local Ollama provider to a guarded Playwright keyboard agent. It is experimental: it does not discover a strategy for every game, and an image-capable local model can still misunderstand a board or make poor moves. Use only a game whose published rules explicitly allow automation.
+
+Install a local vision model on the same computer as this runner:
+
+```sh
+ollama serve
+ollama pull qwen2.5vl:3b
+```
+
+Then, in a second terminal:
+
+```sh
+cd integrations/browser-agent
+npm install
+npx playwright install chromium
+AUTOEARN_GAME_URL=https://your-approved-game.example/play \
+AUTOEARN_ALLOWED_ORIGINS=https://your-approved-game.example \
+AUTOEARN_AUTOMATION_APPROVED=YES \
+AUTOEARN_LOCAL_MODEL=qwen2.5vl:3b \
+npm run play:local-ai
+```
+
+The runner sends screenshots and a bounded text snapshot to Ollama at `127.0.0.1:11434` only. The model may choose only arrow keys, Enter, Escape, or Space. The browser starts logged out, downloads are disabled, popups and off-origin navigation stop the session, and CAPTCHA/verification gates cause a hard stop. It does not submit forms, sign in, buy, deposit, withdraw, claim prizes, or bypass protections. Configure `AUTOEARN_MAX_STEPS`, `AUTOEARN_MAX_DURATION_MS`, and `AUTOEARN_MAX_MODEL_CALLS` to lower or raise bounded run limits (within the hard caps in code).
+
+Ollama inference is local and has no per-request API fee, but downloading model weights and running them requires disk space, RAM/CPU/GPU, and electricity. A 3B vision model may be slow or fail on modest hardware. The provider/runner are not connected to the public website and no model is hosted by AutoEarn.
+
 ## Current stage and boundaries
 
 - **Implemented:** isolated Chromium context; exact HTTPS origin allowlist; bounded same-origin page traversal; duplicate/loop avoidance; visible link/button discovery; limited in-page expansion of folder-like controls; same-origin iframe inspection; heuristic folder/game/help/login/verification classification; limited safe button/link and keyboard adapter actions; and page/depth/time/interaction budgets.
