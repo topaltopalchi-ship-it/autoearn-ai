@@ -80,3 +80,7 @@ The dedicated 2048 browser runner now chooses expectimax depth from board occupa
 ### Paired 2048 policy comparison (experimental)
 
 Run `node integrations/browser-agent/games/run-2048-policy-comparison.mjs` to compare fixed depths 1–3 with the adaptive policy on the same deterministic episode seeds. The report includes paired score and maximum-tile differences for every policy against each fixed-depth baseline, score and tile win/tie/loss counts, move-limit stops, and the adaptive policy's depth-use counts. Identical seeds provide a reproducible paired experiment, but different board trajectories mean this remains synthetic evidence—not a real-site win rate or earnings claim.
+
+### Bounded 2048 search budget (experimental)
+
+Each expectimax decision now has a hard default cap of 25,000 expanded search nodes (configurable from 1 to 200,000). If the cap is reached, remaining branches fall back to the board heuristic instead of expanding without limit. Decisions expose visited-node, cache-hit, and budget-exhaustion diagnostics; paired policy simulations aggregate these to compare search cost as well as scores. The cap bounds search expansion, not total browser runtime, and a budget-limited move may be less informed than a complete search.
