@@ -22,7 +22,7 @@ export function createConnectFourBrowserAdapter(page, {
     if (cells.length !== ROWS * COLS) throw new Error("Connect Four board must expose exactly 42 indexed cells.");
     const board = Array(ROWS * COLS).fill(null);
     for (const cell of cells) {
-      if (cell.index === null || !/^\\d+$/.test(cell.index)) throw new Error("Every Connect Four cell needs an explicit numeric index.");
+      if (cell.index === null || !/^\d+$/.test(cell.index)) throw new Error("Every Connect Four cell needs an explicit numeric index.");
       const index = Number(cell.index);
       if (!Number.isInteger(index) || index < 0 || index >= ROWS * COLS || board[index] !== null) {
         throw new Error("Connect Four cell indices must be unique integers from 0 to 41.");
