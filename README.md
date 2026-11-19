@@ -53,3 +53,5 @@ Guided sessions are available only after the owner reviews the official terms UR
 - Each adapter exposes only its own game state and bounded actions. Runs have explicit action allowlists, step/time budgets, cancellation, event reporting and post-action verification.
 - Failed verification stops the run. The strategy/model provider is pluggable; credentials and paid model calls are not embedded in browser code.
 - Third-party game adapters remain disabled until official rules explicitly permit automation. CAPTCHA, anti-bot, access-control and payment safeguards are never bypassed.
+
+- The built-in sliding-puzzle demo now runs through the same bounded agent loop and verifies each move before reporting completion.
