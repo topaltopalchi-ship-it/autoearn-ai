@@ -10,6 +10,7 @@ import { readSafeGameCells, clickSafeGameCell, clickSafeGameCanvas } from "./gam
 import { detectGameOutcome } from "./game-outcome-detector.mjs";
 import { mapViewportObjectsToCanvas } from "./canvas-object-mapper.mjs";
 import { createCanvasMotionTracker } from "./canvas-motion-tracker.mjs";
+import { planCanvasTactics } from "./canvas-tactical-planner.mjs";
 
 const gameUrl = process.env.AUTOEARN_GAME_URL;
 const approvedOrigins = new Set(String(process.env.AUTOEARN_ALLOWED_ORIGINS || "")
@@ -105,6 +106,7 @@ async function main() {
             )
           : [];
         const canvasMotion = motionTracker.update(canvasObjects);
+        const canvasTactics = planCanvasTactics({ objects: canvasObjects, motion: canvasMotion });
 
         const outcomeMarkers = await page.locator("[data-game-outcome], [data-game-status]").evaluateAll(elements =>
           elements.slice(0, 10).map(element => ({
@@ -150,6 +152,7 @@ async function main() {
           canvasAvailable: canvasCount === 1,
           canvasObjects,
           canvasMotion,
+          canvasTactics,
           screenshot: screenshotData,
           decisionScreenshot
         };
