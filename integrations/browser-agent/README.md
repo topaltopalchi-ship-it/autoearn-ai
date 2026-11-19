@@ -116,7 +116,7 @@ The tic-tac-toe adapter now labels its normalized observation as `tic-tac-toe` f
 The site crawler now reports a separate `gameDetection` result for each visited page. It recognizes only explicit, unambiguous board signatures inside elements marked `data-game-board`:
 - Tic-tac-toe: exactly nine descendants with unique `data-index="0..8"` and readable `data-mark`/text values limited to X, O, or empty.
 - 2048: descendants with explicit `data-x`, `data-y`, and `data-value` attributes describing unique 4×4 coordinates and power-of-two tile values.
-- Connect Four: exactly 42 uniquely indexed `data-game-cell` descendants with X/O/empty marks; the playable adapter additionally requires seven explicit indexed `data-game-column` controls.
+- Connect Four: exactly 42 uniquely indexed `data-game-cell` descendants with X/O/empty marks, valid gravity (no floating pieces), alternating-turn counts (X starts; X may lead by at most one), and winner/turn consistency; simultaneous winners and terminal states inconsistent with move counts are rejected. The playable adapter additionally requires seven explicit indexed `data-game-column` controls.
 - Othello/Reversi: exactly 64 uniquely indexed `data-game-cell` descendants with B/W/empty marks and an explicit `data-current-player` value.
 
 Text such as “2048”, “score”, or “play game” is never enough to identify a playable game. Multiple or malformed candidates return no game type. Detection is metadata only: it does not automatically click or play. The matching site's selectors and player configuration still need to be reviewed before using a dedicated adapter; arbitrary canvas-only boards and games without these explicit attributes remain unsupported.
