@@ -61,7 +61,8 @@ export function createTicTacToeBrowserAdapter(page, {
       const board = page.locator(boardSelector);
       const cell = board.locator(`${cellSelector}[${indexAttribute}="${action.index}"]`);
       if (await cell.count() !== 1) throw new Error("Target cell must match exactly one element.");
-      const markAttributeValue = await cell.getAttribute(markAttribute);\n      const currentMark = String(markAttributeValue || await cell.innerText()).trim();
+      const markAttributeValue = await cell.getAttribute(markAttribute);
+      const currentMark = String(markAttributeValue || await cell.innerText()).trim();
       if (currentMark !== "" && currentMark !== "-" && currentMark.toUpperCase() !== "EMPTY") {
         throw new Error("Refusing to click a non-empty tic-tac-toe cell.");
       }
