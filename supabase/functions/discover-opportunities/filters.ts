@@ -47,6 +47,68 @@ const COMMON_HOSTING_SUFFIXES = [
   ".web.app", ".firebaseapp.com", ".blogspot.com", ".wordpress.com",
 ];
 
+export function mergeDuplicateCandidates<T extends Record<string, unknown>>(rows: T[]): T[] {
+  const grouped = new Map<string, T>();
+  for (const row of rows) {
+    const key = canonicalOpportunityUrl(String(row.url || ""));
+    if (!key) continue;
+    const current = grouped.get(key);
+    if (!current) {
+      grouped.set(key, { ...row, url: key });
+      continue;
+    }
+
+    const merged = { ...current } as Record<string, unknown>;
+    const descriptions = [...new Set([
+      String(current.reward_description || "").trim(),
+      String(row.reward_description || "").trim(),
+    ].filter(Boolean))];
+    merged.reward_description = descriptions
+      .sort((a, b) => b.length - a.length)
+      .join("\n\n")
+      .slice(0, 1800);
+
+    const titles = [String(current.title || ""), String(row.title || "")].sort((a, b) => b.length - a.length);
+    merged.title = titles[0].slice(0, 160);
+
+    const eligibility = [...new Set([
+      String(current.eligibility || "").trim(),
+      String(row.eligibility || "").trim(),
+    ].filter(Boolean))];
+    merged.eligibility = eligibility.join(" | ").slice(0, 1800);
+
+    const provenance = [current, row].map((candidate) => {
+      const notes = String(candidate.notes || "");
+      const match = notes.match(/\[DISCOVERY PROVENANCE\]\s*([\s\S]*)$/);
+      if (!match) return null;
+      try {
+        const value = JSON.parse(match[1]);
+        return {
+          source: String(value.source || "Mwmbl search"),
+          search_query: String(value.search_query || ""),
+          discovered_at: String(value.discovered_at || ""),
+          excerpt: String(value.excerpt || ""),
+        };
+      } catch {
+        return null;
+      }
+    }).filter((value): value is { source: string; search_query: string; discovered_at: string; excerpt: string } => value !== null);
+
+    const baseNotes = String(current.notes || "").split("\n[DISCOVERY PROVENANCE]")[0];
+    const queries = [...new Set(provenance.map((item) => item.search_query).filter(Boolean))];
+    const excerpts = [...new Set(provenance.map((item) => item.excerpt).filter(Boolean))];
+    const dates = provenance.map((item) => item.discovered_at).filter(Boolean).sort();
+    merged.notes = baseNotes + "\n[DISCOVERY PROVENANCE]\n" + JSON.stringify({
+      source: "Mwmbl search",
+      search_query: queries.join(" | ").slice(0, 720),
+      discovered_at: dates[0] || new Date().toISOString(),
+      excerpt: excerpts.join("\n---\n").slice(0, 900),
+    });
+    grouped.set(key, merged as T);
+  }
+  return [...grouped.values()];
+}
+
 export function domainReviewFlags(rawUrl: string): string[] {
   const normalized = normalizePublicHttpsUrl(rawUrl);
   if (!normalized) return ["invalid_public_https_url"];
