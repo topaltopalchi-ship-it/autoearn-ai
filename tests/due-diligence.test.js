@@ -156,8 +156,8 @@ test("replaces an earlier owner eligibility review instead of accumulating inval
   const second = { reviewed_at: "2026-11-19T00:00:00.000Z", payment_method: "Bank transfer" };
   const initial = replace("Original opportunity notes", first);
   const updated = replace(initial, second);
-  assert.match(updated, /^Original opportunity notes\\n\\n\\[OWNER OFFICIAL ELIGIBILITY REVIEW\\]/);
-  assert.equal((updated.match(/\\[OWNER OFFICIAL ELIGIBILITY REVIEW\\]/g) || []).length, 1);
+  assert.match(updated, /^Original opportunity notes\n\n\[OWNER OFFICIAL ELIGIBILITY REVIEW\]/);
+  assert.equal((updated.match(/\[OWNER OFFICIAL ELIGIBILITY REVIEW\]/g) || []).length, 1);
   const json = updated.slice(updated.indexOf("[OWNER OFFICIAL ELIGIBILITY REVIEW]") + "[OWNER OFFICIAL ELIGIBILITY REVIEW]".length).trim();
   assert.deepEqual(JSON.parse(json), second);
 });
