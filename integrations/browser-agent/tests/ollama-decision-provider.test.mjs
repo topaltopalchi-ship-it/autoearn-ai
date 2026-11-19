@@ -84,3 +84,25 @@ test("includes only owner-rated experience hints for the observed state", async 
   assert.match(body.messages[0].content, /Owner-rated experience hints/);
   assert.match(body.messages[0].content, /ArrowLeft/);
 });
+
+
+test("accepts only bounded indexed game-cell clicks when explicitly enabled", async () => {
+  const decide = createOllamaGameDecision({
+    model: "local-model", allowCellClicks: true,
+    fetchImpl: mockFetch({ message: { content: '{"type":"click-cell","index":7}' } })
+  });
+  assert.deepEqual(await decide({}), { type: "click-cell", index: 7 });
+});
+
+test("rejects game-cell clicks when disabled or outside the bounded index range", async () => {
+  const disabled = createOllamaGameDecision({
+    model: "local-model",
+    fetchImpl: mockFetch({ message: { content: '{"type":"click-cell","index":1}' } })
+  });
+  await assert.rejects(() => disabled({}), /unsupported action/);
+  const enabled = createOllamaGameDecision({
+    model: "local-model", allowCellClicks: true,
+    fetchImpl: mockFetch({ message: { content: '{"type":"click-cell","index":100}' } })
+  });
+  await assert.rejects(() => enabled({}), /unsupported action/);
+});
