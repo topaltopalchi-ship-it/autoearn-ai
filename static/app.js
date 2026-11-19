@@ -25,9 +25,9 @@ function eligibilityReviewHtml(opportunity){
   const marker="[OWNER OFFICIAL ELIGIBILITY REVIEW]";
   const notes=String(opportunity.notes||"");
   const index=notes.lastIndexOf(marker);
-  const dueMatch=notes.match(/Due-diligence flags: ([^.]+)\\./);
+  const dueFlags=window.AutoEarnDueDiligence.extractReviewFlags(notes);
   let html=esc(base);
-  if(dueMatch)html+="<br><strong>Review alerts:</strong> "+esc(dueMatch[1].replaceAll("_"," "));
+  if(dueFlags)html+="<br><strong>Review alerts:</strong> "+esc(dueFlags.replaceAll("_"," "));
   if(index<0)return html;
   try{
     const report=JSON.parse(notes.slice(index+marker.length).trim());
