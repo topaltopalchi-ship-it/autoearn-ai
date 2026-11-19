@@ -79,7 +79,7 @@ The dedicated 2048 browser runner now chooses expectimax depth from board occupa
 
 ### Paired 2048 policy comparison (experimental)
 
-Run `node integrations/browser-agent/games/run-2048-policy-comparison.mjs` to compare fixed depths 1–3 with the adaptive policy on the same deterministic episode seeds. The report includes paired score, maximum-tile, search-node, cache-hit, and budget-exhaustion differences for every policy against each fixed-depth baseline, score and tile win/tie/loss counts, move-limit stops, and the adaptive policy's depth-use counts. Identical seeds provide a reproducible paired experiment, but different board trajectories mean this remains synthetic evidence—not a real-site win rate or earnings claim.
+Run `node integrations/browser-agent/games/run-2048-policy-comparison.mjs` to compare fixed depths 1–3 with the adaptive policy on the same deterministic episode seeds. The report includes paired score, maximum-tile, search-node, cache-hit, and budget-exhaustion differences for every policy against each fixed-depth baseline, score and tile win/tie/loss counts, the minimum/maximum and average absolute paired score differences (to expose episode-to-episode spread), move-limit stops, and the adaptive policy's depth-use counts. The spread is descriptive only; small episode counts do not support strong statistical conclusions. Identical seeds provide a reproducible paired experiment, but different board trajectories mean this remains synthetic evidence—not a real-site win rate or earnings claim.
 
 ### Bounded 2048 search budget (experimental)
 
