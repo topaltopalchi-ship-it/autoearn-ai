@@ -81,7 +81,7 @@ test("includes only owner-rated experience hints for the observed state", async 
   await decide({
     gameState: { gameType: "2048", stateSummary: "two tiles", objective: "merge" }
   });
-  assert.match(body.messages[0].content, /Owner-rated experience hints/);
+  assert.match(body.messages[0].content, /Past feedback hints/);
   assert.match(body.messages[0].content, /ArrowLeft/);
 });
 
@@ -333,4 +333,35 @@ test("supplies only the last six sanitized actions from the current run", async 
   assert.match(prompt, /"yBucket":8/);
   assert.doesNotMatch(historyLine, /purchase/);
   assert.doesNotMatch(historyLine, /0\.91/);
+});
+
+
+test("sanitizes memory hints and labels weak, negative and positive evidence conservatively", async () => {
+  let prompt;
+  const decide = createOllamaGameDecision({
+    model: "local-model",
+    experienceMemory: {
+      async getHints() {
+        return [
+          { key: "ArrowRight", good: 4, bad: 0 },
+          { key: "ArrowLeft", good: 0, bad: 4 },
+          { key: "Enter", good: 1, bad: 1 },
+          { key: "too-few", good: 1, bad: 0 },
+          { key: "x".repeat(100), good: 10, bad: 0 },
+          { key: "forged", good: 1001, bad: 0 }
+        ];
+      }
+    },
+    fetchImpl: async (_url, options) => {
+      prompt = JSON.parse(options.body).messages[0].content;
+      return { ok: true, status: 200, json: async () => ({
+        message: { content: '{"type":"press","key":"ArrowUp"}' }
+      }) };
+    }
+  });
+  await decide({});
+  assert.match(prompt, /"key":"ArrowRight","good":4,"bad":0,"sampleCount":4,"successRate":0.833,"guidance":"positive-pattern"/);
+  assert.match(prompt, /"key":"ArrowLeft","good":0,"bad":4,"sampleCount":4,"successRate":0.167,"guidance":"negative-pattern"/);
+  assert.match(prompt, /"key":"Enter","good":1,"bad":1,"sampleCount":2,"successRate":0.5,"guidance":"uncertain-pattern"/);
+  assert.doesNotMatch(prompt, /too-few|forged|x{41}/);
 });
