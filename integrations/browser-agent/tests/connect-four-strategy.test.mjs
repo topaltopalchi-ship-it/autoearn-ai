@@ -17,7 +17,7 @@ test("Connect Four blocks an opponent's immediate horizontal win", () => {
   const board = empty();
   for (let c = 0; c < 3; c++) board[5][c] = "O";
   board[5][4] = board[5][5] = board[5][6] = "X";
-  board[4][4] = "X";
+  // Three X and three O discs: X legitimately moves next.
   const move = chooseConnectFourMove(board, { player: "X" });
   assert.equal(move.column, 3);
 });
