@@ -71,7 +71,8 @@ export function candidateReviewFlags(title: string, description: string): string
   if (!/\b(minimum withdrawal|minimum payout|minimum cash.?out|withdrawal threshold|cash.?out threshold)\b/i.test(text)) flags.push("minimum_withdrawal_not_found");
   if (!/\b(paypal|skrill|neteller|payeer|payoneer|webmoney|bank transfer|bank account|bank card|debit card|credit card|bitcoin|\bbtc\b|\busdt\b|\busdc\b|ethereum|\beth\b)\b/i.test(text)) flags.push("specific_payout_method_not_found");
   if (!/\b(withdrawal fee|payout fee|cash.?out fee|no (?:withdrawal |payout |cash.?out )?fees|free withdrawal|fee-free)\b/i.test(text)) flags.push("withdrawal_fees_not_found");
-  if (!/(?:[$€£]\s?\d|\b\d[\d,]*(?:\.\d+)?\s?(?:USD|USDT|USDC|EUR|GBP)\b)/i.test(text)) flags.push("prize_amount_not_found");
+  const prizeAmountPattern = /(?:\b(?:prize|reward|award|winnings?|jackpot|prize pool)\b[^.!?]{0,45}(?:[$€£]\s?\d[\d,.]*|\b\d[\d,]*(?:\.\d+)?\s?(?:USD|USDT|USDC|EUR|GBP)\b)|(?:[$€£]\s?\d[\d,.]*|\b\d[\d,]*(?:\.\d+)?\s?(?:USD|USDT|USDC|EUR|GBP)\b)[^.!?]{0,30}\b(?:prize|reward|award|winnings?|jackpot)\b)/i;
+  if (!prizeAmountPattern.test(text)) flags.push("prize_amount_not_found");
   if (!/\b(within\s+\d+\s+(?:business\s+)?days|paid\s+within|payment\s+(?:will|is)\s+be\s+(?:made|sent)|prize\s+(?:will|is)\s+be\s+paid)\b/i.test(text)) flags.push("payout_timing_not_found");
   if (!/\b(?:sponsor|organizer|organiser|operator|host)\s*:\s*\S+|\b(?:sponsored|organized|organised|operated|hosted)\s+by\s+[a-z0-9][a-z0-9 &.-]{2,}/i.test(text)) flags.push("organizer_identity_not_found");
   if (!/\b(winners?\s+(?:is|are|will be|selected|chosen)|selected by|judged|highest score|leaderboard|random drawing|randomly selected)\b/i.test(text)) flags.push("winner_selection_method_not_found");
