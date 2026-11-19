@@ -83,16 +83,16 @@ test("executes only a valid empty-cell action and verifies the mark", async () =
 });
 
 test("wait-for-turn observes opponent move and verifies the next agent turn", async () => {
-  const page = makePage(["X", "", "", "", "", "", "", "", ""]);
+  const page = makePage(Array(9).fill(""));
   const adapter = createTicTacToeBrowserAdapter(page, {
-    boardSelector: "#board", cellSelector: ".cell", player: "X"
+    boardSelector: "#board", cellSelector: ".cell", player: "O"
   });
   const before = await adapter.observe();
-  setTimeout(() => page.setMark(1, "O"), 100);
+  setTimeout(() => page.setMark(0, "X"), 100);
   const result = await adapter.execute({ type: "wait-for-turn" });
   const after = await adapter.observe();
   assert.equal(result.ready, true);
-  assert.equal(after.gameState.currentPlayer, "X");
+  assert.equal(after.gameState.currentPlayer, "O");
   assert.equal(await adapter.verify({
     before, after, action: { type: "wait-for-turn" }, result
   }), true);
