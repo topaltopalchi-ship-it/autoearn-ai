@@ -50,3 +50,30 @@ export async function clickSafeGameCell(page, index) {
   await cell.click();
   return { type: "click-cell", index };
 }
+
+
+/** Click only inside one site-explicitly marked game canvas. Coordinates are normalized 0..1. */
+export async function clickSafeGameCanvas(page, x, y) {
+  validatePage(page);
+  if (!Number.isFinite(x) || x < 0 || x > 1 || !Number.isFinite(y) || y < 0 || y > 1) {
+    throw new RangeError("Canvas coordinates must be normalized fractions from 0 to 1.");
+  }
+  const canvas = page.locator('[data-game-board] canvas[data-game-canvas]');
+  if (await canvas.count() !== 1) {
+    throw new Error("Canvas action requires exactly one explicitly marked game canvas.");
+  }
+  const visible = await canvas.evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return rect.width > 20 && rect.height > 20 && style.display !== "none" &&
+      style.visibility !== "hidden" && style.pointerEvents !== "none" &&
+      !element.closest("a,button,[role=button],[role=link],form");
+  });
+  if (!visible) throw new Error("Refusing to click a hidden or interactive non-game canvas.");
+  const box = await canvas.boundingBox();
+  if (!box || box.width <= 20 || box.height <= 20) throw new Error("Game canvas has no usable visible bounds.");
+  const px = Math.min(box.width - 1, Math.max(1, Math.round(x * box.width)));
+  const py = Math.min(box.height - 1, Math.max(1, Math.round(y * box.height)));
+  await canvas.click({ position: { x: px, y: py } });
+  return { type: "click-canvas", x, y };
+}
