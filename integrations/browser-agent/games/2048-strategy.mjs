@@ -92,24 +92,81 @@ export function evaluate2048Board(board) {
   return empty * 270 + smoothness * 11 + monotonicity * 45 + cornerBonus;
 }
 
-export function choose2048Move(board) {
+function legalMoves(board) {
+  return MOVES.map(move => ({ ...move, result: move2048(board, move.direction) }))
+    .filter(move => move.result.changed);
+}
+
+function expectimaxMax(board, depth, cache) {
+  if (depth <= 0) return evaluate2048Board(board);
+  const key = `M${depth}:${board.flat().join(",")}`;
+  if (cache.has(key)) return cache.get(key);
+  const moves = legalMoves(board);
+  if (!moves.length) return evaluate2048Board(board);
+  let best = -Infinity;
+  for (const move of moves) {
+    const score = move.result.gained * 0.08 +
+      expectimaxChance(move.result.board, depth - 1, cache);
+    if (score > best) best = score;
+  }
+  cache.set(key, best);
+  return best;
+}
+
+function expectimaxChance(board, depth, cache) {
+  if (depth <= 0) return evaluate2048Board(board);
+  const key = `C${depth}:${board.flat().join(",")}`;
+  if (cache.has(key)) return cache.get(key);
+  const empty = [];
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      if (board[y][x] === 0) empty.push([y, x]);
+    }
+  }
+  if (!empty.length) return expectimaxMax(board, depth, cache);
+  let expected = 0;
+  for (const [y, x] of empty) {
+    const withTwo = board.map(row => [...row]);
+    withTwo[y][x] = 2;
+    const withFour = board.map(row => [...row]);
+    withFour[y][x] = 4;
+    expected += 0.9 * expectimaxMax(withTwo, depth, cache) +
+      0.1 * expectimaxMax(withFour, depth, cache);
+  }
+  const score = expected / empty.length;
+  cache.set(key, score);
+  return score;
+}
+
+export function choose2048Move(board, { depth = 3 } = {}) {
   validateBoard(board);
+  if (!Number.isInteger(depth) || depth < 1 || depth > 4) {
+    throw new RangeError("2048 search depth must be an integer from 1 to 4.");
+  }
+  const moves = legalMoves(board);
+  if (!moves.length) return null;
+  const cache = new Map();
   let best = null;
-  for (const move of MOVES) {
-    const result = move2048(board, move.direction);
-    if (!result.changed) continue;
-    const score = evaluate2048Board(result.board) + result.gained * 0.08;
+  for (const move of moves) {
+    const score = move.result.gained * 0.08 +
+      expectimaxChance(move.result.board, depth - 1, cache);
     if (!best || score > best.score) {
-      best = { type: "press", key: move.key, direction: move.direction, score, expectedBoard: result.board };
+      best = {
+        type: "press",
+        key: move.key,
+        direction: move.direction,
+        score,
+        expectedBoard: move.result.board
+      };
     }
   }
   return best;
 }
 
-export function create2048Decision() {
+export function create2048Decision({ depth = 3 } = {}) {
   return async observation => {
     if (!observation || !Array.isArray(observation.board)) return null;
-    const move = choose2048Move(observation.board);
+    const move = choose2048Move(observation.board, { depth });
     return move ? { type: move.type, key: move.key, direction: move.direction } : null;
   };
 }
@@ -117,6 +174,6 @@ export function create2048Decision() {
 export function get2048Outcome(board) {
   validateBoard(board);
   if (Math.max(...board.flat()) >= 2048) return "won";
-  if (choose2048Move(board) === null) return "game_over";
+  if (legalMoves(board).length === 0) return "game_over";
   return "playing";
 }
