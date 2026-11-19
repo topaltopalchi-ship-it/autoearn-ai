@@ -92,7 +92,7 @@ function snakePositionScore(board) {
   return best;
 }
 
-export function evaluate2048Board(board, { snakeWeight = 1 } = {}) {
+export function evaluate2048Board(board, { snakeWeight = 0 } = {}) {
   validateBoard(board);
   const empty = board.flat().filter(value => value === 0).length;
   const values = board.map(row => row.map(logTile));
