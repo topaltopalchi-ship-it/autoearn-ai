@@ -3,6 +3,7 @@ import "../../static/game-agent.js";
 import { createOllamaGameDecision } from "./ollama-decision-provider.mjs";
 import { createOllamaGamePerception } from "./ollama-game-perception.mjs";
 import { createGameExperienceMemory } from "./game-experience-memory.mjs";
+import { recordVerifiedExperience } from "./experience-verification.mjs";
 
 const gameUrl = process.env.AUTOEARN_GAME_URL;
 const approvedOrigins = new Set(String(process.env.AUTOEARN_ALLOWED_ORIGINS || "")
@@ -105,30 +106,13 @@ async function main() {
         await page.keyboard.press(action.key === " " ? "Space" : action.key);
         return { type: "press", key: action.key };
       },
-      async verify({ before, after }) {
-        const verified = Boolean(after && before && (
-          before.url !== after.url ||
-          before.snapshot !== after.snapshot ||
-          before.screenshot !== after.screenshot
-        ));
-        if (verified) {
-          try {
-            const id = await experienceMemory.recordPending({
-              gameType: before.gameState?.gameType || "unknown",
-              stateSummary: before.gameState?.stateSummary || "",
-              objective: before.gameState?.objective || "",
-              action
-            });
-            pendingFeedback.push({
-              id,
-              gameType: before.gameState?.gameType || "unknown",
-              actionKey: action.key
-            });
-          } catch (error) {
-            console.warn("Experience memory was not saved:", error.message);
-          }
+      async verify({ before, action, after }) {
+        try {
+          return await recordVerifiedExperience(experienceMemory, pendingFeedback, { before, action, after });
+        } catch (error) {
+          console.warn("Experience memory was not saved:", error.message);
+          return false;
         }
-        return verified;
       },
       isTerminal(observation) {
         return /game over|you win|you won|you lost|victory|defeat|بازی تمام شد|برنده شدی|باختی/i
