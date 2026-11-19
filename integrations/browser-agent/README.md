@@ -117,6 +117,7 @@ The site crawler now reports a separate `gameDetection` result for each visited 
 - Tic-tac-toe: exactly nine descendants with unique `data-index="0..8"` and readable `data-mark`/text values limited to X, O, or empty.
 - 2048: descendants with explicit `data-x`, `data-y`, and `data-value` attributes describing unique 4×4 coordinates and power-of-two tile values.
 - Connect Four: exactly 42 uniquely indexed `data-game-cell` descendants with X/O/empty marks; the playable adapter additionally requires seven explicit indexed `data-game-column` controls.
+- Othello/Reversi: exactly 64 uniquely indexed `data-game-cell` descendants with B/W/empty marks and an explicit `data-current-player` value.
 
 Text such as “2048”, “score”, or “play game” is never enough to identify a playable game. Multiple or malformed candidates return no game type. Detection is metadata only: it does not automatically click or play. The matching site's selectors and player configuration still need to be reviewed before using a dedicated adapter; arbitrary canvas-only boards and games without these explicit attributes remain unsupported.
 
@@ -132,7 +133,7 @@ AUTOEARN_TTT_PLAYER=X \
 npm run play:auto
 ```
 
-The board must expose the documented `data-game-board` marker and the explicit attributes required by its adapter. Connect Four additionally needs the column-control markers documented below. If no single valid board is found, or more than one candidate is present, the runner stops instead of guessing. This is automatic game/strategy selection for three known DOM formats, not general visual recognition of arbitrary games. It uses a fresh logged-out context, exact HTTPS origin allowlisting, no downloads, and bounded moves/time; verification gates and unexpected popups/origin changes stop execution.
+The board must expose the documented `data-game-board` marker and the explicit attributes required by its adapter. Connect Four additionally needs the column-control markers documented below. If no single valid board is found, or more than one candidate is present, the runner stops instead of guessing. This is automatic game/strategy selection for four known DOM formats, not general visual recognition of arbitrary games. It uses a fresh logged-out context, exact HTTPS origin allowlisting, no downloads, and bounded moves/time; verification gates and unexpected popups/origin changes stop execution.
 
 
 ## Local visual game-state perception
