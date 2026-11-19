@@ -1,12 +1,14 @@
 import { chromium } from "playwright";
 import { collectNavigationTargets } from "./site-navigation.mjs";
+import { crawlSameOriginSite } from "./crawl-site.mjs";
 
 const gameUrl = process.env.AUTOEARN_GAME_URL;
 const allowedOrigins = new Set(
   String(process.env.AUTOEARN_ALLOWED_ORIGINS || "")
     .split(",").map(value => value.trim()).filter(Boolean)
 );
-const maxSteps = Math.min(200, Math.max(1, Number(process.env.AUTOEARN_MAX_STEPS || 40)));
+const maxPages = Math.min(30, Math.max(1, Number(process.env.AUTOEARN_MAX_PAGES || 12)));
+const maxDepth = Math.min(6, Math.max(0, Number(process.env.AUTOEARN_MAX_DEPTH || 3)));
 const maxDurationMs = Math.min(5 * 60_000, Math.max(5_000, Number(process.env.AUTOEARN_MAX_DURATION_MS || 60_000)));
 
 function validateTarget(value) {
@@ -19,7 +21,7 @@ function validateTarget(value) {
 }
 
 function looksLikeVerificationGate(snapshot, title) {
-  const text = (title + "\\n" + snapshot).toLowerCase();
+  const text = (title + "\n" + snapshot).toLowerCase();
   return /captcha|are you human|verify you are human|robot check|bot detection|security challenge|cloudflare turnstile|hcaptcha|recaptcha/.test(text);
 }
 
@@ -40,7 +42,6 @@ async function main() {
   const context = await browser.newContext({ acceptDownloads: false });
   const page = await context.newPage();
   page.setDefaultTimeout(5_000);
-  let steps = 0;
   let navigationBlocked = false;
 
   page.on("framenavigated", frame => {
@@ -60,27 +61,26 @@ async function main() {
   });
 
   try {
-    await page.goto(target.href, { waitUntil: "domcontentloaded", timeout: 20_000 });
-    while (steps < maxSteps && Date.now() - started < maxDurationMs && !page.isClosed() && !navigationBlocked) {
-      const state = await observe(page, target.origin);
-      if (navigationBlocked || new URL(state.url).origin !== target.origin) throw new Error("Navigation outside approved origin.");
-      if (looksLikeVerificationGate(state.snapshot, state.title)) {
-        console.log(JSON.stringify({ status: "human_required", reason: "verification_gate_detected" }, null, 2));
-        break;
-      }
-      console.log(JSON.stringify({
-        type: "site_observation",
-        step: steps,
-        url: state.url,
-        title: state.title,
-        navigationTargets: state.navigationTargets
-      }, null, 2));
-      console.log("Folder and category targets were discovered. No AI decision strategy is connected yet; stopping without clicking.");
-      break;
+    const result = await crawlSameOriginSite({
+      startUrl: target.href,
+      approvedOrigin: target.origin,
+      maxPages,
+      maxDepth,
+      maxDurationMs,
+      openPage: async url => {
+        if (navigationBlocked || page.isClosed()) throw new Error("Browser navigation was stopped.");
+        await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20_000 });
+        if (navigationBlocked || new URL(page.url()).origin !== target.origin) {
+          throw new Error("Navigation outside approved origin.");
+        }
+      },
+      inspectPage: () => observe(page, target.origin),
+      isBlocked: observation => looksLikeVerificationGate(observation.snapshot || "", observation.title || "")
+    });
+    console.log(JSON.stringify(result, null, 2));
+    if (Date.now() - started >= maxDurationMs) {
+      console.log(JSON.stringify({ status: "limited", reason: "time_limit" }));
     }
-    if (steps >= maxSteps) console.log(JSON.stringify({ status: "limited", reason: "step_limit" }));
-    else if (Date.now() - started >= maxDurationMs) console.log(JSON.stringify({ status: "limited", reason: "time_limit" }));
-    else if (navigationBlocked) console.log(JSON.stringify({ status: "stopped", reason: "origin_boundary" }));
   } finally {
     await context.close().catch(() => {});
     await browser.close().catch(() => {});
