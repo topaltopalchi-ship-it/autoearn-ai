@@ -61,6 +61,37 @@ function logTile(value) {
   return value === 0 ? 0 : Math.log2(value);
 }
 
+
+const SNAKE_WEIGHTS = [
+  16, 15, 14, 13,
+  9, 10, 11, 12,
+  8, 7, 6, 5,
+  1, 2, 3, 0.5
+];
+
+function snakePositionScore(board) {
+  let best = -Infinity;
+  for (let transform = 0; transform < 8; transform++) {
+    let score = 0;
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        let sourceY = y;
+        let sourceX = x;
+        if (transform >= 4) sourceX = SIZE - 1 - sourceX;
+        for (let turn = 0; turn < transform % 4; turn++) {
+          const nextY = sourceX;
+          const nextX = SIZE - 1 - sourceY;
+          sourceY = nextY;
+          sourceX = nextX;
+        }
+        score += logTile(board[sourceY][sourceX]) * SNAKE_WEIGHTS[y * SIZE + x];
+      }
+    }
+    best = Math.max(best, score);
+  }
+  return best;
+}
+
 export function evaluate2048Board(board) {
   validateBoard(board);
   const empty = board.flat().filter(value => value === 0).length;
@@ -89,7 +120,7 @@ export function evaluate2048Board(board) {
   const maximum = Math.max(...board.flat());
   const corners = [board[0][0], board[0][3], board[3][0], board[3][3]];
   const cornerBonus = corners.includes(maximum) ? logTile(maximum) * 18 : 0;
-  return empty * 270 + smoothness * 11 + monotonicity * 45 + cornerBonus;
+  const snakeBonus = snakePositionScore(board) * 7;\n  return empty * 270 + smoothness * 11 + monotonicity * 45 + cornerBonus + snakeBonus;
 }
 
 function legalMoves(board) {
