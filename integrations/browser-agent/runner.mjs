@@ -29,7 +29,14 @@ async function observe(page, origin) {
   const title = await page.title().catch(() => "");
   const snapshot = await page.locator("body").ariaSnapshot().catch(() => "");
   const navigationTargets = await collectNavigationTargets(page, origin).catch(() => []);
-  return { title, url: page.url(), snapshot: snapshot.slice(0, 18_000), navigationTargets };
+  const domSignals = await page.locator("body").evaluate(body => ({
+    canvasCount: body.querySelectorAll("canvas").length,
+    iframeCount: body.querySelectorAll("iframe").length,
+    buttonCount: body.querySelectorAll('button,[role="button"]').length,
+    inputCount: body.querySelectorAll("input,textarea,select").length,
+    textSample: (body.innerText || "").slice(0, 4_000)
+  })).catch(() => ({}));
+  return { title, url: page.url(), snapshot: snapshot.slice(0, 18_000), navigationTargets, domSignals };
 }
 
 async function main() {
