@@ -39,3 +39,22 @@ test("rejects unbounded or invalid simulation settings", () => {
   assert.throws(() => simulate2048Episodes({ maxMoves: 1001 }), /Move limit/);
   assert.throws(() => simulate2048Episodes({ depths: [4] }), /depths/);
 });
+
+test("compares classic and snake heuristics on identical deterministic episodes", async () => {
+  const { compare2048HeuristicWeights } = await import("../games/2048-episode-simulator.mjs");
+  const options = { seed: 1234, episodes: 2, depth: 1, maxMoves: 60 };
+  const first = compare2048HeuristicWeights(options);
+  const second = compare2048HeuristicWeights(options);
+  assert.deepEqual(first, second);
+  assert.equal(first.variants.length, 2);
+  assert.equal(first.variants[0].variant, "classic-no-snake");
+  assert.equal(first.variants[1].variant, "snake-weight-1");
+  assert.equal(first.paired.scoreWins + first.paired.scoreTies + first.paired.scoreLosses, 2);
+  assert.ok(Number.isFinite(first.paired.averageScoreDelta));
+  assert.ok(first.paired.scoreDeltaBootstrap95.lower95 <= first.paired.scoreDeltaBootstrap95.upper95);
+});
+
+test("requires enough paired games for heuristic comparison", async () => {
+  const { compare2048HeuristicWeights } = await import("../games/2048-episode-simulator.mjs");
+  assert.throws(() => compare2048HeuristicWeights({ episodes: 1 }), /episodes/);
+});
