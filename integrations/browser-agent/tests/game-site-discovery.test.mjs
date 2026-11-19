@@ -107,3 +107,54 @@ test("stops at a verification gate and does not continue crawling", async () => 
   });
   await assert.rejects(() => discoverSupportedGame(page), /Verification or anti-bot gate/);
 });
+
+test("opens only an explicitly marked folder-toggle button and discovers its revealed game link", async () => {
+  const start = "https://site.example/home";
+  let current = start, expanded = false, clickCount = 0;
+  const route = () => new URL(current).pathname;
+  const page = {
+    url: () => current,
+    isClosed: () => false,
+    title: async () => route() === "/home" ? "Home" : "Tic Tac Toe",
+    goto: async url => { current = url; },
+    locator(selector) {
+      if (selector === "body") return {
+        innerText: async () => "",
+        evaluate: async () => route() === "/games/ttt" ? [{ kind: "tic-tac-toe", boardKey: "board", cells: ttt }] : []
+      };
+      if (selector === "button[data-game-folder-toggle]") return {
+        count: async () => route() === "/home" ? 1 : 0,
+        nth: () => ({
+          evaluate: async callback => callback({
+            tagName: "BUTTON", type: "button", disabled: false,
+            getAttribute: name => name === "aria-disabled" ? null : null,
+            closest: () => null,
+            getBoundingClientRect: () => ({ width: 20, height: 20 }),
+            ownerDocument: null
+          }),
+          getAttribute: async name => name === "aria-expanded" ? String(expanded) : null,
+          click: async () => { expanded = !expanded; clickCount++; }
+        })
+      };
+      if (selector === "a[href]") return {
+        evaluateAll: async callback => {
+          const links = expanded && route() === "/home"
+            ? [{ href: "/games/ttt", label: "Tic Tac Toe", title: "", ariaLabel: "", gameLink: false, folderLink: false }]
+            : [];
+          return callback(links.map(link => ({
+            ...link, href: new URL(link.href, current).href,
+            getAttribute: name => name === "title" ? link.title : name === "aria-label" ? link.ariaLabel : null,
+            hasAttribute: () => false,
+            innerText: link.label
+          })));
+        }
+      };
+      return { evaluateAll: async () => [] };
+    }
+  };
+  const result = await discoverSupportedGame(page, { maxPages: 4, maxDepth: 1 });
+  assert.equal(result.selected?.detection.gameType, "tic-tac-toe");
+  assert.equal(result.selected?.url, "https://site.example/games/ttt");
+  assert.equal(clickCount, 2, "the explicit toggle is opened and then collapsed");
+  assert.equal(expanded, false);
+});
