@@ -50,6 +50,20 @@
     return rows;
   }
 
+  function safePublicHttpsUrl(value) {
+    try {
+      const url = new URL(String(value || "").trim());
+      const host = url.hostname.toLowerCase().replace(/\\.$/, "");
+      if (url.protocol !== "https:" || url.username || url.password || (url.port && url.port !== "443")) return null;
+      if (!host || host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.startsWith("[") || /^\\d{1,3}(?:\\.\\d{1,3}){3}$/.test(host)) return null;
+      const labels = host.split(".");
+      if (labels.length < 2 || labels.some((label) => !label || label.length > 63 || !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label))) return null;
+      return url.href;
+    } catch (_) {
+      return null;
+    }
+  }
+
   function formatCategoryLabels(category, labels = {}) {
     const values = String(category || "").split(",").map((value) => value.trim()).filter(Boolean);
     return values.map((value) => labels[value] || value).join(", ") || "Other";
@@ -82,5 +96,6 @@
     sortOpportunities,
     summarizeOpportunities,
     formatCategoryLabels,
+    safePublicHttpsUrl,
   });
 })(globalThis);
