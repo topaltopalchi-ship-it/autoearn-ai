@@ -124,3 +124,28 @@ test("automatically rates only explicit terminal win or loss outcomes", async ()
   assert.deepEqual(rated, [{ id: "terminal-exp", feedback: "good" }]);
   assert.equal(pending[0].feedbackStatus, "auto-rated-explicit-outcome");
 });
+
+
+test("recognizes meaningful Canvas object movement without relying on screenshot animation", () => {
+  const before = {
+    snapshot: "same visible text",
+    canvasObjects: [{ role: "player", label: "hero", x: 0.1, y: 0.2, width: 0.1, height: 0.1, confidence: 0.95 }]
+  };
+  const after = {
+    snapshot: "same visible text",
+    canvasObjects: [{ role: "player", label: "hero", x: 0.15, y: 0.2, width: 0.1, height: 0.1, confidence: 0.95 }]
+  };
+  assert.equal(hasMeaningfulStateChange(before, after), true);
+});
+
+test("ignores tiny or low-confidence Canvas detection jitter", () => {
+  const before = {
+    snapshot: "same",
+    canvasObjects: [{ role: "player", label: "hero", x: 0.1, y: 0.2, width: 0.1, height: 0.1, confidence: 0.95 }]
+  };
+  const after = {
+    snapshot: "same",
+    canvasObjects: [{ role: "player", label: "hero", x: 0.105, y: 0.2, width: 0.1, height: 0.1, confidence: 0.5 }]
+  };
+  assert.equal(hasMeaningfulStateChange(before, after), false);
+});
