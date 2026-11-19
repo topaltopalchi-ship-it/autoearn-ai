@@ -68,7 +68,7 @@ AUTOEARN_LOCAL_MODEL=qwen2.5vl:3b \
 npm run play:local-ai
 ```
 
-The runner sends screenshots and a bounded text snapshot to Ollama at `127.0.0.1:11434` only. The model may choose only arrow keys, Enter, Escape, or Space. The browser starts logged out, downloads are disabled, popups and off-origin navigation stop the session, and CAPTCHA/verification gates cause a hard stop. It does not submit forms, sign in, buy, deposit, withdraw, claim prizes, or bypass protections. Configure `AUTOEARN_MAX_STEPS`, `AUTOEARN_MAX_DURATION_MS`, and `AUTOEARN_MAX_MODEL_CALLS` to lower or raise bounded run limits (within the hard caps in code).
+Before each decision, a separate local vision pass sends the current JPEG screenshot and a short visible-text excerpt to Ollama at `127.0.0.1:11434`. It returns a bounded structured observation (scene, confidence, game type, objective, state summary, visible text, and visible controls). The runner stops if the model sees a verification gate, cannot identify a game, or reports confidence below 0.65. The decision model then receives that observation plus the screenshot and may choose only arrow keys, Enter, Escape, or Space. Both perception and decision calls are local and have separate bounded call budgets; configure `AUTOEARN_MAX_STEPS`, `AUTOEARN_MAX_DURATION_MS`, and `AUTOEARN_MAX_MODEL_CALLS` to control runtime. The browser starts logged out, downloads are disabled, popups and off-origin navigation stop the session, and CAPTCHA/verification gates cause a hard stop. It does not submit forms, sign in, buy, deposit, withdraw, claim prizes, or bypass protections.
 
 Ollama inference is local and has no per-request API fee, but downloading model weights and running them requires disk space, RAM/CPU/GPU, and electricity. A 3B vision model may be slow or fail on modest hardware. The provider/runner are not connected to the public website and no model is hosted by AutoEarn.
 
@@ -76,13 +76,13 @@ Ollama inference is local and has no per-request API fee, but downloading model 
 
 - **Implemented:** isolated Chromium context; exact HTTPS origin allowlist; bounded same-origin page traversal; duplicate/loop avoidance; visible link/button discovery; limited in-page expansion of folder-like controls; same-origin iframe inspection; heuristic folder/game/help/login/verification classification; limited safe button/link and keyboard adapter actions; and page/depth/time/interaction budgets.
 - **Implemented for one wired game:** bounded expectimax 2048 strategy, a defensive configurable DOM-to-board adapter, and a separate guarded runner that can execute and verify arrow-key moves when the site's board selectors are configured. The 2048 runner has not yet been tested against a live third-party game site.\n- **Implemented as a tested strategy module:** exact minimax for tic-tac-toe, plus a strategy registry that accepts normalized game state. It is not yet connected to screenshot/DOM recognition or a browser click adapter, so it does not autonomously play tic-tac-toe on websites yet.
-- **Implemented but not yet wired into a game runner:** an optional local-only Ollama decision provider. It sends bounded observations and optional screenshots only to a loopback service (`localhost`); remote endpoints are rejected. It has an action allowlist, timeout, and per-instance call budget. No paid AI API or API key is used.
+- **Implemented and wired into the experimental local AI runner:** local Ollama visual perception that converts screenshots into a bounded structured game observation, followed by a separate local decision call. Both providers reject remote endpoints, validate responses, enforce timeouts and call budgets, and use no paid AI API or API key.
 - **Not yet implemented:** reliable classification across arbitrary sites, automatic site-specific selector discovery, more game strategies, and robust end-to-end prize/win verification.
 - Only use game sites whose official rules explicitly permit automated play.
 - CAPTCHA, anti-bot, anti-fraud, access-control, geolocation and payment safeguards are never bypassed. Detection pauses the run for a human.
 - No login, signup, form submission, purchases, deposits, withdrawals, prize claims, or personal-data entry are implemented.
 - No cookies or browser profile are imported or persisted. This runtime starts logged out.
-- To use the local provider, install Ollama on the computer running this browser agent, start `ollama serve`, and pull a vision-capable model such as `ollama pull qwen2.5vl:3b`. This downloads model weights to your computer; inference is local and has no per-call API charge. Hardware needs depend on the selected model. The provider is implemented and tested but is not yet connected to the general site runner.
+- The local AI runner uses a vision-capable model such as `qwen2.5vl:3b` for both screenshot perception and action selection. It may still misread a game or make poor moves; low-confidence/unknown screens stop rather than being guessed. This is experimental visual assistance, not reliable universal game understanding or proof of a win.
 
 ## Tic-tac-toe browser runner
 
@@ -125,3 +125,13 @@ npm run play:auto
 ```
 
 The board must expose the documented `data-game-board` marker and either the explicit tic-tac-toe cell attributes or 2048 tile coordinates/values. If no single valid board is found, or more than one candidate is present, the runner stops instead of guessing. This is automatic game/strategy selection for these two known DOM formats, not general visual recognition of arbitrary games. It uses a fresh logged-out context, exact HTTPS origin allowlisting, no downloads, and bounded moves/time; verification gates and unexpected popups/origin changes stop execution.
+
+
+## Local visual game-state perception
+
+The experimental `play:local-ai` runner now performs two local model stages for each observation:
+
+1. **Perception:** `ollama-game-perception.mjs` receives a JPEG screenshot and bounded visible text, then returns a validated JSON summary of scene type, confidence, game type, objective, state summary, visible text, and visible controls.
+2. **Decision:** `ollama-decision-provider.mjs` receives the structured observation and screenshot, then returns one allowlisted keyboard action or stop.
+
+The runner refuses to continue when perception identifies a verification page, cannot confidently identify a playable game, or reports confidence below 0.65. This makes the agent more cautious and gives the decision model a structured state description, but the model can still hallucinate; the confidence value is self-reported, not independently calibrated. There is no guarantee of winning or earning rewards. All inference stays on the same machine through the loopback Ollama endpoint; no paid hosted API is called.
