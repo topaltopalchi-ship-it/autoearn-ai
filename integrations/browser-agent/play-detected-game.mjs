@@ -1,7 +1,7 @@
 import { chromium } from "playwright";
 import "../../static/game-agent.js";
 import { create2048BrowserAdapter } from "./2048-browser-adapter.mjs";
-import { createTicTacToeBrowserAdapter } from "./tic-tac-toe-browser-adapter.mjs";
+import { createTicTacToeBrowserAdapter } from "./tic-tac-toe-browser-adapter.mjs";\nimport { createConnectFourBrowserAdapter } from "./connect-four-browser-adapter.mjs";
 import { create2048Decision } from "./games/2048-strategy.mjs";
 import { decideKnownGame } from "./games/game-strategy-registry.mjs";
 import { detectKnownGame } from "./game-detector.mjs";
@@ -11,7 +11,7 @@ import { discoverSupportedGame } from "./game-site-discovery.mjs";
 const gameUrl = process.env.AUTOEARN_GAME_URL;
 const allowedOrigins = new Set(String(process.env.AUTOEARN_ALLOWED_ORIGINS || "")
   .split(",").map(value => value.trim()).filter(Boolean));
-const tttPlayer = String(process.env.AUTOEARN_TTT_PLAYER || "").toUpperCase();
+const tttPlayer = String(process.env.AUTOEARN_TTT_PLAYER || "").toUpperCase();\nconst connectFourPlayer = String(process.env.AUTOEARN_CONNECT_FOUR_PLAYER || "").toUpperCase();
 const maxSteps = Math.min(500, Math.max(1, Number(process.env.AUTOEARN_MAX_STEPS || 100)));
 const maxDurationMs = Math.min(5 * 60_000, Math.max(5_000, Number(process.env.AUTOEARN_MAX_DURATION_MS || 60_000)));
 
@@ -47,7 +47,7 @@ async function inspectGame(page) {
   const candidates = await page.locator("body").evaluate(body =>
     Array.from(body.querySelectorAll("[data-game-board]")).slice(0, 10).map((board, index) => {
       const boardKey = board.getAttribute("data-game-board") || String(index);
-      const cells = Array.from(board.querySelectorAll("[data-index]")).map(cell => ({
+      const connectFourCells = Array.from(board.querySelectorAll("[data-game-cell][data-game-cell-index]")).map(cell => ({\n        index: cell.getAttribute("data-game-cell-index"),\n        mark: cell.getAttribute("data-mark") ?? cell.textContent\n      }));\n      const cells = Array.from(board.querySelectorAll("[data-index]")).map(cell => ({
         index: cell.getAttribute("data-index"),
         mark: cell.getAttribute("data-mark") ?? cell.textContent
       }));
@@ -113,7 +113,7 @@ async function main() {
         : "No supported game board was found in the starting page or its clearly-labelled same-origin game folders.");
     }
     const detected = discovery.selected.detection;
-    const plan = resolveDetectedGame(detected, tttPlayer);
+    const configuredPlayer = detected.gameType === "connect-four" ? connectFourPlayer : tttPlayer;\n    const plan = resolveDetectedGame(detected, configuredPlayer);
     if (!plan.ok) {
       throw new Error("Game runner refused to start: " + plan.reason);
     }
@@ -157,7 +157,7 @@ async function main() {
       onEvent: event => {
         if (event.type === "step") console.log(JSON.stringify({
           step: event.steps, action: event.action.type,
-          key: event.action.key, index: event.action.index,
+          key: event.action.key, index: event.action.index, column: event.action.column,
           verified: event.verified
         }));
       }
