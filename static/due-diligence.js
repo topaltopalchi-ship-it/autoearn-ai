@@ -87,7 +87,36 @@
   }
 
   function canStartGuidedSession(opportunity) {
-    return Boolean(opportunity && opportunity.status === "eligible");
+    if (!opportunity || opportunity.status !== "eligible") return false;
+    const marker = "[OWNER OFFICIAL ELIGIBILITY REVIEW]";
+    const notes = String(opportunity.notes || "");
+    const markerIndex = notes.lastIndexOf(marker);
+    if (markerIndex < 0) return false;
+    let report;
+    try {
+      report = JSON.parse(notes.slice(markerIndex + marker.length).trim());
+    } catch (_) {
+      return false;
+    }
+    const known = hasKnownReviewValue;
+    return Boolean(
+      report &&
+      typeof report === "object" &&
+      !Array.isArray(report) &&
+      report.payment_method &&
+      report.payment_method !== "Other / not specified" &&
+      report.payment_confirmed === "yes" &&
+      known(report.minimum_withdrawal) &&
+      known(report.fees) &&
+      report.country_eligible === "yes" &&
+      known(report.minimum_age) &&
+      ["required", "not-required"].includes(report.kyc) &&
+      report.free_entry === "yes" &&
+      report.automation_explicitly_allowed === "yes" &&
+      safePublicHttpsUrl(opportunity.terms_url) &&
+      safePublicHttpsUrl(report.payout_source) &&
+      safePublicHttpsUrl(report.automation_source)
+    );
   }
 
   function getEligibilityReviewStatus(review = {}) {
