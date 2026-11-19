@@ -68,13 +68,32 @@ export function getOthelloOutcome(input) {
   return black===white ? "draw" : black>white ? "B" : "W";
 }
 
+const POSITION_WEIGHTS = [
+  120,-25,20,10,10,20,-25,120,
+  -25,-45,-5,-5,-5,-5,-45,-25,
+  20,-5,15,3,3,15,-5,20,
+  10,-5,3,3,3,3,-5,10,
+  10,-5,3,3,3,3,-5,10,
+  20,-5,15,3,3,15,-5,20,
+  -25,-45,-5,-5,-5,-5,-45,-25,
+  120,-25,20,10,10,20,-25,120
+];
+
 function evaluate(board, player) {
   const other=opponent(player);
   const discs=board.filter(x=>x===player).length-board.filter(x=>x===other).length;
   const mobility=getOthelloLegalMoves(board,player).length-getOthelloLegalMoves(board,other).length;
-  const corners=CORNERS.reduce((sum,i)=>sum+(board[i]===player?1:board[i]===other?-1:0),0);
-  const edges=board.reduce((sum,v,i)=>sum+(i%8===0||i%8===7||i<8||i>=56?(v===player?1:v===other?-1:0):0),0);
-  return corners*100 + mobility*8 + edges*3 + discs;
+  const positional=board.reduce((sum,mark,index)=>sum+(mark===player?POSITION_WEIGHTS[index]:mark===other?-POSITION_WEIGHTS[index]:0),0);
+  return positional + mobility*8 + discs;
+}
+
+function orderMoves(board, moves) {
+  return [...moves].sort((a,b)=>{
+    const cornerA=CORNERS.includes(a)?1:0, cornerB=CORNERS.includes(b)?1:0;
+    const scoreA=cornerA*1000+POSITION_WEIGHTS[a];
+    const scoreB=cornerB*1000+POSITION_WEIGHTS[b];
+    return scoreB-scoreA;
+  });
 }
 
 function minimax(board, player, depth, alpha, beta) {
@@ -87,7 +106,7 @@ function minimax(board, player, depth, alpha, beta) {
   if (depth===0) return evaluate(board,player);
   if (!ownMoves.length) return -minimax(board,other,depth-1,-beta,-alpha);
   let best=-Infinity;
-  for (const move of ownMoves) {
+  for (const move of orderMoves(board, ownMoves)) {
     const score=-minimax(applyOthelloMove(board,move,player),other,depth-1,-beta,-alpha);
     best=Math.max(best,score); alpha=Math.max(alpha,score);
     if(alpha>=beta) break;
@@ -102,7 +121,7 @@ export function chooseOthelloMove(input,{player="B",depth=3}={}) {
   const moves=getOthelloLegalMoves(board,own);
   if(!moves.length) return null;
   let bestMove=null,bestScore=-Infinity;
-  for(const move of moves) {
+  for(const move of orderMoves(board, moves)) {
     const score=-minimax(applyOthelloMove(board,move,own),opponent(own),depth-1,-Infinity,Infinity);
     if(score>bestScore) { bestScore=score; bestMove=move; }
   }
