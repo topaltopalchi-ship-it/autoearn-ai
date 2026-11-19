@@ -3,6 +3,7 @@ import "../../static/game-agent.js";
 import { createOllamaGameDecision } from "./ollama-decision-provider.mjs";
 import { createOllamaGamePerception } from "./ollama-game-perception.mjs";
 import { createOllamaGameRulesExtractor } from "./game-rule-extractor.mjs";
+import { discoverGameInstructions } from "./game-instruction-discovery.mjs";
 import { createGameExperienceMemory } from "./game-experience-memory.mjs";
 import { recordVerifiedExperience } from "./experience-verification.mjs";
 
@@ -154,9 +155,16 @@ async function main() {
       }
     });
 
-    const initial = await adapter.observe();
+    const instructionSet = await discoverGameInstructions(page, {
+      startUrl: target.href,
+      maxPages: 5,
+      maxDurationMs: 20_000
+    });
     extractedRules = await extractRules({
-      title: initial.title, url: initial.url, text: initial.text, snapshot: initial.snapshot
+      title: instructionSet.title || await page.title().catch(() => ""),
+      url: target.href,
+      text: instructionSet.text,
+      snapshot: instructionSet.snapshot
     });
     if (!extractedRules.rulesSufficient) {
       throw new Error("قوانین بازی به اندازه کافی روشن نیست؛ عامل برای جلوگیری از حرکت اشتباه متوقف شد. متن راهنما یا توضیحات کامل‌تری لازم است.");
@@ -165,9 +173,15 @@ async function main() {
       throw new Error("قوانین سایت استفاده از ربات را ممنوع کرده‌اند؛ بازی خودکار اجرا نشد.");
     }
     console.log(JSON.stringify({
-      status: "rules-understood", title: initial.title, url: initial.url, model,
-      rules: extractedRules, ruleExtractionUsage: extractRules.usage
+      status: "rules-understood",
+      title: instructionSet.title,
+      url: target.href,
+      instructionPages: instructionSet.visitedUrls,
+      model,
+      rules: extractedRules,
+      ruleExtractionUsage: extractRules.usage
     }, null, 2));
+    const initial = await adapter.observe();
     const result = await agent.run();
     console.log(JSON.stringify({
       result,
