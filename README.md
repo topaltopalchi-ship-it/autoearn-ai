@@ -49,6 +49,8 @@ Guided sessions are available only after the owner reviews the official terms UR
 
 ## Autonomous game-agent engine
 
+- Indexed cell clicks are now checked twice: the local model may choose only an index exposed in the current observation's safe click-target list, and the browser adapter revalidates the target before clicking. A model response that invents an index is rejected and the action is not executed.
+
 - `static/game-agent.js` provides an observe → decide → act → verify loop for game adapters.
 - Each adapter exposes only its own game state and bounded actions. Runs have explicit action allowlists, step/time budgets, cancellation, event reporting and post-action verification.
 - Failed verification stops the run. AI decisions will use local/open-weight models or deterministic game strategies only; no paid hosted AI API, API key, or per-call billing is required.
