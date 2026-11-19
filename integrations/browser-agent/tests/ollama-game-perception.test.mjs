@@ -84,7 +84,8 @@ test("returns only bounded visible object boxes with recognized roles", async ()
   const result = await perceive({ screenshot: image });
   assert.deepEqual(result.objects, [
     { role: "player", label: "blue avatar", x: 0.1, y: 0.2, width: 0.1, height: 0.2, confidence: 0.95 },
-    { role: "hazard", label: "spikes", x: 0.5, y: 0.7, width: 0.2, height: 0.1, confidence: 0.88 }
+    { role: "hazard", label: "spikes", x: 0.5, y: 0.7, width: 0.2, height: 0.1, confidence: 0.88 },
+    { role: "goal", label: "", x: 0.2, y: 0.2, width: 0.1, height: 0.1, confidence: 1 }
   ]);
 });
 
