@@ -79,7 +79,7 @@ test("canvas click uses normalized coordinates inside one explicitly marked visi
     assert.equal(selector, '[data-game-board] canvas[data-game-canvas]');
     return canvas;
   }};
-  assert.deepEqual(await clickSafeGameCanvas(page, 0.25, 0.8), {
+  assert.deepEqual(await clickSafeGameCanvas(page, 0.25, 0.8, 0.92), {
     type: "click-canvas", x: 0.25, y: 0.8
   });
   assert.deepEqual(clickOptions, { position: { x: 50, y: 80 } });
@@ -87,6 +87,12 @@ test("canvas click uses normalized coordinates inside one explicitly marked visi
 
 test("refuses canvas clicks without one explicit canvas or with invalid coordinates", async () => {
   const page = { locator: () => ({ count: async () => 0 }) };
-  await assert.rejects(() => clickSafeGameCanvas(page, 0.5, 0.5), /exactly one/);
+  await assert.rejects(() => clickSafeGameCanvas(page, 0.5, 0.5, 0.9), /exactly one/);
   await assert.rejects(() => clickSafeGameCanvas(page, -0.1, 0.5), /normalized/);
+});
+
+
+test("refuses canvas clicks when model confidence is below threshold", async () => {
+  const page = { locator: () => ({ count: async () => 1 }) };
+  await assert.rejects(() => clickSafeGameCanvas(page, 0.5, 0.5, 0.79), /confidence/);
 });
