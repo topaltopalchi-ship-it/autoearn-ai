@@ -21,6 +21,8 @@ test("scores evidence completeness without treating the score as verification", 
     score: 45,
     missing: ["prize_amount_not_found", "organizer_identity_not_found", "specific_payout_method_not_found"],
     officialTermsProvided: false,
+    officialTermsVerified: false,
+    organizerIdentityVerified: false,
   });
 });
 
