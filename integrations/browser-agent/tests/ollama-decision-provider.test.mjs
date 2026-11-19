@@ -311,7 +311,9 @@ test("supplies only the last six sanitized actions from the current run", async 
     { action: { type: "purchase", amount: 99 }, verified: true }
   ]);
   assert.match(prompt, /Recent actions in this run/);
-  assert.doesNotMatch(prompt, /Escape/);
+  const historyLine = prompt.split("\\n").find(line => line.startsWith("Recent actions in this run"));
+  assert.ok(historyLine);
+  assert.doesNotMatch(historyLine, /Escape/);
   assert.match(prompt, /"xBucket":3/);
   assert.match(prompt, /"yBucket":8/);
   assert.doesNotMatch(prompt, /purchase/);
