@@ -4,12 +4,14 @@ import { createTicTacToeBrowserAdapter } from "../tic-tac-toe-browser-adapter.mj
 
 function makePage(marks = Array(9).fill("")) {
   const cells = marks.map((mark, index) => ({
+    mark,
     getAttribute(name) {
       if (name === "data-index") return String(index);
-      if (name === "data-mark") return mark;
+      if (name === "data-mark") return this.mark;
       return null;
     },
-    textContent: mark
+    get textContent() { return this.mark; },
+    set textContent(value) { this.mark = value; }
   }));
   const board = {
     async count() { return 1; },
@@ -36,6 +38,7 @@ test("reads normalized 9-cell board and reports configured turn", async () => {
     boardSelector: "#board", cellSelector: ".cell", player: "O"
   });
   const state = await adapter.observe();
+  assert.equal(state.gameState.type, "tic-tac-toe");
   assert.equal(state.gameState.currentPlayer, "O");
   assert.equal(state.gameState.outcome, "playing");
   assert.deepEqual(state.gameState.board, ["X", null, "O", null, "X", null, null, null, null]);
@@ -73,4 +76,23 @@ test("executes only a valid empty-cell action and verifies the mark", async () =
   const after = await adapter.observe();
   assert.equal(await adapter.verify({ before, after, action }), true);
   await assert.rejects(adapter.execute({ type: "select-cell", index: 99, mark: "X" }), /valid select-cell/);
+});
+
+test("wait-for-turn observes opponent move and verifies the next agent turn", async () => {
+  const page = makePage(["X", "", "", "", "", "", "", "", ""]);
+  const adapter = createTicTacToeBrowserAdapter(page, {
+    boardSelector: "#board", cellSelector: ".cell", player: "X"
+  });
+  const before = await adapter.observe();
+  setTimeout(() => { page.locator("#board").locator('.cell[data-index="1"]').then?.(() => {}); }, 1);
+  const board = page.locator("#board");
+  const opponentCell = board.locator('.cell[data-index="1"]');
+  setTimeout(async () => { await opponentCell.click(); }, 100);
+  const result = await adapter.execute({ type: "wait-for-turn" });
+  const after = await adapter.observe();
+  assert.equal(result.ready, true);
+  assert.equal(after.gameState.currentPlayer, "X");
+  assert.equal(await adapter.verify({
+    before, after, action: { type: "wait-for-turn" }, result
+  }), true);
 });
