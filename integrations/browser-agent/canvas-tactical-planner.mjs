@@ -46,9 +46,14 @@ export function planCanvasTactics({ objects = [], motion = null, stepSize = 0.08
     const hazardDistance = hazards.length
       ? Math.min(...hazards.map(hazard => Math.hypot(center(next).x - center(hazard).x, center(next).y - center(hazard).y)))
       : 1;
-    return { key: direction.key, collision, distance, hazardDistance };
+    const moved = Math.abs(x - player.x) + Math.abs(y - player.y) >= 0.005;
+    return { key: direction.key, collision, distance, hazardDistance, moved };
   });
-  const safe = candidates.filter(candidate => !candidate.collision);
+  const movable = candidates.filter(candidate => candidate.moved);
+  if (!movable.length) {
+    return { mode: "wait", suggestedKey: null, reason: "player-at-boundary-no-effective-move", hazardCount: hazards.length };
+  }
+  const safe = movable.filter(candidate => !candidate.collision);
   if (currentCollision && safe.length === 0) {
     return { mode: "wait", suggestedKey: null, reason: "current-overlap-and-no-clear-direction", hazardCount: hazards.length };
   }
