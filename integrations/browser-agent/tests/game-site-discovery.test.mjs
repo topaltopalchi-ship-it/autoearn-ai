@@ -60,7 +60,19 @@ test("finds a supported board inside a same-origin nested folder and selects its
   assert.equal(page.url(), result.selected.url);
 });
 
-test("detects a 42-cell Connect Four board inside a nested game folder", async () => {\n  const start = "https://site.example/home";\n  const cells = Array.from({ length: 42 }, (_, index) => ({ index, mark: index === 41 ? "X" : "" }));\n  const page = fakePage(start, {\n    "/home": { links: [{ href: "/games/board", label: "Games" }] },\n    "/games/board": { candidates: [{ kind: "connect-four", boardKey: "cf", cells }] }\n  });\n  const result = await discoverSupportedGame(page);\n  assert.equal(result.selected.detection.gameType, "connect-four");\n  assert.equal(page.url(), "https://site.example/games/board");\n});\n\ntest("refuses to choose when multiple supported games are found", async () => {
+test("detects a 42-cell Connect Four board inside a nested game folder", async () => {
+  const start = "https://site.example/home";
+  const cells = Array.from({ length: 42 }, (_, index) => ({ index, mark: index === 41 ? "X" : "" }));
+  const page = fakePage(start, {
+    "/home": { links: [{ href: "/games/board", label: "Games" }] },
+    "/games/board": { candidates: [{ kind: "connect-four", boardKey: "cf", cells }] }
+  });
+  const result = await discoverSupportedGame(page);
+  assert.equal(result.selected.detection.gameType, "connect-four");
+  assert.equal(page.url(), "https://site.example/games/board");
+});
+
+test("refuses to choose when multiple supported games are found", async () => {
   const start = "https://site.example/home";
   const page = fakePage(start, {
     "/home": { links: [
