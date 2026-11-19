@@ -36,7 +36,7 @@ export function createTicTacToeBrowserAdapter(page, {
       if (!Number.isInteger(index) || index < 0 || index > 8 || board[index] !== null) {
         throw new Error("Cell indices must be unique integers from 0 to 8.");
       }
-      const raw = String(cell.mark ?? cell.text ?? "").trim().toUpperCase();
+      const raw = String(cell.mark || cell.text || "").trim().toUpperCase();
       if (raw === "" || raw === "-" || raw === "EMPTY") board[index] = null;
       else if (MARKS.has(raw)) board[index] = raw;
       else throw new Error("Unrecognized tic-tac-toe cell mark; refusing to guess.");
@@ -64,7 +64,7 @@ export function createTicTacToeBrowserAdapter(page, {
       const board = page.locator(boardSelector);
       const cell = board.locator(`${cellSelector}[${indexAttribute}="${action.index}"]`);
       if (await cell.count() !== 1) throw new Error("Target cell must match exactly one element.");
-      const currentMark = String(await cell.getAttribute(markAttribute) ?? await cell.innerText()).trim();
+      const markAttributeValue = await cell.getAttribute(markAttribute);\n      const currentMark = String(markAttributeValue || await cell.innerText()).trim();
       if (currentMark !== "" && currentMark !== "-" && currentMark.toUpperCase() !== "EMPTY") {
         throw new Error("Refusing to click a non-empty tic-tac-toe cell.");
       }
