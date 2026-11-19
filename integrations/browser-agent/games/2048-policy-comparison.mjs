@@ -100,8 +100,8 @@ export function compare2048Policies({ seed = 2048, episodes = 5, maxMoves = 500 
     policy.label,
     seeds.map(gameSeed => playPolicy({ seed: gameSeed, policy, maxMoves }))
   ));
-  const baseline = summaries.find(item => item.policy === "fixed-depth-3");
-  const pairedAgainstDepth3 = summaries.map(item => {
+  const fixedPolicies = summaries.filter(item => item.policy.startsWith("fixed-depth-"));
+  const pairedComparisons = summaries.flatMap(item => fixedPolicies.map(baseline => {
     const pairs = item.games.map((game, index) => ({
       seed: game.seed,
       scoreDifference: game.score - baseline.games[index].score,
@@ -109,19 +109,22 @@ export function compare2048Policies({ seed = 2048, episodes = 5, maxMoves = 500 
     }));
     return {
       policy: item.policy,
-      comparedWith: "fixed-depth-3",
+      comparedWith: baseline.policy,
       averagePairedScoreDifference: average(pairs.map(pair => pair.scoreDifference)),
       medianPairedScoreDifference: median(pairs.map(pair => pair.scoreDifference)),
       scoreWins: pairs.filter(pair => pair.scoreDifference > 0).length,
       scoreTies: pairs.filter(pair => pair.scoreDifference === 0).length,
       scoreLosses: pairs.filter(pair => pair.scoreDifference < 0).length,
+      maxTileWins: pairs.filter(pair => pair.maxTileDifference > 0).length,
+      maxTileTies: pairs.filter(pair => pair.maxTileDifference === 0).length,
+      maxTileLosses: pairs.filter(pair => pair.maxTileDifference < 0).length,
       pairs
     };
-  });
+  }));
 
   return {
     seed, episodes, maxMoves, seeds,
     note: "Paired seeded local simulations only. Shared seeds improve reproducibility but do not establish real-site win rates, guarantees, or earnings.",
-    summaries, pairedAgainstDepth3
+    summaries, pairedComparisons
   };
 }
