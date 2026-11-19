@@ -20,6 +20,9 @@ The web interface connects directly to Supabase Auth and the three owner-protect
 
 The owner-only reward ledger validates positive amounts, three-letter currency codes, and known statuses. A reward marked paid must include a transaction reference or other payment evidence. Dashboard totals keep currencies separate and distinguish paid (with a reference), confirmed, and pending amounts. Monthly history groups records by their UTC creation month and currency, showing the same status breakdown for the six most recent months with valid dates. These are manually entered records, not bank verification or proof of withdrawal; rejected records are not included in the three displayed totals.
 
+
+Completed guided sessions now include a **Record actual reward** action linked to that opportunity. It preselects the opportunity in the reward form and defaults the status to pending; the owner must enter the actual amount and currency. This is a convenience link only: completing a session does not create or imply a reward, and paid status still requires a transaction reference.
+
 ## Supabase setup
 
 1. In Supabase Dashboard, open **Authentication → Sign In / Providers** and turn off **Allow new users to sign up**. This makes the project invite-only; existing users can still sign in.
