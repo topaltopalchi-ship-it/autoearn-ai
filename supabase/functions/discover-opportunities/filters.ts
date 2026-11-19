@@ -69,6 +69,12 @@ export function evaluateCandidate(rawUrl: string, title: string, description: st
 
   const text = [title, description, rawUrl].join(" ");
   const host = new URL(normalizedUrl).hostname.toLowerCase();
+  // Zoa Agent Season references are trusted only on the exact official host.
+  // Reject lookalike domains before the general prize-game rules can accept them.
+  const mentionsZoaAgentSeason = /zoa(?:games)?/i.test(text) && /agent season 1/i.test(text);
+  if (mentionsZoaAgentSeason && host !== "play.zoagames.com") {
+    return { accepted: false, reason: "excluded_category" };
+  }
   // Narrow exception: Zoa's official agent ladder uses free, non-purchasable chips;
   // candidates still enter the ordinary "discovered" review queue, never auto-play.
   const verifiedZoaAgentSeason = host === "play.zoagames.com"
