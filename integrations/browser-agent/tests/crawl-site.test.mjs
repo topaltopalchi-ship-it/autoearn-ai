@@ -37,7 +37,7 @@ test("honors maximum depth and page limits", async () => {
     maxPages: 2,
     openPage: async url => { seen.push(url); },
     inspectPage: async () => ({ navigationTargets: [
-      { role: "link", name: "Next", href: origin + "/next" }
+      { role: "link", name: "Next", href: origin + (seen.length === 1 ? "/next" : "/third") }
     ] })
   });
   assert.equal(result.status, "limited");
