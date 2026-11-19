@@ -36,3 +36,30 @@ test("rejects invalid detections and bounds output", () => {
   ], 1);
   assert.equal(result.tracks.length, 30);
 });
+
+
+test("recognizes a repeated horizontal back-and-forth hazard pattern", () => {
+  const tracker = createCanvasMotionTracker();
+  const positions = [0.1, 0.2, 0.1, 0.2, 0.1];
+  let result;
+  positions.forEach((x, index) => {
+    result = tracker.update([
+      { role: "hazard", label: "patrol", x, y: 0.4, width: 0.05, height: 0.05, confidence: 0.95 }
+    ], 1000 + index * 250);
+  });
+  assert.equal(result.tracks[0].pattern, "oscillating");
+  assert.equal(result.predictedHazards[0].pattern, "oscillating");
+});
+
+test("flags a hazard moving closer to a confidently detected player", () => {
+  const tracker = createCanvasMotionTracker();
+  let result;
+  [0.1, 0.2, 0.3].forEach((x, index) => {
+    result = tracker.update([
+      { role: "player", label: "hero", x: 0.7, y: 0.4, width: 0.05, height: 0.05, confidence: 0.95 },
+      { role: "hazard", label: "enemy", x, y: 0.4, width: 0.05, height: 0.05, confidence: 0.95 }
+    ], 2000 + index * 250);
+  });
+  assert.equal(result.tracks.find(track => track.role === "hazard").approachingPlayer, true);
+  assert.equal(result.predictedHazards[0].approachingPlayer, true);
+});
