@@ -29,7 +29,13 @@ test("recognizes Connect Four only from exactly 42 uniquely indexed X/O/empty ce
 
   const wrongTurn = cells.map(cell => ({ ...cell, mark: cell.index === 35 ? "O" : "" }));
   assert.equal(detectKnownGame({ gameCandidates: [{ kind: "connect-four", cells: wrongTurn }] }).gameType, null);
-  const winnerOutOfTurn = cells.map(cell => ({ ...cell, mark: cell.index >= 35 && cell.index <= 38 ? "X" : cell.index === 32 ? "O" : "" }));
+  const winnerOutOfTurn = cells.map(cell => {
+    const row = Math.floor(cell.index / 7), col = cell.index % 7;
+    const mark = row === 5 && col < 4 ? "O" :
+      row === 5 && col >= 4 ? "X" :
+      row === 4 && (col === 4 || col === 5) ? "X" : "";
+    return { ...cell, mark };
+  });
   assert.equal(detectKnownGame({ gameCandidates: [{ kind: "connect-four", cells: winnerOutOfTurn }] }).gameType, null);
 });
 
