@@ -96,3 +96,42 @@ test("recognizes a 2048 win and a no-moves game over", async () => {
     [16, 32, 64, 128]
   ]), "game_over");
 });
+
+
+test("adaptive search depth increases as the board becomes crowded", async () => {
+  const { select2048SearchDepth, analyze2048Position, choose2048MoveAdaptive } =
+    await import("../games/2048-strategy.mjs");
+  const openBoard = [
+    [2, 0, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0]
+  ];
+  const mediumBoard = [
+    [2, 4, 8, 16],
+    [4, 8, 16, 0],
+    [8, 16, 0, 0],
+    [16, 0, 0, 0]
+  ];
+  const crowdedBoard = [
+    [2, 4, 8, 16],
+    [4, 8, 16, 32],
+    [8, 16, 32, 64],
+    [16, 32, 64, 0]
+  ];
+  assert.equal(analyze2048Position(openBoard).emptyCells, 15);
+  assert.equal(select2048SearchDepth(openBoard), 1);
+  assert.equal(select2048SearchDepth(mediumBoard), 2);
+  assert.equal(select2048SearchDepth(crowdedBoard), 3);
+  const decision = choose2048MoveAdaptive(crowdedBoard);
+  assert.equal(decision.searchDepth, 3);
+  assert.ok(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(decision.key));
+});
+
+test("adaptive search respects configured depth bounds and rejects invalid bounds", async () => {
+  const { select2048SearchDepth } = await import("../games/2048-strategy.mjs");
+  const board = Array.from({ length: 4 }, () => [0, 0, 0, 0]);
+  assert.equal(select2048SearchDepth(board, { minDepth: 2, maxDepth: 2 }), 2);
+  assert.throws(() => select2048SearchDepth(board, { minDepth: 3, maxDepth: 2 }), /bounds/);
+  assert.throws(() => select2048SearchDepth(board, { minDepth: 0, maxDepth: 2 }), /bounds/);
+});
