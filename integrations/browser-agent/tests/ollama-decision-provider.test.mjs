@@ -98,6 +98,21 @@ test("accepts bounded indexed game-cell clicks and supplies targets to the local
   assert.match(body.messages[0].content, /safe cell/);
 });
 
+test("rejects indexed cell clicks that were not observed as safe targets", async () => {
+  const decide = createOllamaGameDecision({
+    model: "local-model", allowCellClicks: true,
+    fetchImpl: mockFetch({ message: { content: '{"type":"click-cell","index":8}' } })
+  });
+  await assert.rejects(
+    () => decide({ clickTargets: [{ index: 7, label: "only safe cell" }] }),
+    /not in the observed safe click-target list/
+  );
+  await assert.rejects(
+    () => decide({ clickTargets: [] }),
+    /not in the observed safe click-target list/
+  );
+});
+
 test("rejects game-cell clicks when disabled or outside the bounded index range", async () => {
   const disabled = createOllamaGameDecision({
     model: "local-model",
