@@ -96,3 +96,28 @@ test("refuses canvas clicks when model confidence is below threshold", async () 
   const page = { locator: () => ({ count: async () => 1 }) };
   await assert.rejects(() => clickSafeGameCanvas(page, 0.5, 0.5, 0.79), /confidence/);
 });
+
+
+test("refuses hidden, undersized, or missing-bounds canvases without clicking", async () => {
+  let clicked = false;
+  const makeCanvas = ({ visible = true, bounds = { x: 0, y: 0, width: 100, height: 100 } } = {}) => ({
+    count: async () => 1,
+    evaluate: async () => visible,
+    boundingBox: async () => bounds,
+    click: async () => { clicked = true; }
+  });
+  const pageFor = canvas => ({ locator: () => canvas });
+  await assert.rejects(
+    () => clickSafeGameCanvas(pageFor(makeCanvas({ visible: false })), 0.5, 0.5, 0.9),
+    /hidden or interactive/
+  );
+  await assert.rejects(
+    () => clickSafeGameCanvas(pageFor(makeCanvas({ bounds: { x: 0, y: 0, width: 10, height: 10 } })), 0.5, 0.5, 0.9),
+    /usable visible bounds/
+  );
+  await assert.rejects(
+    () => clickSafeGameCanvas(pageFor(makeCanvas({ bounds: null })), 0.5, 0.5, 0.9),
+    /usable visible bounds/
+  );
+  assert.equal(clicked, false);
+});
