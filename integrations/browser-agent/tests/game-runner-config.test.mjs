@@ -16,6 +16,14 @@ test("requires an explicit X/O choice before tic-tac-toe play", () => {
   });
 });
 
+test("dispatches Othello only with B/W and bounded cell/pass actions", () => {
+  assert.equal(resolveDetectedGame({ gameType: "othello" }, "X").ok, false);
+  assert.deepEqual(resolveDetectedGame({ gameType: "othello" }, "b"), {
+    ok: true, gameType: "othello", adapter: "othello", player: "B",
+    allowedActions: ["click-cell", "pass-turn", "wait-for-turn"]
+  });
+});
+
 test("dispatches Connect Four only with an explicit player and column-only actions", () => {
   assert.equal(resolveDetectedGame({ gameType: "connect-four" }).ok, false);
   assert.deepEqual(resolveDetectedGame({ gameType: "connect-four" }, "o"), {
