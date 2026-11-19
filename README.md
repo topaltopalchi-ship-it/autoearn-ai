@@ -43,6 +43,10 @@ The `opportunities`, `tasks`, and `rewards` tables have Row Level Security polic
 
 Scores use only metadata entered by the owner. They are not proof that a platform is legitimate or that a reward will be paid. Verify eligibility, country restrictions, withdrawal thresholds, and platform terms before participating. Website discovery and analysis must respect site terms, robots policies, privacy, and applicable law.
 
+## Discovery due-diligence signals
+
+Automatically discovered candidates remain unverified and are saved for owner review. The discovery pipeline records text-based review alerts when a search result mentions identity/KYC checks or geographic restrictions, or when it does not disclose a minimum withdrawal, a specific payout method, or withdrawal-fee terms. These alerts are prompts to inspect the official terms, not findings that a site definitely requires KYC, excludes a particular country, or charges fees. Country restrictions are surfaced for review and are not used to filter discovery results. A clean alert list is not proof of legitimacy, official domain ownership, eligibility, or payment.
+
 ## Opportunity eligibility gate
 
 Guided sessions are available only after the owner reviews the official terms URL and confirms country eligibility, a specific, officially supported payout method (wallet, bank transfer, or bank card), no required deposit or purchase, and explicit permission for automated gameplay. This is an owner attestation, not an independent verification by AutoEarn; do not mark an opportunity eligible unless every item is confirmed from official sources. Guided sessions still open the platform for manual participation only.
