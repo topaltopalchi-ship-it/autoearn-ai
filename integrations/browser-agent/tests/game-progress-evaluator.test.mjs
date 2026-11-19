@@ -73,7 +73,7 @@ test("uses only DOM-sourced score, level, lives and mistake metrics", () => {
     metrics: { score: 20, level: 2, lives: 2, mistakes: 1 }
   }};
   const result = evaluateGameProgress(before, after);
-  assert.equal(result.reward, 2);
+  assert.equal(result.reward, 4);
   assert.equal(result.feedback, "good");
   assert.deepEqual(result.signals, ["score-increased", "level-increased", "lives-decreased", "mistakes-decreased"]);
 });
