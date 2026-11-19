@@ -82,3 +82,24 @@ test("does not label a hazard as approaching when relative distance grows", () =
   const result = tracker.update([player(0.15), hazard(0.5)], 1250);
   assert.equal(result.tracks.find(track => track.role === "hazard").approachingPlayer, false);
 });
+
+
+test("marks predicted player and hazard box overlap as collision risk", () => {
+  const tracker = createCanvasMotionTracker();
+  const result = tracker.update([
+    { role: "player", label: "hero", x: 0.4, y: 0.4, width: 0.1, height: 0.1, confidence: 0.95 },
+    { role: "hazard", label: "enemy", x: 0.45, y: 0.45, width: 0.1, height: 0.1, confidence: 0.95 }
+  ], 1000);
+  const hazard = result.tracks.find(track => track.role === "hazard");
+  assert.equal(hazard.collisionRisk, true);
+  assert.equal(result.predictedHazards[0].collisionRisk, true);
+});
+
+test("does not flag separated predicted boxes as collision risk", () => {
+  const tracker = createCanvasMotionTracker();
+  const result = tracker.update([
+    { role: "player", label: "hero", x: 0.1, y: 0.1, width: 0.05, height: 0.05, confidence: 0.95 },
+    { role: "hazard", label: "enemy", x: 0.8, y: 0.8, width: 0.05, height: 0.05, confidence: 0.95 }
+  ], 1000);
+  assert.equal(result.tracks.find(track => track.role === "hazard").collisionRisk, false);
+});
