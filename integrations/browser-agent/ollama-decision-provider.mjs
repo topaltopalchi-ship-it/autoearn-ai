@@ -65,8 +65,10 @@ export function createOllamaGameDecision({
       canvasAvailable: observation.canvasAvailable === true
     };
     const images = [];
-    if (typeof observation.screenshot === "string") {
-      const match = observation.screenshot.match(/^data:image\/(?:png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/);
+    const decisionImage = typeof observation.decisionScreenshot === "string"
+      ? observation.decisionScreenshot : observation.screenshot;
+    if (typeof decisionImage === "string") {
+      const match = decisionImage.match(/^data:image\/(?:png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/);
       if (match && match[1].length <= 3_000_000) images.push(match[1]);
     }
     const memoryHints = experienceMemory?.getHints
@@ -90,7 +92,7 @@ export function createOllamaGameDecision({
       "Allowed keys: " + [...keys].join(", "),
       "If the game is unclear, blocked, requests CAPTCHA/verification, or no safe move is evident, return {\"action\":\"stop\"}.",
       "Owner-rated experience hints for this exact state (not guarantees; do not blindly follow): " + JSON.stringify(memoryHints),
-      "For canvas clicks, choose a point inside the visible game canvas using the screenshot and include confidence from 0 to 1. Only act when confidence is at least 0.8; otherwise return stop.",
+      "For canvas clicks, the supplied decision image is cropped to the game canvas when available. Choose x and y as normalized fractions relative to that entire image (0 is left/top, 1 is right/bottom), and include confidence from 0 to 1. Only act when confidence is at least 0.8; otherwise return stop.",
       "Observation JSON: " + JSON.stringify(snapshot)
     ].join("\n");
     calls++;
