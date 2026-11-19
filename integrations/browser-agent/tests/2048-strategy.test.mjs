@@ -194,3 +194,36 @@ test("shares the node allowance fairly across all legal root moves", () => {
     item.nodesVisited <= item.nodeBudget
   ));
 });
+
+
+test("snake ordering evaluates rotational and reflective board orientations consistently", async () => {
+  const { evaluate2048Board } = await import("../games/2048-strategy.mjs");
+  const board = [
+    [1024, 512, 256, 128],
+    [16, 32, 64, 128],
+    [8, 4, 2, 1],
+    [0, 0, 0, 0]
+  ];
+  const rotated = Array.from({ length: 4 }, (_, y) =>
+    Array.from({ length: 4 }, (_, x) => board[3 - x][y]));
+  const reflected = board.map(row => [...row].reverse());
+  assert.equal(evaluate2048Board(board), evaluate2048Board(rotated));
+  assert.equal(evaluate2048Board(board), evaluate2048Board(reflected));
+});
+
+test("snake positional preference distinguishes orderly high-tile rows", async () => {
+  const { evaluate2048Board } = await import("../games/2048-strategy.mjs");
+  const orderly = [
+    [1024, 512, 256, 128],
+    [16, 32, 64, 128],
+    [8, 4, 2, 1],
+    [0, 0, 0, 0]
+  ];
+  const scrambled = [
+    [1024, 2, 64, 8],
+    [16, 128, 4, 32],
+    [1, 256, 16, 512],
+    [0, 0, 0, 0]
+  ];
+  assert.ok(evaluate2048Board(orderly) > evaluate2048Board(scrambled));
+});
