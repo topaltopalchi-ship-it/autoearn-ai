@@ -108,6 +108,10 @@ Run `node integrations/browser-agent/games/run-2048-heuristic-comparison.mjs` to
 Run `node integrations/browser-agent/games/run-2048-heuristic-comparison.mjs` to compare the classic evaluation (snake weight 0) against the current snake-position term (weight 1). Both variants use the same deterministic episode seeds, expectimax depth, and move limit. The report includes per-variant score/tile/outcome summaries and paired score deltas with a deterministic bootstrap interval. The runner currently defaults to 10 paired episodes at depth 2. These are synthetic local-game measurements only; do not interpret them as third-party win rates or expected earnings.
 
 
+### Opportunity discovery provenance
+
+Newly discovered opportunity records include a bounded provenance marker in their notes: the search provider, exact search query, discovery timestamp, and a short excerpt returned by the search provider. The dashboard displays the source, timestamp, query, and escaped excerpt so an owner can trace why a candidate was surfaced. This is search-result provenance only: it does not verify the destination's identity, official rules, cash payout, country eligibility, or payment history. Verify those independently from the platform's official pages before changing an opportunity's eligibility status.
+
 ### Fail-closed free-cash eligibility review
 
 The Python opportunity module now exposes `EligibilityReview` and `evaluate_eligibility`. A candidate remains blocked unless the owner confirms all five items from official information: terms reviewed, country eligibility, a supported cash payout, no required deposit or purchase, and platform rules reviewed. The result lists each confirmation still missing. Passing this checklist permits manual review only; it never enables automated gameplay or proves that a platform will pay. Automated interaction remains disabled unless separately authorized by the platform's official rules and the applicable safety checks.
