@@ -8,6 +8,7 @@ import { createGameExperienceMemory } from "./game-experience-memory.mjs";
 import { recordVerifiedExperience } from "./experience-verification.mjs";
 import { readSafeGameCells, clickSafeGameCell, clickSafeGameCanvas } from "./game-cell-browser-adapter.mjs";
 import { detectGameOutcome } from "./game-outcome-detector.mjs";
+import { mapViewportObjectsToCanvas } from "./canvas-object-mapper.mjs";
 
 const gameUrl = process.env.AUTOEARN_GAME_URL;
 const approvedOrigins = new Set(String(process.env.AUTOEARN_ALLOWED_ORIGINS || "")
@@ -94,31 +95,14 @@ async function main() {
           ? "data:image/jpeg;base64," + (await canvasLocator.screenshot({ type: "jpeg", quality: 75, timeout: 5_000 })).toString("base64")
           : screenshotData;
         const gameState = await perceive({ screenshot: screenshotData, title, text: visibleText });
-        const canvasObjects = await (async () => {
-          if (canvasCount !== 1) return [];
-          const box = await canvasLocator.boundingBox().catch(() => null);
-          const viewport = page.viewportSize();
-          if (!box || !viewport?.width || !viewport?.height) return [];
-          return (gameState.objects || []).flatMap(object => {
-            const left = object.x * viewport.width;
-            const top = object.y * viewport.height;
-            const right = left + object.width * viewport.width;
-            const bottom = top + object.height * viewport.height;
-            const clippedLeft = Math.max(left, box.x);
-            const clippedTop = Math.max(top, box.y);
-            const clippedRight = Math.min(right, box.x + box.width);
-            const clippedBottom = Math.min(bottom, box.y + box.height);
-            if (clippedRight <= clippedLeft || clippedBottom <= clippedTop) return [];
-            return [{
-              role: object.role, label: object.label,
-              x: (clippedLeft - box.x) / box.width,
-              y: (clippedTop - box.y) / box.height,
-              width: (clippedRight - clippedLeft) / box.width,
-              height: (clippedBottom - clippedTop) / box.height,
-              confidence: object.confidence
-            }];
-          });
-        })();
+        const canvasObjects = canvasCount === 1
+          ? mapViewportObjectsToCanvas(
+              gameState.objects || [],
+              await canvasLocator.boundingBox().catch(() => null),
+              page.viewportSize()
+            )
+          : [];
+
         const outcomeMarkers = await page.locator("[data-game-outcome], [data-game-status]").evaluateAll(elements =>
           elements.slice(0, 10).map(element => ({
             outcome: element.getAttribute("data-game-outcome") || "",
