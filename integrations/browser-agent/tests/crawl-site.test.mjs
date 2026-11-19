@@ -98,3 +98,20 @@ test("expands a safe folder button and discovers newly revealed links", async ()
   assert.deepEqual(result.pages[0].expandedButtons, ["Puzzle category"]);
   assert.equal(result.pages[1].classification.type, "game");
 });
+
+test("attaches explicit known-game detection without guessing from labels", async () => {
+  const cells = Array.from({ length: 9 }, (_, index) => ({ index, mark: "" }));
+  const result = await crawlSameOriginSite({
+    startUrl: origin + "/ttt",
+    approvedOrigin: origin,
+    openPage: async () => {},
+    inspectPage: async () => ({
+      title: "Puzzle",
+      snapshot: "play game score",
+      navigationTargets: [],
+      gameCandidates: [{ kind: "tic-tac-toe", boardKey: "board-1", cells }]
+    })
+  });
+  assert.equal(result.pages[0].gameDetection.gameType, "tic-tac-toe");
+  assert.equal(result.pages[0].gameDetection.reason, "explicit_board_signature");
+});
