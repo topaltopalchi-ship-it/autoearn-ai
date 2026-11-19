@@ -167,6 +167,7 @@ export function choose2048Move(board, { depth = 3, maxNodes = 25000 } = {}) {
   if (!moves.length) return null;
   const perMoveNodeBudget = Math.floor(maxNodes / moves.length);
   const aggregateStats = { nodesVisited: 0, cacheHits: 0, budgetExhausted: false };
+  const perRootMoveStats = [];
   let best = null;
   for (const move of moves) {
     // Give every legal root action its own equal budget so early directions
@@ -183,6 +184,13 @@ export function choose2048Move(board, { depth = 3, maxNodes = 25000 } = {}) {
     aggregateStats.nodesVisited += budget.nodesVisited;
     aggregateStats.cacheHits += budget.cacheHits;
     aggregateStats.budgetExhausted ||= budget.budgetExhausted;
+    perRootMoveStats.push({
+      direction: move.direction,
+      nodesVisited: budget.nodesVisited,
+      cacheHits: budget.cacheHits,
+      budgetExhausted: budget.budgetExhausted,
+      nodeBudget: perMoveNodeBudget
+    });
     if (!best || score > best.score) {
       best = {
         type: "press",
@@ -197,7 +205,8 @@ export function choose2048Move(board, { depth = 3, maxNodes = 25000 } = {}) {
     ...aggregateStats,
     maxNodes,
     perMoveNodeBudget,
-    rootMovesEvaluated: moves.length
+    rootMovesEvaluated: moves.length,
+    perRootMoveStats
   };
   return best;
 }
