@@ -21,6 +21,13 @@ test("compares fixed and adaptive policies on identical reproducible seeds", () 
     item.scoreWins + item.scoreTies + item.scoreLosses === 2 &&
     item.maxTileWins + item.maxTileTies + item.maxTileLosses === 2
   ));
+  assert.ok(adaptiveComparisons.every(item =>
+    Number.isFinite(item.averagePairedSearchNodesDifference) &&
+    Number.isFinite(item.medianPairedSearchNodesDifference) &&
+    Number.isFinite(item.averagePairedCacheHitsDifference) &&
+    Number.isFinite(item.averagePairedBudgetExhaustionDifference) &&
+    item.pairs.every(pair => Number.isFinite(pair.searchNodesDifference))
+  ));
   assert.ok(first.summaries[3].depthCounts[1] + first.summaries[3].depthCounts[2] +
     first.summaries[3].depthCounts[3] > 0);
   for (const summary of first.summaries) {
