@@ -5,6 +5,7 @@ import { createTicTacToeBrowserAdapter } from "./tic-tac-toe-browser-adapter.mjs
 import { create2048Decision } from "./games/2048-strategy.mjs";
 import { decideKnownGame } from "./games/game-strategy-registry.mjs";
 import { detectKnownGame } from "./game-detector.mjs";
+import { resolveDetectedGame } from "./game-runner-config.mjs";
 
 const gameUrl = process.env.AUTOEARN_GAME_URL;
 const allowedOrigins = new Set(String(process.env.AUTOEARN_ALLOWED_ORIGINS || "")
@@ -84,40 +85,33 @@ async function main() {
     }
 
     const detected = await inspectGame(page);
-    if (!detected.gameType) {
-      throw new Error("No single supported, explicit game board was detected: " + detected.reason);
+    const plan = resolveDetectedGame(detected, tttPlayer);
+    if (!plan.ok) {
+      throw new Error("Game runner refused to start: " + plan.reason);
     }
 
     let adapter;
     let decide;
-    let allowedActions;
-    if (detected.gameType === "2048") {
+    if (plan.adapter === "2048") {
       adapter = create2048BrowserAdapter(page, {
         boardSelector: "[data-game-board]",
         tileSelector: "[data-x][data-y][data-value]"
       });
       decide = create2048Decision();
-      allowedActions = ["press"];
-    } else if (detected.gameType === "tic-tac-toe") {
-      if (!["X", "O"].includes(tttPlayer)) {
-        throw new Error("Set AUTOEARN_TTT_PLAYER to X or O for tic-tac-toe.");
-      }
+    } else {
       adapter = createTicTacToeBrowserAdapter(page, {
         boardSelector: "[data-game-board]",
         cellSelector: "[data-index]",
-        player: tttPlayer
+        player: plan.player
       });
       decide = decideKnownGame;
-      allowedActions = ["select-cell", "wait-for-turn"];
-    } else {
-      throw new Error("Detected game has no connected strategy.");
     }
 
     const initial = await adapter.observe();
     const agent = globalThis.AutoEarnGameAgent.createAgent({
       adapter,
       decide,
-      limits: { maxSteps, maxDurationMs, allowedActions },
+      limits: { maxSteps, maxDurationMs, allowedActions: plan.allowedActions },
       onEvent: event => {
         if (event.type === "step") console.log(JSON.stringify({
           step: event.steps, action: event.action.type,
