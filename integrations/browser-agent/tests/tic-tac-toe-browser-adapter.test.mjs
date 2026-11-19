@@ -31,14 +31,14 @@ function makePage(marks = Array(9).fill("")) {
 }
 
 test("reads normalized 9-cell board and reports configured turn", async () => {
-  const page = makePage(["X", "", "O", "", "X", "", "", "", "O"]);
+  const page = makePage(["X", "", "O", "", "X", "", "", "", ""]);
   const adapter = createTicTacToeBrowserAdapter(page, {
     boardSelector: "#board", cellSelector: ".cell", player: "O"
   });
   const state = await adapter.observe();
   assert.equal(state.gameState.currentPlayer, "O");
   assert.equal(state.gameState.outcome, "playing");
-  assert.deepEqual(state.gameState.board, ["X", null, "O", null, "X", null, null, null, "O"]);
+  assert.deepEqual(state.gameState.board, ["X", null, "O", null, "X", null, null, null, null]);
 });
 
 test("rejects wrong turn and invalid player configuration", async () => {
