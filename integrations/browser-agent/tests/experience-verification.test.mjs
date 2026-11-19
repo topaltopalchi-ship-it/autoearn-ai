@@ -70,3 +70,28 @@ test("records a verified indexed game-cell click for owner feedback", async () =
   assert.deepEqual(calls, [{ gameType: "memory", stateSummary: "two covered cards", objective: "", action: { type: "click-cell", index: 4 } }]);
   assert.deepEqual(pending, [{ id: "cell-exp-1", gameType: "memory", actionKey: "click-cell:4" }]);
 });
+
+
+test("records a confident canvas click only after a meaningful game-state change", async () => {
+  const calls = [];
+  const memory = { async recordPending(value) { calls.push(value); return "canvas-exp-1"; } };
+  const pending = [];
+  const before = { snapshot: "target at left", gameState: { gameType: "canvas-puzzle", stateSummary: "target-left", objective: "hit target" } };
+  const after = { snapshot: "target moved", gameState: { gameType: "canvas-puzzle", stateSummary: "target-moved", objective: "hit target" } };
+  const action = { type: "click-canvas", x: 0.14, y: 0.28, confidence: 0.93 };
+  assert.equal(await recordVerifiedExperience(memory, pending, { before, action, after }), true);
+  assert.deepEqual(calls, [{
+    gameType: "canvas-puzzle", stateSummary: "target-left", objective: "hit target", action
+  }]);
+  assert.deepEqual(pending, [{ id: "canvas-exp-1", gameType: "canvas-puzzle", actionKey: "click-canvas:1:2" }]);
+});
+
+test("does not remember low-confidence canvas clicks", async () => {
+  let saved = false;
+  const before = { snapshot: "before" };
+  const after = { snapshot: "after" };
+  assert.equal(await recordVerifiedExperience({ async recordPending() { saved = true; } }, [], {
+    before, after, action: { type: "click-canvas", x: 0.4, y: 0.6, confidence: 0.79 }
+  }), true);
+  assert.equal(saved, false);
+});
