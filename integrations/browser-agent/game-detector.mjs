@@ -23,7 +23,37 @@ function validConnectFourCells(cells) {
         !["", "-", "EMPTY", "X", "O"].includes(mark)) return false;
     indexes.add(index);
   }
-  return indexes.size === 42;
+  if (indexes.size !== 42) return false;
+  const board = Array.from({ length: 6 }, (_, row) =>
+    Array.from({ length: 7 }, (_, col) => {
+      const cell = cells.find(item => Number(item.index) === row * 7 + col);
+      const mark = String(cell.mark ?? "").trim().toUpperCase();
+      return ["", "-", "EMPTY"].includes(mark) ? "" : mark;
+    })
+  );
+  for (let col = 0; col < 7; col++) {
+    let foundGap = false;
+    for (let row = 5; row >= 0; row--) {
+      if (!board[row][col]) foundGap = true;
+      else if (foundGap) return false;
+    }
+  }
+  const wins = player => {
+    for (let row = 0; row < 6; row++) for (let col = 0; col < 7; col++) {
+      if (board[row][col] !== player) continue;
+      for (const [dr, dc] of [[0,1],[1,0],[1,1],[1,-1]]) {
+        let count = 1;
+        for (let step = 1; step < 4; step++) {
+          const r = row + dr * step, c = col + dc * step;
+          if (r < 0 || r >= 6 || c < 0 || c >= 7 || board[r][c] !== player) break;
+          count++;
+        }
+        if (count === 4) return true;
+      }
+    }
+    return false;
+  };
+  return !(wins("X") && wins("O"));
 }
 
 function validOthelloCells(cells, currentPlayer) {
