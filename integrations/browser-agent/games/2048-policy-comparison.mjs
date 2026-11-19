@@ -28,6 +28,7 @@ function playPolicy({ seed, policy, maxMoves }) {
   let moves = 0;
   let outcome = get2048Outcome(board);
   const depthCounts = { 1: 0, 2: 0, 3: 0 };
+  const searchStats = { nodesVisited: 0, cacheHits: 0, budgetExhaustedMoves: 0 };
 
   while (outcome === "playing" && moves < maxMoves) {
     const decision = policy.kind === "adaptive"
@@ -36,6 +37,11 @@ function playPolicy({ seed, policy, maxMoves }) {
     if (!decision) break;
     if (decision.searchDepth) depthCounts[decision.searchDepth]++;
     else depthCounts[policy.depth]++;
+    if (decision.searchStats) {
+      searchStats.nodesVisited += decision.searchStats.nodesVisited;
+      searchStats.cacheHits += decision.searchStats.cacheHits;
+      if (decision.searchStats.budgetExhausted) searchStats.budgetExhaustedMoves++;
+    }
     const result = move2048(board, decision.direction);
     if (!result.changed) throw new Error("Strategy returned a non-changing move.");
     for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) board[y][x] = result.board[y][x];
@@ -49,7 +55,8 @@ function playPolicy({ seed, policy, maxMoves }) {
   return {
     seed, policy: policy.label, score, maxTile: Math.max(...board.flat()),
     moves, outcome, moveLimitReached: outcome === "playing" && moves >= maxMoves,
-    depthCounts
+    depthCounts, searchStats,
+    averageSearchNodesPerMove: moves ? searchStats.nodesVisited / moves : 0
   };
 }
 
@@ -67,14 +74,20 @@ function summarize(policy, games) {
   const scores = games.map(game => game.score);
   const maxTiles = games.map(game => game.maxTile);
   const depthCounts = { 1: 0, 2: 0, 3: 0 };
-  for (const game of games) for (const depth of [1, 2, 3]) depthCounts[depth] += game.depthCounts[depth];
+  const searchStats = { nodesVisited: 0, cacheHits: 0, budgetExhaustedMoves: 0 };
+  for (const game of games) {
+    for (const depth of [1, 2, 3]) depthCounts[depth] += game.depthCounts[depth];
+    for (const key of Object.keys(searchStats)) searchStats[key] += game.searchStats[key];
+  }
   return {
     policy, episodes: games.length, averageScore: average(scores), medianScore: median(scores),
     averageMaxTile: average(maxTiles), highestTile: Math.max(...maxTiles),
     reached2048: games.filter(game => game.outcome === "won").length,
     gameOvers: games.filter(game => game.outcome === "game_over").length,
     moveLimitStops: games.filter(game => game.moveLimitReached).length,
-    averageMoves: average(games.map(game => game.moves)), depthCounts, games
+    averageMoves: average(games.map(game => game.moves)), depthCounts, searchStats,
+    averageSearchNodesPerMove: searchStats.nodesVisited / Math.max(1, games.reduce((sum, game) => sum + game.moves, 0)),
+    games
   };
 }
 
