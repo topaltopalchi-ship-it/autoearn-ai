@@ -75,7 +75,10 @@ async function main() {
       adapter = create2048BrowserAdapter(page, { boardSelector: "[data-game-board]", tileSelector: "[data-x][data-y][data-value]" });
       decide = create2048Decision();
     } else if (plan.adapter === "othello") {
-      adapter = createOthelloBrowserAdapter(page, {\n        boardSelector: "[data-game-board]",\n        cellSelector: "[data-game-cell][data-game-cell-index]",\n        passSelector: "[data-game-pass]",\n        player: plan.player\n      });\n      decide = decideKnownGame;\n    } else if (plan.adapter === "connect-four") {
+      adapter = createOthelloBrowserAdapter(page, {
+        boardSelector: "[data-game-board]",\n        cellSelector: "[data-game-cell][data-game-cell-index]",\n        passSelector: "[data-game-pass]",\n        player: plan.player
+      });
+      decide = decideKnownGame;\n    } else if (plan.adapter === "connect-four") {
       adapter = createConnectFourBrowserAdapter(page, {
         boardSelector: "[data-game-board]",
         cellSelector: "[data-game-cell][data-game-cell-index]",
