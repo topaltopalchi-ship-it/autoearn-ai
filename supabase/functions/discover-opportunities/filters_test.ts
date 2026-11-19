@@ -290,6 +290,10 @@ Deno.test("surfaces due-diligence gaps without filtering country-restricted cand
     "minimum_withdrawal_not_found",
     "specific_payout_method_not_found",
     "withdrawal_fees_not_found",
+    "prize_amount_not_found",
+    "payout_timing_not_found",
+    "organizer_identity_not_found",
+    "winner_selection_method_not_found",
   ]);
 });
 
