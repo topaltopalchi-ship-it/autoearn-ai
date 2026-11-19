@@ -31,6 +31,8 @@
       score: Math.max(0, 100 - penalty),
       missing,
       officialTermsProvided: !termsMissing,
+      officialTermsVerified: false,
+      organizerIdentityVerified: false,
     };
   }
 
