@@ -113,3 +113,10 @@ export function create2048Decision() {
     return move ? { type: move.type, key: move.key, direction: move.direction } : null;
   };
 }
+
+export function get2048Outcome(board) {
+  validateBoard(board);
+  if (Math.max(...board.flat()) >= 2048) return "won";
+  if (choose2048Move(board) === null) return "game_over";
+  return "playing";
+}
