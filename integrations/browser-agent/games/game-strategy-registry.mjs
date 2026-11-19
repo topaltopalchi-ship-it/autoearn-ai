@@ -1,6 +1,7 @@
 import { create2048Decision } from "./2048-strategy.mjs";
 import { chooseTicTacToeMove, getTicTacToeOutcome } from "./tic-tac-toe-strategy.mjs";
 import { chooseConnectFourMove, getConnectFourOutcome } from "./connect-four-strategy.mjs";
+import { chooseOthelloMove, getOthelloLegalMoves, getOthelloOutcome } from "./othello-strategy.mjs";
 
 const strategies = new Map();
 
@@ -45,4 +46,12 @@ registerGameStrategy("connect-four", async state => {
   if (getConnectFourOutcome(state.board) !== "playing") return null;
   const move = chooseConnectFourMove(state.board, { player: state.player, depth: 4 });
   return move ? { type: "click-column", column: move.column } : null;
+});
+
+registerGameStrategy("othello", async state => {
+  if (!Array.isArray(state.board)) return null;
+  if (state.agentPlayer && state.currentPlayer !== state.agentPlayer) return { type: "wait-for-turn" };
+  if (getOthelloOutcome(state.board) !== "playing") return null;
+  if (!getOthelloLegalMoves(state.board, state.player).length) return { type: "pass-turn" };
+  return chooseOthelloMove(state.board, { player: state.player, depth: 3 });
 });
