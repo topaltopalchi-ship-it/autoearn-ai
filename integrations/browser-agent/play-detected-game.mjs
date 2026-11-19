@@ -2,7 +2,7 @@ import { chromium } from "playwright";
 import "../../static/game-agent.js";
 import { create2048BrowserAdapter } from "./2048-browser-adapter.mjs";
 import { createTicTacToeBrowserAdapter } from "./tic-tac-toe-browser-adapter.mjs";
-import { createConnectFourBrowserAdapter } from "./connect-four-browser-adapter.mjs";
+import { createConnectFourBrowserAdapter } from "./connect-four-browser-adapter.mjs";\nimport { createOthelloBrowserAdapter } from "./othello-browser-adapter.mjs";
 import { create2048Decision } from "./games/2048-strategy.mjs";
 import { decideKnownGame } from "./games/game-strategy-registry.mjs";
 import { resolveDetectedGame } from "./game-runner-config.mjs";
@@ -11,7 +11,7 @@ import { discoverSupportedGame } from "./game-site-discovery.mjs";
 const gameUrl = process.env.AUTOEARN_GAME_URL;
 const allowedOrigins = new Set(String(process.env.AUTOEARN_ALLOWED_ORIGINS || "").split(",").map(value => value.trim()).filter(Boolean));
 const tttPlayer = String(process.env.AUTOEARN_TTT_PLAYER || "").toUpperCase();
-const connectFourPlayer = String(process.env.AUTOEARN_CONNECT_FOUR_PLAYER || "").toUpperCase();
+const connectFourPlayer = String(process.env.AUTOEARN_CONNECT_FOUR_PLAYER || "").toUpperCase();\nconst othelloPlayer = String(process.env.AUTOEARN_OTHELLO_PLAYER || "").toUpperCase();
 const maxSteps = Math.min(500, Math.max(1, Number(process.env.AUTOEARN_MAX_STEPS || 100)));
 const maxDurationMs = Math.min(5 * 60_000, Math.max(5_000, Number(process.env.AUTOEARN_MAX_DURATION_MS || 60_000)));
 
@@ -64,7 +64,7 @@ async function main() {
       ? "More than one supported game was found in the site's folders; refusing to guess which one to play."
       : "No supported game board was found in the starting page or its clearly-labelled same-origin game folders.");
     const detected = discovery.selected.detection;
-    const configuredPlayer = detected.gameType === "connect-four" ? connectFourPlayer : tttPlayer;
+    const configuredPlayer = detected.gameType === "connect-four" ? connectFourPlayer : detected.gameType === "othello" ? othelloPlayer : tttPlayer;
     const plan = resolveDetectedGame(detected, configuredPlayer);
     if (!plan.ok) throw new Error("Game runner refused to start: " + plan.reason);
 
@@ -72,7 +72,7 @@ async function main() {
     if (plan.adapter === "2048") {
       adapter = create2048BrowserAdapter(page, { boardSelector: "[data-game-board]", tileSelector: "[data-x][data-y][data-value]" });
       decide = create2048Decision();
-    } else if (plan.adapter === "connect-four") {
+    } else if (plan.adapter === "othello") {\n      adapter = createOthelloBrowserAdapter(page, {\n        boardSelector: "[data-game-board]",\n        cellSelector: "[data-game-cell][data-game-cell-index]",\n        passSelector: "[data-game-pass]",\n        player: plan.player\n      });\n      decide = decideKnownGame;\n    } else if (plan.adapter === "connect-four") {
       adapter = createConnectFourBrowserAdapter(page, {
         boardSelector: "[data-game-board]",
         cellSelector: "[data-game-cell][data-game-cell-index]",
