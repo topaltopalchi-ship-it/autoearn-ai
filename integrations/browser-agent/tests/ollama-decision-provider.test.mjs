@@ -149,3 +149,24 @@ test("requires at least 0.8 model confidence for canvas clicks", async () => {
   });
   await assert.rejects(() => missing({ canvasAvailable: true }), /unsupported action/);
 });
+
+
+test("prefers the canvas-cropped decision image for coordinate selection", async () => {
+  let body;
+  const decide = createOllamaGameDecision({
+    model: "local-model",
+    allowCanvasClicks: true,
+    fetchImpl: async (_url, options) => {
+      body = JSON.parse(options.body);
+      return { ok: true, status: 200, json: async () => ({
+        message: { content: '{"type":"click-canvas","x":0.3,"y":0.7,"confidence":0.9}' }
+      }) };
+    }
+  });
+  await decide({
+    canvasAvailable: true,
+    screenshot: "data:image/png;base64,AAAA",
+    decisionScreenshot: "data:image/jpeg;base64,BBBB"
+  });
+  assert.deepEqual(body.messages[0].images, ["BBBB"]);
+});
