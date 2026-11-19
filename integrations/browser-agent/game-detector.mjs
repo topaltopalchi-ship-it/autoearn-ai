@@ -63,7 +63,10 @@ export function detectKnownGame(observation = {}) {
     if (candidate.kind === "connect-four" && validConnectFourCells(candidate.cells)) {
       matches.push({ gameType: "connect-four", boardKey: candidate.boardKey || null, confidence: 0.99 });
     }
-    if (candidate.kind === "othello" && validOthelloCells(candidate.cells, candidate.currentPlayer)) {\n      matches.push({ gameType: "othello", boardKey: candidate.boardKey || null, confidence: 0.99 });\n    }\n    if (candidate.kind === "2048" && valid2048Tiles(candidate.tiles)) {
+    if (candidate.kind === "othello" && validOthelloCells(candidate.cells, candidate.currentPlayer)) {
+      matches.push({ gameType: "othello", boardKey: candidate.boardKey || null, confidence: 0.99 });
+    }
+    if (candidate.kind === "2048" && valid2048Tiles(candidate.tiles)) {
       matches.push({ gameType: "2048", boardKey: candidate.boardKey || null, confidence: 0.99 });
     }
   }
