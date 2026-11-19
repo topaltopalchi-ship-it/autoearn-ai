@@ -11,7 +11,16 @@ test("compares fixed and adaptive policies on identical reproducible seeds", () 
     "fixed-depth-1", "fixed-depth-2", "fixed-depth-3", "adaptive"
   ]);
   assert.equal(first.summaries[0].games[0].seed, first.summaries[3].games[0].seed);
-  assert.equal(first.pairedAgainstDepth3.length, 4);
+  assert.equal(first.pairedComparisons.length, 12);
+  const adaptiveComparisons = first.pairedComparisons.filter(item => item.policy === "adaptive");
+  assert.equal(adaptiveComparisons.length, 3);
+  assert.deepEqual(adaptiveComparisons.map(item => item.comparedWith), [
+    "fixed-depth-1", "fixed-depth-2", "fixed-depth-3"
+  ]);
+  assert.ok(adaptiveComparisons.every(item =>
+    item.scoreWins + item.scoreTies + item.scoreLosses === 2 &&
+    item.maxTileWins + item.maxTileTies + item.maxTileLosses === 2
+  ));
   assert.ok(first.summaries[3].depthCounts[1] + first.summaries[3].depthCounts[2] +
     first.summaries[3].depthCounts[3] > 0);
   assert.match(first.note, /do not establish real-site win rates/);
@@ -19,7 +28,9 @@ test("compares fixed and adaptive policies on identical reproducible seeds", () 
 
 test("reports paired score wins, ties, and losses without treating move caps as losses", () => {
   const report = compare2048Policies({ seed: 5, episodes: 1, maxMoves: 1 });
-  const pair = report.pairedAgainstDepth3.find(item => item.policy === "adaptive");
+  const pair = report.pairedComparisons.find(item =>
+    item.policy === "adaptive" && item.comparedWith === "fixed-depth-3"
+  );
   assert.equal(pair.pairs.length, 1);
   assert.equal(pair.scoreWins + pair.scoreTies + pair.scoreLosses, 1);
   assert.ok(report.summaries.every(item => item.moveLimitStops <= 1));
