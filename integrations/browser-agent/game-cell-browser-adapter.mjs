@@ -58,7 +58,10 @@ export async function clickSafeGameCanvas(page, x, y, confidence) {
   if (!Number.isFinite(x) || x < 0 || x > 1 || !Number.isFinite(y) || y < 0 || y > 1) {
     throw new RangeError("Canvas coordinates must be normalized fractions from 0 to 1.");
   }
-  if (!Number.isFinite(confidence) || confidence < 0.8 || confidence > 1) {\n    throw new RangeError("Canvas click confidence must be between 0.8 and 1.");\n  }\n  const canvas = page.locator('[data-game-board] canvas[data-game-canvas]');
+  if (!Number.isFinite(confidence) || confidence < 0.8 || confidence > 1) {
+    throw new RangeError("Canvas click confidence must be between 0.8 and 1.");
+  }
+  const canvas = page.locator('[data-game-board] canvas[data-game-canvas]');
   if (await canvas.count() !== 1) {
     throw new Error("Canvas action requires exactly one explicitly marked game canvas.");
   }
