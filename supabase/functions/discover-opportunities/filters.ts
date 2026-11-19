@@ -125,7 +125,9 @@ export function domainReviewFlags(rawUrl: string): string[] {
   const normalized = normalizePublicHttpsUrl(rawUrl);
   if (!normalized) return ["invalid_public_https_url"];
   const host = new URL(normalized).hostname.toLowerCase();
-  const flags: string[] = [];
+  // Search-result domains are never proof of organizer ownership. Keep this
+  // explicit even when no other heuristic warning is present.
+  const flags: string[] = ["official_source_not_verified"];
   if (host.split(".").some((label) => label.startsWith("xn--"))) {
     flags.push("internationalized_or_punycode_domain");
   }
