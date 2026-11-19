@@ -257,3 +257,17 @@ Optional bounded settings are `AUTOEARN_2048_SEED` (0..4294967295, default 2048)
 ### Current 2048 heuristic tuning result
 
 A seeded paired CI experiment (20 episodes per variant, depth 2, up to 500 moves, seed 2048) compared the no-snake baseline against snake weights 0.25, 0.5, and 1. The baseline averaged 7,910 points. Candidate averages were 7,648.8, 7,677.4, and 7,591.4 respectively; none reached 2048 within the move limit. The 0.25 candidate's bootstrap 95% interval for score delta was entirely below zero (-565.645 to -16.73), while intervals for 0.5 and 1 crossed zero. Accordingly, the default snake bonus is disabled; the experimental feature remains available through an explicit weight. These small synthetic episodes are tuning evidence only, not proof of real-site performance or earnings.
+
+
+## 2048 search-policy experiment
+
+CI runs a reproducible, bounded comparison of fixed expectimax depths 1, 2 and 3 against the adaptive policy (8 seeded episodes, 250 moves per episode). The first recorded run produced:
+
+| Policy | Average score | Average highest tile | Search nodes visited |
+| --- | ---: | ---: | ---: |
+| Fixed depth 1 | 3,119.5 | 256 | 0 |
+| Fixed depth 2 | 3,237 | 256 | 127,522 |
+| Fixed depth 3 | 3,423.5 | 320 | 3,454,925 |
+| Adaptive | 3,231.5 | 256 | 285,645 |
+
+In paired comparisons, adaptive averaged 5.5 fewer points than fixed depth 2 and used more search nodes in this small run; against fixed depth 3 it averaged 192 fewer points while visiting about 396,160 fewer nodes per episode. Adaptive beat fixed depth 1 by 112 average points. No policy reached 2048, and all episodes stopped at the 250-move cap. This is a small synthetic benchmark, not a reliable win-rate estimate or evidence of real-site earnings. Do not treat adaptive as universally best; more seeds, longer episodes and live-site rules-compliant validation are still needed.
