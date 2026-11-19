@@ -235,7 +235,11 @@ test("paired heuristic comparison is reproducible and reports both variants", as
   const second = compare2048HeuristicWeights(options);
   assert.deepEqual(first, second);
   assert.deepEqual(first.variants.map(item => item.variant), ["classic-no-snake", "snake-weight-1"]);
+  assert.deepEqual(first.pairedSeeds, [731, (731 + 0x9e3779b9) >>> 0]);
   assert.equal(first.paired.scoreWins + first.paired.scoreTies + first.paired.scoreLosses, 2);
+  assert.equal(first.paired.maxTileWins + first.paired.maxTileTies + first.paired.maxTileLosses, 2);
+  assert.equal(first.paired.reached2048Delta, first.paired.candidate2048Wins - first.paired.baseline2048Wins);
+  assert.equal(first.variants[0].moveLimitStops >= 0, true);
   assert.equal(first.paired.scoreDeltaBootstrap95.samples, 1000);
 });
 
