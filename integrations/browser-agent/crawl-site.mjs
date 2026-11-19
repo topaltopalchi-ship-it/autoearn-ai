@@ -1,3 +1,5 @@
+import { classifySitePage } from "./page-classifier.mjs";
+
 export async function crawlSameOriginSite({
   startUrl,
   approvedOrigin,
@@ -34,10 +36,12 @@ export async function crawlSameOriginSite({
       return { status: "human_required", reason: "verification_gate_detected", pages, visited: [...visited] };
     }
     const targets = Array.isArray(observation?.navigationTargets) ? observation.navigationTargets : [];
+    const classification = classifySitePage({ ...observation, url });
     pages.push({
       url,
       depth: current.depth,
       title: String(observation?.title || "").slice(0, 200),
+      classification,
       targets
     });
     if (current.depth >= maxDepth) continue;
