@@ -231,3 +231,28 @@ test("includes bounded Canvas object detections as visual planning context", asy
   assert.match(prompt, /"role":"hazard"/);
   assert.match(prompt, /"role":"player"/);
 });
+
+
+test("passes bounded predicted hazard regions to the local planner", async () => {
+  let prompt;
+  const decide = createOllamaGameDecision({
+    model: "local-model",
+    fetchImpl: async (_url, options) => {
+      prompt = JSON.parse(options.body).messages[0].content;
+      return { ok: true, status: 200, json: async () => ({
+        message: { content: '{"type":"press","key":"ArrowLeft"}' }
+      }) };
+    }
+  });
+  await decide({
+    canvasMotion: {
+      horizonMs: 500,
+      predictedHazards: [
+        { x: 0.4, y: 0.5, width: 0.1, height: 0.1, confidence: 0.95, moving: true }
+      ]
+    }
+  });
+  assert.match(prompt, /rough short-horizon predictions/);
+  assert.match(prompt, /"horizonMs":500/);
+  assert.match(prompt, /"x":0.4/);
+});
