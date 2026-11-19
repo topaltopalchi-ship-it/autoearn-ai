@@ -32,4 +32,10 @@ test("Connect Four detects win, draw and invalid board shapes", () => {
   ].map(row => row.split(""));
   assert.equal(getConnectFourOutcome(draw), "draw");
   assert.throws(() => chooseConnectFourMove([[ "X" ]]), /42 valid/);
+  const floating = empty();
+  floating[3][2] = "X";
+  assert.throws(() => chooseConnectFourMove(floating), /violates gravity/);
+  const impossible = empty();
+  for (let c = 0; c < 4; c++) { impossible[5][c] = "X"; impossible[4][c] = "O"; }
+  assert.throws(() => getConnectFourOutcome(impossible), /wins for both/);
 });
