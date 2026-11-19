@@ -165,7 +165,7 @@ export function choose2048Move(board, { depth = 3, maxNodes = 25000 } = {}) {
   }
   const moves = legalMoves(board);
   if (!moves.length) return null;
-  const perMoveNodeBudget = Math.max(1, Math.floor(maxNodes / moves.length));
+  const perMoveNodeBudget = Math.floor(maxNodes / moves.length);
   const aggregateStats = { nodesVisited: 0, cacheHits: 0, budgetExhausted: false };
   let best = null;
   for (const move of moves) {
