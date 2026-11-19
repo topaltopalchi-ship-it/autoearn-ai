@@ -61,6 +61,20 @@ test("rejects wrong turn and invalid player configuration", async () => {
   }), /player must be X or O/);
 });
 
+test("refuses to click before the configured player's turn", async () => {
+  const page = makePage(Array(9).fill(""));
+  const adapter = createTicTacToeBrowserAdapter(page, {
+    boardSelector: "#board", cellSelector: ".cell", player: "O"
+  });
+  await assert.rejects(
+    () => adapter.execute({ type: "select-cell", index: 4, mark: "O" }),
+    /not the agent's turn/
+  );
+  const state = await adapter.observe();
+  assert.equal(state.gameState.board[4], null);
+  assert.equal(state.gameState.currentPlayer, "X");
+});
+
 test("requires nine uniquely indexed cells", async () => {
   const page = makePage(Array(8).fill(""));
   const adapter = createTicTacToeBrowserAdapter(page, {
