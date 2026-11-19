@@ -21,6 +21,7 @@ export async function crawlSameOriginSite({
   const queue = [{ url: start.href, depth: 0 }];
   const visited = new Set();
   const pages = [];
+  let depthTruncated = false;
   const started = now();
   while (queue.length && pages.length < maxPages && now() - started < maxDurationMs) {
     const current = queue.shift();
@@ -44,7 +45,10 @@ export async function crawlSameOriginSite({
       classification,
       targets
     });
-    if (current.depth >= maxDepth) continue;
+    if (current.depth >= maxDepth) {
+      if (targets.some(target => target.role === "link" && target.href)) depthTruncated = true;
+      continue;
+    }
     for (const target of targets) {
       if (target.role !== "link" || !target.href) continue;
       try {
@@ -59,10 +63,11 @@ export async function crawlSameOriginSite({
       }
     }
   }
-  const limited = queue.length > 0;
+  const limited = queue.length > 0 || depthTruncated;
   return {
     status: limited ? "limited" : "completed",
-    reason: limited ? (pages.length >= maxPages ? "page_limit" : "time_or_depth_limit") : "site_walk_finished",
+    reason: queue.length && pages.length >= maxPages ? "page_limit" :
+      depthTruncated ? "depth_limit" : queue.length ? "time_limit" : "site_walk_finished",
     pages,
     visited: [...visited]
   };
