@@ -18,9 +18,9 @@ test("finds the four legal opening moves and returns a legal move",()=>{
 test("applies a legal move and flips the bracketed opponent disc",()=>{
   const board=initialBoard();
   const next=applyOthelloMove(board,19,"B");
-  assert.equal(next[20],"B");
-  assert.equal(next[28],"B");
-  assert.equal(board[28],"B");
+  assert.equal(next[19],"B");
+  assert.equal(next[27],"B");
+  assert.equal(board[27],"W");
 });
 
 test("detects a terminal winner and refuses illegal moves",()=>{
