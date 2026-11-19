@@ -36,6 +36,27 @@ function verificationGate(text) {
   return /captcha|are you human|verify you are human|robot check|security challenge|cloudflare turnstile|hcaptcha|recaptcha|تأیید انسان|کد امنیتی/i.test(text);
 }
 
+function localGameStateKey(observation) {
+  const state = observation?.gameState || {};
+  const objects = (Array.isArray(observation?.canvasObjects) ? observation.canvasObjects : [])
+    .filter(item => item && Number.isFinite(item.confidence) && item.confidence >= 0.8)
+    .map(item => ({
+      role: String(item.role || "other").slice(0, 20),
+      label: String(item.label || "").slice(0, 30),
+      x: Math.round((item.x || 0) * 50) / 50,
+      y: Math.round((item.y || 0) * 50) / 50,
+      width: Math.round((item.width || 0) * 50) / 50,
+      height: Math.round((item.height || 0) * 50) / 50
+    }))
+    .sort((a, b) => a.role.localeCompare(b.role) || a.label.localeCompare(b.label));
+  return JSON.stringify({
+    gameType: String(state.gameType || "unknown").slice(0, 30),
+    stateSummary: String(state.stateSummary || "").slice(0, 240),
+    objective: String(state.objective || "").slice(0, 120),
+    objects
+  });
+}
+
 
 async function main() {
   const target = validateTarget();
@@ -83,6 +104,7 @@ async function main() {
     let extractedRules = null;
     const motionTracker = createCanvasMotionTracker({ horizonMs: 500 });
     const adapter = {
+      getStateKey: localGameStateKey,
       async observe() {
         if (blocked || page.isClosed()) throw new Error("Browser session was stopped.");
         const title = await page.title().catch(() => "");
