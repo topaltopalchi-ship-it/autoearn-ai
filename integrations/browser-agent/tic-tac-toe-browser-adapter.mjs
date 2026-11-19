@@ -45,7 +45,7 @@ export function createTicTacToeBrowserAdapter(page, {
     const oCount = board.filter(mark => mark === "O").length;
     const currentPlayer = xCount === oCount ? "X" : "O";
     const outcome = getTicTacToeOutcome(board);
-    return { board, player: currentPlayer, agentPlayer: player, currentPlayer, outcome };
+    return { type: "tic-tac-toe", board, player: currentPlayer, agentPlayer: player, currentPlayer, outcome };
   }
 
   return {
@@ -54,9 +54,20 @@ export function createTicTacToeBrowserAdapter(page, {
       return { url: page.url(), gameState };
     },
     async execute(action) {
+      if (action?.type === "wait-for-turn") {
+        const deadline = Date.now() + 30_000;
+        while (Date.now() < deadline) {
+          const state = await readState();
+          if (state.outcome !== "playing" || state.currentPlayer === player) {
+            return { ready: state.outcome !== "playing" || state.currentPlayer === player };
+          }
+          await new Promise(resolve => setTimeout(resolve, 250));
+        }
+        return { ready: false, timedOut: true };
+      }
       if (action?.type !== "select-cell" || !Number.isInteger(action.index) ||
           action.index < 0 || action.index > 8 || action.mark !== player) {
-        throw new Error("Only a valid select-cell action for the configured player is allowed.");
+        throw new Error("Only a valid select-cell or wait-for-turn action is allowed.");
       }
       const board = page.locator(boardSelector);
       const cell = board.locator(`${cellSelector}[${indexAttribute}="${action.index}"]`);
@@ -69,7 +80,11 @@ export function createTicTacToeBrowserAdapter(page, {
       await cell.click();
       return { index: action.index };
     },
-    async verify({ before, after, action }) {
+    async verify({ before, after, action, result }) {
+      if (action?.type === "wait-for-turn") {
+        return result?.ready === true &&
+          (after?.gameState?.outcome !== "playing" || after?.gameState?.currentPlayer === player);
+      }
       const beforeBoard = before?.gameState?.board;
       const afterBoard = after?.gameState?.board;
       return Array.isArray(beforeBoard) && Array.isArray(afterBoard) &&
