@@ -69,6 +69,14 @@ export function createOllamaGameDecision({
           ? observation.canvasMotion.predictedHazards.slice(0, 30) : []
       } : null,
       canvasAvailable: observation.canvasAvailable === true,
+      recentProgress: Array.isArray(observation.recentProgress)
+        ? observation.recentProgress.slice(-5).map(item => ({
+            actionKey: String(item?.actionKey || "").slice(0, 40),
+            feedback: ["good", "bad", "neutral"].includes(item?.feedback) ? item.feedback : "neutral",
+            confidence: Number.isFinite(item?.confidence) ? Math.max(0, Math.min(1, item.confidence)) : 0,
+            signals: Array.isArray(item?.signals) ? item.signals.slice(0, 4).map(signal => String(signal).slice(0, 60)) : []
+          }))
+        : [],
       canvasTactics: observation.canvasTactics && typeof observation.canvasTactics === "object" ? {
         mode: ["pursue", "evade", "wait", "observe"].includes(observation.canvasTactics.mode)
           ? observation.canvasTactics.mode : "observe",
@@ -116,6 +124,8 @@ export function createOllamaGameDecision({
       "canvasMotion contains rough short-horizon predictions and simple observed patterns (horizontal, vertical, diagonal, oscillating, stationary), not guaranteed trajectories. approachingPlayer means recent detected distance decreased. collisionRisk means the predicted player and hazard boxes overlap; it is a conservative warning, not proof of collision. Avoid actions that move into a flagged hazard; if no clearly safer move exists, stop. Do not infer a safe path from missing predictions.",
       "canvasTactics is a conservative geometric hint, not a command or proof of safety. In evade mode prioritize avoiding predicted overlap; in wait mode do not force a move; in pursue mode consider the suggested direction only if the screenshot and game rules agree. The planner assumes simple cardinal movement and may not match the game's physics.",
       "Tactical assessment: " + JSON.stringify(snapshot.canvasTactics),
+      "Recent verified outcomes from this same session (advisory only; geometric estimates are not ground truth; do not treat neutral as failure): " + JSON.stringify(snapshot.recentProgress),
+      "If the same action repeatedly has negative observed progress, reconsider it; if evidence is neutral, do not infer success or failure.",
       "Owner-rated experience hints for this exact state (not guarantees; do not blindly follow): " + JSON.stringify(memoryHints),
       "For canvas clicks, the supplied decision image is cropped to the game canvas when available. Choose x and y as normalized fractions relative to that entire image (0 is left/top, 1 is right/bottom), and include confidence from 0 to 1. Only act when confidence is at least 0.8; otherwise return stop.",
       "Observation JSON: " + JSON.stringify(snapshot)
