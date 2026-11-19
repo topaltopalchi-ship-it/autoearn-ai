@@ -304,6 +304,22 @@ Deno.test("flags missing prize amount, payout timing, organizer identity and win
   );
 });
 
+Deno.test("does not mistake a minimum withdrawal amount for a prize amount", () => {
+  const flags = candidateReviewFlags(
+    "Free cash contest",
+    "Minimum withdrawal is $10. PayPal payout available. No withdrawal fees.",
+  );
+  assertEquals(flags.includes("prize_amount_not_found"), true);
+});
+
+Deno.test("recognizes a prize amount when explicitly tied to a prize label", () => {
+  const flags = candidateReviewFlags(
+    "Free cash contest",
+    "Prize: $250 USD. Minimum withdrawal is $10. PayPal payout available. No withdrawal fees.",
+  );
+  assertEquals(flags.includes("prize_amount_not_found"), false);
+});
+
 Deno.test("does not flag disclosed prize, payout timing, organizer and winner selection terms", () => {
   assertEquals(
     candidateReviewFlags("Free cash prize contest", "Sponsor: Example Games. Prize is $500 USD. Winners are selected by highest score. Payment will be made within 30 days via PayPal. Minimum withdrawal is 10 USD. No withdrawal fees. No purchase necessary."),
