@@ -83,3 +83,51 @@ def score_opportunity(opportunity: Opportunity) -> dict[str, object]:
         "reasons": reasons,
         "disclaimer": "Estimate based only on supplied metadata; verify platform terms and eligibility yourself.",
     }
+
+
+
+@dataclass(frozen=True)
+class EligibilityReview:
+    """Owner-reviewed eligibility checklist; no network or platform actions occur."""
+
+    official_terms_reviewed: bool = False
+    country_eligible: bool = False
+    supported_cash_payout: bool = False
+    no_deposit_or_purchase: bool = False
+    platform_rules_reviewed: bool = False
+
+    def __post_init__(self) -> None:
+        for field in (
+            "official_terms_reviewed",
+            "country_eligible",
+            "supported_cash_payout",
+            "no_deposit_or_purchase",
+            "platform_rules_reviewed",
+        ):
+            if type(getattr(self, field)) is not bool:
+                raise ValueError(f"{field} must be a boolean")
+
+
+def evaluate_eligibility(review: EligibilityReview) -> dict[str, object]:
+    """Fail closed unless every required free/cash/terms review is confirmed."""
+    if not isinstance(review, EligibilityReview):
+        raise TypeError("review must be an EligibilityReview")
+    checks = {
+        "official_terms_reviewed": review.official_terms_reviewed,
+        "country_eligible": review.country_eligible,
+        "supported_cash_payout": review.supported_cash_payout,
+        "no_deposit_or_purchase": review.no_deposit_or_purchase,
+        "platform_rules_reviewed": review.platform_rules_reviewed,
+    }
+    missing = [name for name, confirmed in checks.items() if not confirmed]
+    return {
+        "eligible_for_manual_review": not missing,
+        "checks": checks,
+        "missing_confirmations": missing,
+        "reason": (
+            "All required owner confirmations are present; this is not independent verification."
+            if not missing
+            else "Blocked until every required confirmation is verified from official platform information."
+        ),
+        "automation_permitted": False,
+    }
