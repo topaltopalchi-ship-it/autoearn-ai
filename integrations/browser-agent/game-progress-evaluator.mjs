@@ -24,13 +24,15 @@ export function evaluateGameProgress(before, after) {
   const beforeOutcome = before?.gameState?.outcome;
   const afterOutcome = after?.gameState?.outcome;
   const explicitOutcome = after?.gameState?.outcomeSource === "dom-attribute";
+  // A trusted terminal marker is authoritative: weaker geometry/metric signals
+  // must never reverse a confirmed win or loss.
   if (explicitOutcome && afterOutcome === "won" && beforeOutcome !== "won") {
-    signals.push("explicit-win");
-    reward += 3;
-  } else if (explicitOutcome && afterOutcome === "lost" && beforeOutcome !== "lost") {
-    signals.push("explicit-loss");
-    reward -= 3;
-  } else if (afterOutcome === "won" && beforeOutcome !== "won") {
+    return { reward: 3, feedback: "good", confidence: 1, signals: ["explicit-win"] };
+  }
+  if (explicitOutcome && afterOutcome === "lost" && beforeOutcome !== "lost") {
+    return { reward: -3, feedback: "bad", confidence: 1, signals: ["explicit-loss"] };
+  }
+  if (afterOutcome === "won" && beforeOutcome !== "won") {
     signals.push("visible-win-hint");
     reward += 1;
   } else if (afterOutcome === "lost" && beforeOutcome !== "lost") {
