@@ -60,6 +60,17 @@ test("finds a supported board inside a same-origin nested folder and selects its
   assert.equal(page.url(), result.selected.url);
 });
 
+test("detects an Othello board only with 64 indexed cells and current-player metadata", async () => {
+  const start = "https://site.example/home";
+  const cells = Array.from({ length: 64 }, (_, index) => ({ index, mark: index === 27 || index === 36 ? "W" : index === 28 || index === 35 ? "B" : "" }));
+  const page = fakePage(start, {
+    "/home": { links: [{ href: "/games/othello", label: "Othello" }] },
+    "/games/othello": { candidates: [{ kind: "othello", boardKey: "o", cells, currentPlayer: "B" }] }
+  });
+  const result = await discoverSupportedGame(page);
+  assert.equal(result.selected.detection.gameType, "othello");
+});
+
 test("detects a 42-cell Connect Four board inside a nested game folder", async () => {
   const start = "https://site.example/home";
   const cells = Array.from({ length: 42 }, (_, index) => ({ index, mark: index === 41 ? "X" : "" }));
