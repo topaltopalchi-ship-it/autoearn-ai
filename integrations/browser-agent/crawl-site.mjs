@@ -1,11 +1,19 @@
 import { classifySitePage } from "./page-classifier.mjs";
 
+const FOLDER_BUTTON_LABEL = /folder|category|categories|collection|library|arcade|room|level|پوشه|دسته|مجموعه|اتاق|مرحله/i;
+
+export function isFolderExpandTarget(target) {
+  return target?.role === "button" && FOLDER_BUTTON_LABEL.test(String(target.name || ""));
+}
+
 export async function crawlSameOriginSite({
   startUrl,
   approvedOrigin,
   openPage,
   inspectPage,
   isBlocked = () => false,
+  expandFolderButton,
+  maxInteractions = 20,
   maxPages = 12,
   maxDepth = 3,
   maxDurationMs = 45_000,
@@ -21,6 +29,8 @@ export async function crawlSameOriginSite({
   const queue = [{ url: start.href, depth: 0 }];
   const visited = new Set();
   const pages = [];
+  const expandedControls = new Set();
+  let interactions = 0;
   let depthTruncated = false;
   const started = now();
   while (queue.length && pages.length < maxPages && now() - started < maxDurationMs) {
@@ -36,13 +46,36 @@ export async function crawlSameOriginSite({
     if (isBlocked(observation)) {
       return { status: "human_required", reason: "verification_gate_detected", pages, visited: [...visited] };
     }
-    const targets = Array.isArray(observation?.navigationTargets) ? observation.navigationTargets : [];
+    let targets = Array.isArray(observation?.navigationTargets) ? [...observation.navigationTargets] : [];
     const classification = classifySitePage({ ...observation, url });
+    const expandedButtons = [];
+    if (classification.type === "folder" && typeof expandFolderButton === "function") {
+      for (const button of targets.filter(isFolderExpandTarget)) {
+        const key = url + "\\0" + button.name;
+        if (expandedControls.has(key) || interactions >= maxInteractions) continue;
+        expandedControls.add(key);
+        interactions++;
+        const expanded = await expandFolderButton(button.name);
+        if (!expanded) continue;
+        expandedButtons.push(button.name);
+        const refreshed = await inspectPage();
+        if (isBlocked(refreshed)) {
+          return { status: "human_required", reason: "verification_gate_detected", pages, visited: [...visited] };
+        }
+        const refreshedTargets = Array.isArray(refreshed?.navigationTargets) ? refreshed.navigationTargets : [];
+        const known = new Set(targets.map(target => target.role + "\\0" + target.name + "\\0" + (target.href || "")));
+        for (const target of refreshedTargets) {
+          const targetKey = target.role + "\\0" + target.name + "\\0" + (target.href || "");
+          if (!known.has(targetKey)) targets.push(target);
+        }
+      }
+    }
     pages.push({
       url,
       depth: current.depth,
       title: String(observation?.title || "").slice(0, 200),
       classification,
+      expandedButtons,
       targets
     });
     if (current.depth >= maxDepth) {
