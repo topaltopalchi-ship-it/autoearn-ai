@@ -287,3 +287,33 @@ test("passes only the five most recent sanitized progress outcomes to the next d
   assert.doesNotMatch(prompt, /forged/);
   assert.doesNotMatch(prompt, /x{61}/);
 });
+
+
+test("supplies only the last six sanitized actions from the current run", async () => {
+  let prompt;
+  const decide = createOllamaGameDecision({
+    model: "local-model",
+    allowCanvasClicks: true,
+    fetchImpl: async (_url, options) => {
+      prompt = JSON.parse(options.body).messages[0].content;
+      return { ok: true, status: 200, json: async () => ({
+        message: { content: '{"type":"press","key":"ArrowUp"}' }
+      }) };
+    }
+  });
+  await decide({}, [
+    { action: { type: "press", key: "Escape" }, verified: true },
+    ...Array.from({ length: 5 }, (_, index) => ({
+      action: { type: "press", key: ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter"][index] },
+      verified: index % 2 === 0
+    })),
+    { action: { type: "click-canvas", x: 0.37, y: 0.82, confidence: 0.91 }, verified: true },
+    { action: { type: "purchase", amount: 99 }, verified: true }
+  ]);
+  assert.match(prompt, /Recent actions in this run/);
+  assert.doesNotMatch(prompt, /Escape/);
+  assert.match(prompt, /"xBucket":3/);
+  assert.match(prompt, /"yBucket":8/);
+  assert.doesNotMatch(prompt, /purchase/);
+  assert.doesNotMatch(prompt, /0\.91/);
+});
