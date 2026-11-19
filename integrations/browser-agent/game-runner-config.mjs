@@ -10,7 +10,13 @@ export function resolveDetectedGame(detected, player = "") {
     return { ok: false, reason: detected.gameType === "connect-four"
       ? "connect_four_player_must_be_X_or_O" : "tic_tac_toe_player_must_be_X_or_O" };
   }
-  if (detected.gameType === "othello") {\n    return {\n      ok: true, gameType: "othello", adapter: "othello",\n      player: normalizedPlayer, allowedActions: ["click-cell", "pass-turn", "wait-for-turn"]\n    };\n  }\n  if (detected.gameType === "connect-four") {
+  if (detected.gameType === "othello") {
+    return {
+      ok: true, gameType: "othello", adapter: "othello",
+      player: normalizedPlayer, allowedActions: ["click-cell", "pass-turn", "wait-for-turn"]
+    };
+  }
+  if (detected.gameType === "connect-four") {
     return {
       ok: true, gameType: "connect-four", adapter: "connect-four",
       player: normalizedPlayer, allowedActions: ["click-column", "wait-for-turn"]
