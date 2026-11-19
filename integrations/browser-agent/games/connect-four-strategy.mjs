@@ -22,8 +22,16 @@ function normalizeBoard(board) {
       else if (foundGap) throw new TypeError("Connect Four board violates gravity.");
     }
   }
-  if (hasFour(normalized, "X") && hasFour(normalized, "O")) {
-    throw new TypeError("Connect Four board cannot contain wins for both players.");
+  const xCount = normalized.flat().filter(mark => mark === "X").length;
+  const oCount = normalized.flat().filter(mark => mark === "O").length;
+  if (xCount < oCount || xCount - oCount > 1) {
+    throw new TypeError("Connect Four turn counts are inconsistent.");
+  }
+  const xWon = hasFour(normalized, "X");
+  const oWon = hasFour(normalized, "O");
+  if (xWon && oWon) throw new TypeError("Connect Four board cannot contain wins for both players.");
+  if ((xWon && xCount !== oCount + 1) || (oWon && xCount !== oCount)) {
+    throw new TypeError("Connect Four winner is inconsistent with turn counts.");
   }
   return normalized;
 }
