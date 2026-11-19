@@ -6,9 +6,11 @@ export function resolveDetectedGame(detected, player = "") {
     return { ok: true, gameType: "2048", adapter: "2048", allowedActions: ["press"] };
   }
   const normalizedPlayer = String(player).toUpperCase();
-  if (!["X", "O"].includes(normalizedPlayer)) {
-    return { ok: false, reason: detected.gameType === "connect-four"
-      ? "connect_four_player_must_be_X_or_O" : "tic_tac_toe_player_must_be_X_or_O" };
+  const validPlayers = detected.gameType === "othello" ? ["B", "W"] : ["X", "O"];
+  if (!validPlayers.includes(normalizedPlayer)) {
+    return { ok: false, reason: detected.gameType === "othello"
+      ? "othello_player_must_be_B_or_W" : detected.gameType === "connect-four"
+        ? "connect_four_player_must_be_X_or_O" : "tic_tac_toe_player_must_be_X_or_O" };
   }
   if (detected.gameType === "othello") {
     return {
