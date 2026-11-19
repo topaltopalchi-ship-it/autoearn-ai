@@ -46,5 +46,5 @@ test("rejects malformed boards, invalid players, and unbounded search depths",()
 test("accepts a two-dimensional board and normalizes documented disc aliases",()=>{
   const board=Array.from({length:8},()=>Array(8).fill(""));
   board[3][3]="white"; board[3][4]="x"; board[4][3]="black"; board[4][4]="o";
-  assert.deepEqual(getOthelloLegalMoves(board,"BLACK"),[19,26,37,44]);
+  assert.deepEqual(getOthelloLegalMoves(board,"B"),[19,26,37,44]);
 });
