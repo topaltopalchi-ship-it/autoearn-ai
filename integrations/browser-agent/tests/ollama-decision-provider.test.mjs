@@ -115,10 +115,10 @@ test("rejects game-cell clicks when disabled or outside the bounded index range"
 test("accepts normalized canvas points only when canvas clicks are enabled and available", async () => {
   const decide = createOllamaGameDecision({
     model: "local-model", allowCanvasClicks: true,
-    fetchImpl: mockFetch({ message: { content: '{"type":"click-canvas","x":0.25,"y":0.8}' } })
+    fetchImpl: mockFetch({ message: { content: '{"type":"click-canvas","x":0.25,"y":0.8,"confidence":0.93}' } })
   });
   assert.deepEqual(await decide({ canvasAvailable: true }), {
-    type: "click-canvas", x: 0.25, y: 0.8
+    type: "click-canvas", x: 0.25, y: 0.8, confidence: 0.93
   });
   await assert.rejects(() => decide({ canvasAvailable: false }), /canvas is available/);
 });
@@ -126,12 +126,26 @@ test("accepts normalized canvas points only when canvas clicks are enabled and a
 test("rejects canvas clicks when disabled or outside normalized bounds", async () => {
   const disabled = createOllamaGameDecision({
     model: "local-model",
-    fetchImpl: mockFetch({ message: { content: '{"type":"click-canvas","x":0.5,"y":0.5}' } })
+    fetchImpl: mockFetch({ message: { content: '{"type":"click-canvas","x":0.5,"y":0.5,"confidence":0.9}' } })
   });
   await assert.rejects(() => disabled({ canvasAvailable: true }), /unsupported action/);
   const enabled = createOllamaGameDecision({
     model: "local-model", allowCanvasClicks: true,
-    fetchImpl: mockFetch({ message: { content: '{"type":"click-canvas","x":1.2,"y":0.5}' } })
+    fetchImpl: mockFetch({ message: { content: '{"type":"click-canvas","x":1.2,"y":0.5,"confidence":0.9}' } })
   });
   await assert.rejects(() => enabled({ canvasAvailable: true }), /unsupported action/);
+});
+
+
+test("requires at least 0.8 model confidence for canvas clicks", async () => {
+  const low = createOllamaGameDecision({
+    model: "local-model", allowCanvasClicks: true,
+    fetchImpl: mockFetch({ message: { content: '{"type":"click-canvas","x":0.4,"y":0.6,"confidence":0.79}' } })
+  });
+  await assert.rejects(() => low({ canvasAvailable: true }), /unsupported action/);
+  const missing = createOllamaGameDecision({
+    model: "local-model", allowCanvasClicks: true,
+    fetchImpl: mockFetch({ message: { content: '{"type":"click-canvas","x":0.4,"y":0.6}' } })
+  });
+  await assert.rejects(() => missing({ canvasAvailable: true }), /unsupported action/);
 });
