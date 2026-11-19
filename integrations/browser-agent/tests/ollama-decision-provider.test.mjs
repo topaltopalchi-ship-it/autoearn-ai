@@ -55,3 +55,32 @@ test("enforces a local model call budget", async () => {
 test("requires a model name", () => {
   assert.throws(() => createOllamaGameDecision({}), /model name/);
 });
+
+
+test("includes only owner-rated experience hints for the observed state", async () => {
+  let body;
+  const decide = createOllamaGameDecision({
+    model: "local-model",
+    experienceMemory: {
+      async getHints(input) {
+        assert.deepEqual(input, {
+          gameType: "2048",
+          stateSummary: "two tiles",
+          objective: "merge",
+        });
+        return [{ key: "ArrowLeft", good: 2, bad: 0, net: 2 }];
+      }
+    },
+    fetchImpl: async (_url, options) => {
+      body = JSON.parse(options.body);
+      return { ok: true, status: 200, json: async () => ({
+        message: { content: '{"type":"press","key":"ArrowLeft"}' }
+      }) };
+    }
+  });
+  await decide({
+    gameState: { gameType: "2048", stateSummary: "two tiles", objective: "merge" }
+  });
+  assert.match(body.messages[0].content, /Owner-rated experience hints/);
+  assert.match(body.messages[0].content, /ArrowLeft/);
+});
