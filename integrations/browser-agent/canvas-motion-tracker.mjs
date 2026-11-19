@@ -80,16 +80,29 @@ export function createCanvasMotionTracker({ horizonMs = PREDICTION_HORIZON_MS, m
         };
       });
       const player = tracks.find(track => track.role === "player" && track.confidence >= 0.8);
+      const previousPlayer = player ? previous.find(item => item.id === player.id) : null;
       const playerCenter = player ? center(player) : null;
-      if (playerCenter) {
+      const previousPlayerCenter = previousPlayer ? center(previousPlayer) : null;
+      if (playerCenter && previousPlayerCenter && canCompare) {
         for (const track of tracks) {
           if (!["hazard", "obstacle"].includes(track.role)) continue;
+          const oldHazard = previous.find(item => item.id === track.id);
+          if (!oldHazard) {
+            track.approachingPlayer = false;
+            continue;
+          }
           const currentDistance = Math.hypot(center(track).x - playerCenter.x, center(track).y - playerCenter.y);
-          const oldDistance = (histories.get(track.id) || []).length > 1
-            ? Math.hypot((histories.get(track.id).at(-2).x) - playerCenter.x, (histories.get(track.id).at(-2).y) - playerCenter.y)
-            : currentDistance;
+          const oldDistance = Math.hypot(center(oldHazard).x - previousPlayerCenter.x, center(oldHazard).y - previousPlayerCenter.y);
           track.approachingPlayer = currentDistance + 0.005 < oldDistance;
         }
+      } else {
+        for (const track of tracks) {
+          if (["hazard", "obstacle"].includes(track.role)) track.approachingPlayer = false;
+        }
+      }
+      const activeIds = new Set(tracks.map(track => track.id));
+      for (const id of histories.keys()) {
+        if (!activeIds.has(id)) histories.delete(id);
       }
       previous = current.map((item, index) => ({ ...item, label: item.label || "", id: tracks[index].id }));
       previousAt = now;
