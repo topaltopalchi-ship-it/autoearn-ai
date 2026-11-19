@@ -14,7 +14,18 @@ export function createStateKey({ gameType = "unknown", stateSummary = "", object
 }
 
 function validActionKey(value) {
-  return ACTION_KEYS.has(value) || /^click-cell:(?:[0-9]|[1-9][0-9])$/.test(value);
+  return ACTION_KEYS.has(value) ||
+    /^click-cell:(?:[0-9]|[1-9][0-9])$/.test(value) ||
+    /^click-canvas:(?:[0-9]):(?:[0-9])$/.test(value);
+}
+
+function canvasActionKey(action) {
+  if (action?.type !== "click-canvas" || !Number.isFinite(action.x) || !Number.isFinite(action.y) ||
+      action.x < 0 || action.x > 1 || action.y < 0 || action.y > 1 ||
+      !Number.isFinite(action.confidence) || action.confidence < 0.8 || action.confidence > 1) return null;
+  const x = Math.min(9, Math.floor(action.x * 10));
+  const y = Math.min(9, Math.floor(action.y * 10));
+  return `click-canvas:${x}:${y}`;
 }
 
 function validRecord(record) {
@@ -27,7 +38,7 @@ function validRecord(record) {
 
 /**
  * Small local-only experience ledger. It stores hashed state summaries and
- * keyboard actions only; never screenshots, page text, URLs, credentials or cookies.
+ * allowlisted keyboard, indexed-cell and coarse canvas-region actions only; never screenshots, page text, URLs, credentials or cookies.
  */
 export function createGameExperienceMemory({ filePath = ".autoearn/experience-memory.json", now = () => new Date().toISOString() } = {}) {
   if (typeof filePath !== "string" || !filePath.trim()) throw new TypeError("A local memory file path is required.");
@@ -65,8 +76,11 @@ export function createGameExperienceMemory({ filePath = ".autoearn/experience-me
       actionKey = action.key;
     } else if (action?.type === "click-cell" && Number.isInteger(action.index) && action.index >= 0 && action.index <= 99) {
       actionKey = `click-cell:${action.index}`;
+    } else if (action?.type === "click-canvas") {
+      actionKey = canvasActionKey(action);
+      if (!actionKey) throw new TypeError("Canvas experiences require normalized coordinates and confidence of at least 0.8.");
     } else {
-      throw new TypeError("Only allowlisted keyboard actions or indexed game-cell clicks can be remembered.");
+      throw new TypeError("Only allowlisted keyboard actions, indexed game-cell clicks, or confident canvas clicks can be remembered.");
     }
     const entry = {
       id: randomUUID(),
