@@ -47,12 +47,12 @@ test("does not save an experience when the state is unchanged", async () => {
   assert.equal(saved, false);
 });
 
-test("rejects non-keyboard actions even when state changed", async () => {
+test("does not store non-keyboard actions while preserving successful state verification", async () => {
   const before = { snapshot: "before" };
   const after = { snapshot: "after" };
   let saved = false;
   assert.equal(await recordVerifiedExperience({ async recordPending() { saved = true; } }, [], {
     before, action: { type: "click", key: "ArrowRight" }, after
-  }), false);
+  }), true);
   assert.equal(saved, false);
 });
