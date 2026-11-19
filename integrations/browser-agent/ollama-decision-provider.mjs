@@ -53,7 +53,7 @@ export function createOllamaGameDecision({
   if (!keys.size || [...keys].some(key => !DEFAULT_KEYS.has(key))) throw new TypeError("allowedKeys contains an unsupported key.");
   let calls = 0;
 
-  const decide = async observation => {
+  const decide = async (observation, history = []) => {
     if (calls >= maxCalls) throw new Error("Local model decision call budget exhausted.");
     if (!observation || typeof observation !== "object") throw new TypeError("A game observation is required.");
     const snapshot = {
@@ -100,6 +100,24 @@ export function createOllamaGameDecision({
         break;
       }
     }
+    const recentActions = Array.isArray(history) ? history.slice(-6).map(record => {
+      const action = record?.action || {};
+      if (action.type === "press" && DEFAULT_KEYS.has(action.key)) {
+        return { type: "press", key: action.key, verified: record.verified === true };
+      }
+      if (action.type === "click-cell" && Number.isInteger(action.index) && action.index >= 0 && action.index < 100) {
+        return { type: "click-cell", index: action.index, verified: record.verified === true };
+      }
+      if (action.type === "click-canvas" && Number.isFinite(action.x) && Number.isFinite(action.y)) {
+        return {
+          type: "click-canvas",
+          xBucket: Math.max(0, Math.min(9, Math.floor(action.x * 10))),
+          yBucket: Math.max(0, Math.min(9, Math.floor(action.y * 10))),
+          verified: record.verified === true
+        };
+      }
+      return null;
+    }).filter(Boolean) : [];
     const memoryHints = experienceMemory?.getHints
       ? await experienceMemory.getHints({
           gameType: snapshot.gameState?.gameType ?? "unknown",
@@ -124,6 +142,8 @@ export function createOllamaGameDecision({
       "canvasMotion contains rough short-horizon predictions and simple observed patterns (horizontal, vertical, diagonal, oscillating, stationary), not guaranteed trajectories. approachingPlayer means recent detected distance decreased. collisionRisk means the predicted player and hazard boxes overlap; it is a conservative warning, not proof of collision. Avoid actions that move into a flagged hazard; if no clearly safer move exists, stop. Do not infer a safe path from missing predictions.",
       "canvasTactics is a conservative geometric hint, not a command or proof of safety. In evade mode prioritize avoiding predicted overlap; in wait mode do not force a move; in pursue mode consider the suggested direction only if the screenshot and game rules agree. The planner assumes simple cardinal movement and may not match the game's physics.",
       "Tactical assessment: " + JSON.stringify(snapshot.canvasTactics),
+      "Recent actions in this run (latest six, sanitized): " + JSON.stringify(recentActions),
+      "Use the recent action sequence to avoid mindless repetition. A verified action only means the board changed, not that it helped.",
       "Recent verified outcomes from this same session (advisory only; geometric estimates are not ground truth; do not treat neutral as failure): " + JSON.stringify(snapshot.recentProgress),
       "If the same action repeatedly has negative observed progress, reconsider it; if evidence is neutral, do not infer success or failure.",
       "Owner-rated experience hints for this exact state (not guarantees; do not blindly follow): " + JSON.stringify(memoryHints),
