@@ -153,8 +153,9 @@ async function main() {
         }
       },
       isTerminal(observation) {
+        if (["won", "lost"].includes(observation?.gameState?.outcome)) return true;
         return /game over|you win|you won|you lost|victory|defeat|بازی تمام شد|برنده شدی|باختی/i
-          .test((observation?.snapshot || "") + "\n" + (observation?.text || ""));
+          .test((observation?.snapshot || "") + "\\n" + (observation?.text || ""));
       }
     };
 
