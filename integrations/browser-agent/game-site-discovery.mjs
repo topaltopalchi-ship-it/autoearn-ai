@@ -42,7 +42,12 @@ async function inspectPage(page, origin) {
         index: cell.getAttribute("data-game-cell-index"),
         mark: cell.getAttribute("data-mark") ?? cell.textContent
       }));
-      const othelloCells = Array.from(board.querySelectorAll("[data-game-cell][data-game-cell-index]")).map(cell => ({\n        index: cell.getAttribute("data-game-cell-index"),\n        mark: cell.getAttribute("data-mark") ?? cell.textContent\n      }));\n      const currentPlayer = board.getAttribute("data-current-player") || "";\n      const cells = Array.from(board.querySelectorAll("[data-index]")).map(cell => ({
+      const othelloCells = Array.from(board.querySelectorAll("[data-game-cell][data-game-cell-index]")).map(cell => ({
+        index: cell.getAttribute("data-game-cell-index"),
+        mark: cell.getAttribute("data-mark") ?? cell.textContent
+      }));
+      const currentPlayer = board.getAttribute("data-current-player") || "";
+      const cells = Array.from(board.querySelectorAll("[data-index]")).map(cell => ({
         index: cell.getAttribute("data-index"),
         mark: cell.getAttribute("data-mark") ?? cell.textContent
       }));
