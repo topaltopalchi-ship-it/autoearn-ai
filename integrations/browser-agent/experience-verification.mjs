@@ -9,17 +9,21 @@ export function hasMeaningfulStateChange(before, after) {
     beforeState.scene !== afterState.scene;
 }
 
-export async function recordVerifiedExperience(memory, pending, { before, action, after }) {
+export async function recordVerifiedExperience(memory, pending, { before, action, after, onMemoryError = () => {} }) {
   if (!hasMeaningfulStateChange(before, after)) return false;
   if (!memory || typeof memory.recordPending !== "function") return true;
-  if (!action || action.type !== "press" || typeof action.key !== "string") return false;
+  if (!action || action.type !== "press" || typeof action.key !== "string") return true;
   const gameType = before.gameState?.gameType || "unknown";
-  const id = await memory.recordPending({
-    gameType,
-    stateSummary: before.gameState?.stateSummary || "",
-    objective: before.gameState?.objective || "",
-    action
-  });
-  pending?.push({ id, gameType, actionKey: action.key });
+  try {
+    const id = await memory.recordPending({
+      gameType,
+      stateSummary: before.gameState?.stateSummary || "",
+      objective: before.gameState?.objective || "",
+      action
+    });
+    pending?.push({ id, gameType, actionKey: action.key });
+  } catch (error) {
+    onMemoryError(error);
+  }
   return true;
 }
