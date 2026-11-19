@@ -29,11 +29,15 @@ export function hasMeaningfulStateChange(before, after) {
 export async function recordVerifiedExperience(memory, pending, { before, action, after, onMemoryError = () => {} }) {
   if (!hasMeaningfulStateChange(before, after)) return false;
   if (!memory || typeof memory.recordPending !== "function") return true;
-  const isKeyboardAction = action?.type === "press" && typeof action.key === "string";
+  const isKeyboardAction = action?.type === "press" &&
+    ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "Escape", " "].includes(action.key);
   const isCellAction = action?.type === "click-cell" && Number.isInteger(action.index) && action.index >= 0 && action.index <= 99;
   const isCanvasAction = action?.type === "click-canvas" && Number.isFinite(action.x) && action.x >= 0 && action.x <= 1 &&
     Number.isFinite(action.y) && action.y >= 0 && action.y <= 1 && Number.isFinite(action.confidence) && action.confidence >= 0.8 && action.confidence <= 1;
   if (!isKeyboardAction && !isCellAction && !isCanvasAction) return true;
+  const safeAction = isKeyboardAction ? { type: "press", key: action.key } : isCellAction
+    ? { type: "click-cell", index: action.index }
+    : { type: "click-canvas", x: action.x, y: action.y, confidence: action.confidence };
   const actionKey = isKeyboardAction ? action.key : isCellAction
     ? `click-cell:${action.index}`
     : `click-canvas:${Math.min(9, Math.floor(action.x * 10))}:${Math.min(9, Math.floor(action.y * 10))}`;
@@ -43,7 +47,7 @@ export async function recordVerifiedExperience(memory, pending, { before, action
       gameType,
       stateSummary: before.gameState?.stateSummary || "",
       objective: before.gameState?.objective || "",
-      action
+      action: safeAction
     });
     const progress = evaluateGameProgress(before, after);
     let feedbackStatus = "needs-review";
