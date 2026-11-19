@@ -112,6 +112,10 @@ Run `node integrations/browser-agent/games/run-2048-heuristic-comparison.mjs` to
 
 Newly discovered opportunity records include a bounded provenance marker in their notes: the search provider, exact search query, discovery timestamp, and a short excerpt returned by the search provider. The dashboard displays the source, timestamp, query, and escaped excerpt so an owner can trace why a candidate was surfaced. This is search-result provenance only: it does not verify the destination's identity, official rules, cash payout, country eligibility, or payment history. Verify those independently from the platform's official pages before changing an opportunity's eligibility status.
 
+### Duplicate discovery handling
+
+Within one search batch, tracking-only URL differences are canonicalized and merged. Distinct search queries, excerpts, reward descriptions, categories, and review notes are retained in the merged candidate. Discovery diagnostics distinguish duplicates collapsed within the current batch from candidates already saved by the owner. Existing owner records are intentionally left unchanged when rediscovered: status, score, official review notes, and other manual decisions are not overwritten by fresh search snippets.
+
 ### Fail-closed free-cash eligibility review
 
 The Python opportunity module now exposes `EligibilityReview` and `evaluate_eligibility`. A candidate remains blocked unless the owner confirms all five items from official information: terms reviewed, country eligibility, a supported cash payout, no required deposit or purchase, and platform rules reviewed. The result lists each confirmation still missing. Passing this checklist permits manual review only; it never enables automated gameplay or proves that a platform will pay. Automated interaction remains disabled unless separately authorized by the platform's official rules and the applicable safety checks.
