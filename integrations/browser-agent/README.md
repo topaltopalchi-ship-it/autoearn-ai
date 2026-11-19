@@ -76,7 +76,7 @@ Ollama inference is local and has no per-request API fee, but downloading model 
 
 The experimental local AI runner now performs a separate rule-extraction pass before it starts the action loop. It sends bounded visible page text and an accessibility snapshot to the local Ollama model, asks for a Persian explanation of the objective, controls, turn order, scoring, win/loss conditions, hazards, and unresolved questions, and validates the response against a JSON Schema. The runner refuses to start if the objective or at least one control is missing, confidence is below 0.75, or the page explicitly prohibits automation. A missing statement about automation permission is treated as unclear, never as permission; the operator must still explicitly confirm that the site's published rules allow automated play.
 
-The extractor strips URL query strings/fragments, limits page text, uses a loopback-only Ollama endpoint, and treats all page content as untrusted data rather than instructions to the agent. It does not click help menus or navigate away to hunt for instructions yet; if the current page does not expose enough rules, it stops rather than inventing them. This is a first safe gate, not proof that a model has understood every game mechanic. The same local model is used for perception and rule extraction; no paid API is called.
+The extractor strips URL query strings/fragments, limits page text, uses a loopback-only Ollama endpoint, and treats all page content as untrusted data rather than instructions to the agent. It also performs a bounded discovery pass over the current page and up to four clearly-labelled, same-origin help/rules links before visual game detection. It does not click arbitrary buttons, submit forms, follow external links, or bypass verification; if no adequate rules are found, it stops rather than inventing them. This is a first safe gate, not proof that a model has understood every game mechanic. The same local model is used for perception and rule extraction; no paid API is called.
 
 ## Current stage and boundaries
 
@@ -157,3 +157,8 @@ npm run feedback -- <experience-id> bad
 The next time the same game type and same normalized state summary appear, the local decision prompt receives a short list of owner-rated actions for that exact state. These hints are advisory, not guaranteed strategies; the model still evaluates the current screenshot. Unrated experiences are never used as positive or negative examples. The memory is local to the computer running the agent and can be removed by deleting `.autoearn/experience-memory.json`.
 
 Set `AUTOEARN_MEMORY_FILE` to choose a different local file path. Do not place this file in a public repository or shared folder.
+
+
+## Bounded instruction-page discovery
+
+Before visual game-state detection, `play:local-ai` reads the current page and may visit up to four clearly-labelled same-origin HTTPS help, rules, guide, tutorial, or instructions links (five pages total including the starting page). It collects bounded visible text and same-origin iframe text, strips query strings/fragments from discovered links, then returns to the original game URL before play. It never clicks arbitrary page controls or follows external links. CAPTCHA/verification text or an origin change stops the run. This helps when instructions live on a separate help page, but it does not automatically navigate folder widgets or start a game from a help-only landing page.
