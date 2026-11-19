@@ -48,14 +48,14 @@ export function createOllamaGameDecision({
     if (!observation || typeof observation !== "object") throw new TypeError("A game observation is required.");
     const snapshot = {
       title: String(observation.title ?? "").slice(0, 160),
-      url: String(observation.url ?? "").slice(0, 500),
+      url: (() => { try { const u = new URL(String(observation.url ?? "")); return u.origin + u.pathname.slice(0, 300); } catch { return ""; } })(),
       text: String(observation.snapshot ?? observation.text ?? "").slice(0, 6_000),
       gameState: observation.gameState ?? observation.state ?? null
     };
     const images = [];
     if (typeof observation.screenshot === "string") {
       const match = observation.screenshot.match(/^data:image\/(?:png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/);
-      if (match) images.push(match[1]);
+      if (match && match[1].length <= 3_000_000) images.push(match[1]);
     }
     const prompt = [
       "You are a cautious game decision module. Analyze only the supplied game observation.",
