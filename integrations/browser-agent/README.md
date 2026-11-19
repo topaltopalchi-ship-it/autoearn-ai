@@ -224,3 +224,13 @@ This is deliberately a lightweight constant-velocity estimate, not physics simul
 
 
 The motion tracker also labels short observed patterns as horizontal, vertical, diagonal, stationary, or oscillating when enough consecutive matches exist. A high-confidence player detection allows a basic approaching-player flag when a hazard's observed distance decreases. These are descriptive heuristics only: no collision prediction, path guarantee, or automatic win claim is implied.
+
+
+
+## Adaptive session feedback and conservative outcome rating
+
+The local runner now carries at most five recent verified action outcomes into the next decision prompt. Each entry is reduced to an allowlisted action key, a good/bad/neutral progress suggestion, bounded confidence, and a few short signal labels. This is session-local advisory context, not automatic model training. Geometric progress estimates are not treated as ground truth, and neutral observations are not counted as failures.
+
+Automatic positive/negative experience rating is restricted to a changed outcome explicitly read from a site's `data-game-outcome` or `data-game-status` attribute. Visible-text phrases such as “you win” remain lower-confidence hints and cannot automatically rate memory. Owner review remains the preferred source of strategy feedback.
+
+Local memory now discards records older than 30 days when it loads, in addition to its 1,000-record cap. This limits stale strategy hints; it does not change the local-only storage or privacy boundaries above.
