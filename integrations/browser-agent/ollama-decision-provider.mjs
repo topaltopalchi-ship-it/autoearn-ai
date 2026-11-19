@@ -68,7 +68,17 @@ export function createOllamaGameDecision({
         predictedHazards: Array.isArray(observation.canvasMotion.predictedHazards)
           ? observation.canvasMotion.predictedHazards.slice(0, 30) : []
       } : null,
-      canvasAvailable: observation.canvasAvailable === true
+      canvasAvailable: observation.canvasAvailable === true,
+      canvasTactics: observation.canvasTactics && typeof observation.canvasTactics === "object" ? {
+        mode: ["pursue", "evade", "wait", "observe"].includes(observation.canvasTactics.mode)
+          ? observation.canvasTactics.mode : "observe",
+        suggestedKey: DEFAULT_KEYS.has(observation.canvasTactics.suggestedKey)
+          ? observation.canvasTactics.suggestedKey : null,
+        reason: String(observation.canvasTactics.reason || "").slice(0, 100),
+        hazardCount: Number.isInteger(observation.canvasTactics.hazardCount)
+          ? Math.max(0, Math.min(30, observation.canvasTactics.hazardCount)) : 0,
+        targetDetected: observation.canvasTactics.targetDetected === true
+      } : null
     };
     const images = [];
     const imageCandidates = [
@@ -104,6 +114,8 @@ export function createOllamaGameDecision({
       "If the game is unclear, blocked, requests CAPTCHA/verification, or no safe move is evident, return {\"action\":\"stop\"}.",
       "Visual object detections are estimates in normalized coordinates relative to the game canvas. Treat roles and boxes as visual clues, not guarantees; prefer high-confidence player, target, hazard and goal detections, and stop if their meaning or a safe path is unclear.",
       "canvasMotion contains rough short-horizon predictions and simple observed patterns (horizontal, vertical, diagonal, oscillating, stationary), not guaranteed trajectories. approachingPlayer means recent detected distance decreased. collisionRisk means the predicted player and hazard boxes overlap; it is a conservative warning, not proof of collision. Avoid actions that move into a flagged hazard; if no clearly safer move exists, stop. Do not infer a safe path from missing predictions.",
+      "canvasTactics is a conservative geometric hint, not a command or proof of safety. In evade mode prioritize avoiding predicted overlap; in wait mode do not force a move; in pursue mode consider the suggested direction only if the screenshot and game rules agree. The planner assumes simple cardinal movement and may not match the game's physics.",
+      "Tactical assessment: " + JSON.stringify(snapshot.canvasTactics),
       "Owner-rated experience hints for this exact state (not guarantees; do not blindly follow): " + JSON.stringify(memoryHints),
       "For canvas clicks, the supplied decision image is cropped to the game canvas when available. Choose x and y as normalized fractions relative to that entire image (0 is left/top, 1 is right/bottom), and include confidence from 0 to 1. Only act when confidence is at least 0.8; otherwise return stop.",
       "Observation JSON: " + JSON.stringify(snapshot)
