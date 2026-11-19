@@ -50,6 +50,14 @@ test("compares classic and snake heuristics on identical deterministic episodes"
   assert.equal(first.variants[0].variant, "classic-no-snake");
   assert.equal(first.variants[1].variant, "snake-weight-1");
   assert.equal(first.paired.scoreWins + first.paired.scoreTies + first.paired.scoreLosses, 2);
+  assert.equal(first.paired.maxTileWins + first.paired.maxTileTies + first.paired.maxTileLosses, 2);
+  assert.equal(first.paired.baseline2048Wins, first.variants[0].reached2048);
+  assert.equal(first.paired.candidate2048Wins, first.variants[1].reached2048);
+  assert.equal(first.paired.reached2048Delta, first.variants[1].reached2048 - first.variants[0].reached2048);
+  for (const variant of first.variants) {
+    assert.equal(variant.moveLimitStops + variant.gameOvers + variant.reached2048, 2);
+    assert.ok(variant.moveLimitStops >= 0 && variant.moveLimitStops <= 2);
+  }
   assert.ok(Number.isFinite(first.paired.averageScoreDelta));
   assert.ok(first.paired.scoreDeltaBootstrap95.lower95 <= first.paired.scoreDeltaBootstrap95.upper95);
 });
