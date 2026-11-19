@@ -86,6 +86,10 @@
     ]).has(normalized);
   }
 
+  function canStartGuidedSession(opportunity) {
+    return Boolean(opportunity && opportunity.status === "eligible");
+  }
+
   function getEligibilityReviewStatus(review = {}) {
     if (
       review.payment_confirmed === "no" ||
@@ -134,5 +138,6 @@
     replaceOwnerEligibilityReview,
     hasKnownReviewValue,
     getEligibilityReviewStatus,
+    canStartGuidedSession,
   });
 })(globalThis);
