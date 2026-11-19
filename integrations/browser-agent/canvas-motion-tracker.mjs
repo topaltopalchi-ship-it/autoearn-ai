@@ -100,6 +100,15 @@ export function createCanvasMotionTracker({ horizonMs = PREDICTION_HORIZON_MS, m
           if (["hazard", "obstacle"].includes(track.role)) track.approachingPlayer = false;
         }
       }
+      const predictedPlayer = tracks.find(track => track.role === "player" && track.confidence >= 0.8);
+      for (const track of tracks) {
+        if (!["hazard", "obstacle"].includes(track.role)) continue;
+        const p = predictedPlayer?.predicted;
+        const h = track.predicted;
+        track.collisionRisk = Boolean(p &&
+          p.x < h.x + h.width && p.x + p.width > h.x &&
+          p.y < h.y + h.height && p.y + p.height > h.y);
+      }
       const activeIds = new Set(tracks.map(track => track.id));
       for (const id of histories.keys()) {
         if (!activeIds.has(id)) histories.delete(id);
@@ -115,7 +124,8 @@ export function createCanvasMotionTracker({ horizonMs = PREDICTION_HORIZON_MS, m
           x: track.predicted.x, y: track.predicted.y,
           width: track.predicted.width, height: track.predicted.height,
           confidence: track.confidence, moving: track.moving,
-          pattern: track.pattern, approachingPlayer: track.approachingPlayer === true
+          pattern: track.pattern, approachingPlayer: track.approachingPlayer === true,
+          collisionRisk: track.collisionRisk === true
         }))
       };
     },
