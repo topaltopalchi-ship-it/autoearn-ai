@@ -2,6 +2,7 @@ import { chromium } from "playwright";
 import "../../static/game-agent.js";
 import { createOllamaGameDecision } from "./ollama-decision-provider.mjs";
 import { createOllamaGamePerception } from "./ollama-game-perception.mjs";
+import { createOllamaGameRulesExtractor } from "./game-rule-extractor.mjs";
 import { createGameExperienceMemory } from "./game-experience-memory.mjs";
 import { recordVerifiedExperience } from "./experience-verification.mjs";
 
@@ -70,6 +71,8 @@ async function main() {
     const pendingFeedback = [];
     const decide = createOllamaGameDecision({ model, maxCalls: maxModelCalls, experienceMemory });
     const perceive = createOllamaGamePerception({ model, maxCalls: maxModelCalls });
+    const extractRules = createOllamaGameRulesExtractor({ model, maxCalls: 3 });
+    let extractedRules = null;
     const adapter = {
       async observe() {
         if (blocked || page.isClosed()) throw new Error("Browser session was stopped.");
@@ -92,8 +95,22 @@ async function main() {
           title,
           url: page.url(),
           snapshot: (snapshot + "\\nVisual state: " + gameState.stateSummary).slice(0, 10_000),
-          text: (visibleText + "\\nObjective: " + gameState.objective + "\\nControls: " + gameState.controls.join(", ")).slice(0, 3_000),
-          gameState,
+          text: (visibleText + "\\nObjective: " + gameState.objective + "\\nControls: " + gameState.controls.join(", ") +
+            (extractedRules ? "\\nPersian rules: " + extractedRules.summaryFa + "\\nGoal: " + extractedRules.objectiveFa +
+              "\\nControls: " + extractedRules.controls.map(item => item.input + " = " + item.actionFa).join("; ") : "")).slice(0, 5_000),
+          gameState: extractedRules ? {
+            ...gameState,
+            objective: extractedRules.objectiveFa,
+            stateSummary: gameState.stateSummary,
+            rules: {
+              summaryFa: extractedRules.summaryFa,
+              controls: extractedRules.controls,
+              scoringFa: extractedRules.scoringFa,
+              winConditionFa: extractedRules.winConditionFa,
+              loseConditionFa: extractedRules.loseConditionFa
+            }
+          } : gameState,
+          rules: extractedRules,
           screenshot: screenshotData
         };
       },
@@ -138,7 +155,19 @@ async function main() {
     });
 
     const initial = await adapter.observe();
-    console.log(JSON.stringify({ status: "ready", title: initial.title, url: initial.url, model }));
+    extractedRules = await extractRules({
+      title: initial.title, url: initial.url, text: initial.text, snapshot: initial.snapshot
+    });
+    if (!extractedRules.rulesSufficient) {
+      throw new Error("قوانین بازی به اندازه کافی روشن نیست؛ عامل برای جلوگیری از حرکت اشتباه متوقف شد. متن راهنما یا توضیحات کامل‌تری لازم است.");
+    }
+    if (extractedRules.automationPermission === "forbidden") {
+      throw new Error("قوانین سایت استفاده از ربات را ممنوع کرده‌اند؛ بازی خودکار اجرا نشد.");
+    }
+    console.log(JSON.stringify({
+      status: "rules-understood", title: initial.title, url: initial.url, model,
+      rules: extractedRules, ruleExtractionUsage: extractRules.usage
+    }, null, 2));
     const result = await agent.run();
     console.log(JSON.stringify({
       result,
