@@ -26,6 +26,14 @@ test("Connect Four prefers the center on an empty board", () => {
   assert.equal(chooseConnectFourMove(empty(), { player: "X" }).column, 3);
 });
 
+test("Connect Four refuses to move out of turn", () => {
+  const board = empty();
+  assert.throws(() => chooseConnectFourMove(board, { player: "O" }), /It is X's turn/);
+  board[5][0] = "X";
+  assert.throws(() => chooseConnectFourMove(board, { player: "X" }), /It is O's turn/);
+  assert.equal(chooseConnectFourMove(board, { player: "O" }).column >= 0, true);
+});
+
 test("Connect Four detects win, draw and invalid board shapes", () => {
   const won = empty();
   for (let c = 0; c < 4; c++) won[5][c] = "X";
