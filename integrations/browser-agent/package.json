@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node runner.mjs",
     "test": "node --test",
-    "play:2048": "node play-2048.mjs"
+    "play:2048": "node play-2048.mjs",
+    "play:local-ai": "node play-local-ai.mjs"
   },
   "dependencies": {
     "playwright": "1.56.1"
