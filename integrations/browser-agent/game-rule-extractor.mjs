@@ -50,7 +50,8 @@ function boundedString(value, max) {
 
 function supportedInput(input, canvasAvailable = false) {
   if (/arrow|left|right|up|down|کلیدهای? جهت|جهت[\\s‌-]*ها|space|enter|escape|کلید فاصله|اینتر|اسکیپ/i.test(input)) return true;
-  if (/click (?:a )?(?:cell|tile|square)|tap (?:a )?(?:cell|tile)|کلیک (?:روی )?(?:خانه|مهره|کاشی)|لمس (?:خانه|مهره|کاشی)/i.test(input)) return true;\n  return canvasAvailable && /click (?:the )?canvas|canvas click|tap (?:the )?canvas|mouse (?:click|input) on (?:the )?canvas|کلیک (?:روی )?(?:بوم|صفحه بازی)|لمس (?:بوم|صفحه بازی)/i.test(input);
+  if (/click (?:a )?(?:cell|tile|square)|tap (?:a )?(?:cell|tile)|کلیک (?:روی )?(?:خانه|مهره|کاشی)|لمس (?:خانه|مهره|کاشی)/i.test(input)) return true;
+  return canvasAvailable && /click (?:the )?canvas|canvas click|tap (?:the )?canvas|mouse (?:click|input) on (?:the )?canvas|کلیک (?:روی )?(?:بوم|صفحه بازی)|لمس (?:بوم|صفحه بازی)/i.test(input);
 }
 
 function parseRules(content, canvasAvailable = false) {
