@@ -1,6 +1,6 @@
 import { detectKnownGame } from "./game-detector.mjs";
 
-const GAME_HINT = /\b(game|games|play|puzzle|arcade|level|stage|folder|category|2048|tic.?tac.?toe|connect.?four)\b|بازی|بازی‌ها|بازیها|مرحله|مراحل|پوشه|دسته‌بندی|معما/i;
+const GAME_HINT = /\b(game|games|play|puzzle|arcade|level|stage|folder|category|2048|tic.?tac.?toe|connect.?four|othello|reversi)\b|بازی|بازی‌ها|بازیها|مرحله|مراحل|پوشه|دسته‌بندی|معما/i;
 const GAME_PATH = /(?:^|\/)(?:games?|play|puzzles?|arcade|levels?|stages?|folders?|categories|2048|tic[-_]?tac[-_]?toe|connect[-_]?four|othello)(?:\/|$)/i;
 const BLOCKED_PATH = /(?:^|\/)(?:login|logout|signout|signin|register|signup|account|profile|checkout|purchase|payment|deposit|withdraw|claim|delete|remove|settings|admin)(?:\/|$)/i;
 const VERIFY = /captcha|verify you are human|robot check|security challenge|cloudflare turnstile|hcaptcha|recaptcha|تأیید انسان|کد امنیتی/i;
@@ -60,12 +60,51 @@ async function inspectPage(page, origin) {
       if (tiles.length) return { kind: "2048", boardKey, tiles };
       return null;
     }).filter(Boolean)).catch(() => []);
+  // Only expand controls explicitly marked by the site as folder toggles.
+  // They must be non-form buttons; arbitrary buttons are never activated.
+  const toggleLocator = page.locator("button[data-game-folder-toggle]");
+  const toggleCount = Math.min(await toggleLocator.count().catch(() => 0), 8);
+  const expandedLinks = [];
+  for (let index = 0; index < toggleCount; index++) {
+    const toggle = toggleLocator.nth(index);
+    const safe = await toggle.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return element.tagName === "BUTTON" &&
+        element.type === "button" &&
+        !element.disabled &&
+        element.getAttribute("aria-disabled") !== "true" &&
+        element.getAttribute("aria-expanded") !== "true" &&
+        !element.closest("form") &&
+        style.display !== "none" && style.visibility !== "hidden" &&
+        rect.width > 0 && rect.height > 0;
+    }).catch(() => false);
+    if (!safe) continue;
+    const beforeUrl = page.url();
+    await toggle.click().catch(() => {});
+    if (page.url() !== beforeUrl || new URL(page.url()).origin !== origin) {
+      throw new Error("Explicit folder toggle navigated away; discovery stopped.");
+    }
+    const revealed = await page.locator("a[href]").evaluateAll(anchors => anchors.map(anchor => ({
+      href: anchor.href, label: (anchor.innerText || "").trim(),
+      title: anchor.getAttribute("title") || "", ariaLabel: anchor.getAttribute("aria-label") || "",
+      gameLink: anchor.hasAttribute("data-game-link"), folderLink: anchor.hasAttribute("data-game-folder")
+    }))).catch(() => []);
+    expandedLinks.push(...revealed);
+    const stillExpanded = await toggle.getAttribute("aria-expanded").catch(() => null);
+    if (stillExpanded === "true" || stillExpanded === null) {
+      await toggle.click().catch(() => {});
+      if (page.url() !== beforeUrl || new URL(page.url()).origin !== origin) {
+        throw new Error("Folder toggle could not be safely collapsed; discovery stopped.");
+      }
+    }
+  }
   const links = await page.locator("a[href]").evaluateAll(anchors => anchors.map(anchor => ({
     href: anchor.href, label: (anchor.innerText || "").trim(),
     title: anchor.getAttribute("title") || "", ariaLabel: anchor.getAttribute("aria-label") || "",
     gameLink: anchor.hasAttribute("data-game-link"), folderLink: anchor.hasAttribute("data-game-folder")
   }))).catch(() => []);
-  return { url: current.href, title: String(title).slice(0, 160), candidates, links };
+  return { url: current.href, title: String(title).slice(0, 160), candidates, links: [...links, ...expandedLinks] };
 }
 
 export async function discoverSupportedGame(page, {
