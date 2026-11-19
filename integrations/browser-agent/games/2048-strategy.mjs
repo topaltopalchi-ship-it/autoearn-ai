@@ -120,7 +120,8 @@ export function evaluate2048Board(board) {
   const maximum = Math.max(...board.flat());
   const corners = [board[0][0], board[0][3], board[3][0], board[3][3]];
   const cornerBonus = corners.includes(maximum) ? logTile(maximum) * 18 : 0;
-  const snakeBonus = snakePositionScore(board) * 7;\n  return empty * 270 + smoothness * 11 + monotonicity * 45 + cornerBonus + snakeBonus;
+  const snakeBonus = snakePositionScore(board) * 7;
+  return empty * 270 + smoothness * 11 + monotonicity * 45 + cornerBonus + snakeBonus;
 }
 
 function legalMoves(board) {
