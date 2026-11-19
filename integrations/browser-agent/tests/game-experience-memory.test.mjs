@@ -38,13 +38,13 @@ test("stores only a hashed state and allowlisted action, then reloads rated hint
 
 test("keeps pending feedback out of hints and rejects repeat ratings", async () => {
   await withMemory(async memory => {
-    const input = { gameType: "platformer", stateSummary: "At start", action: { type: "press", key: "Space" } };
+    const input = { gameType: "platformer", stateSummary: "At start", action: { type: "press", key: " " } };
     const id = await memory.recordPending(input);
     assert.deepEqual(await memory.getHints(input), []);
     await memory.rate(id, "bad");
     await assert.rejects(() => memory.rate(id, "good"), /already been rated/);
     assert.deepEqual(await memory.getHints(input), [
-      { key: "Space", good: 0, bad: 1, net: -1 }
+      { key: " ", good: 0, bad: 1, net: -1 }
     ]);
   });
 });
