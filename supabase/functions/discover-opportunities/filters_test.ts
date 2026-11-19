@@ -89,8 +89,14 @@ Deno.test("accepts a prediction contest that explicitly says no wager is require
   if (!result.accepted) throw new Error(`Expected no-wager contest to be accepted, got: ${result.reason}`);
 });
 
-Deno.test("rejects lottery and jackpot gambling-style listings even when advertised as free", () => {
-  assertRejected("https://example.com/lottery", "Free online lottery jackpot", "No purchase necessary. Win a cash prize paid by bank transfer.", "excluded_category");
+Deno.test("accepts a free lottery-style prize draw with no purchase and a real payout", () => {
+  const result = evaluateCandidate("https://example.com/lottery", "Free online lottery prize draw", "No purchase necessary. Free entry. Winners receive a cash prize paid by bank transfer.");
+  if (!result.accepted) throw new Error(`Expected free prize draw to be accepted, got: ${result.reason}`);
+  assertEquals(result.payoutMethods, ["Bank transfer"]);
+});
+
+Deno.test("rejects a paid lottery ticket that requires payment", () => {
+  assertRejected("https://example.com/lottery-ticket", "Lottery ticket cash prize", "Buy a ticket. Ticket price $5. Winners receive cash prize payout by bank transfer.", "excluded_category");
 });
 
 Deno.test("keeps a free raffle with official no-purchase language eligible for review", () => {
