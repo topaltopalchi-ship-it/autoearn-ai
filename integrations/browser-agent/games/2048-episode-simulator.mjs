@@ -62,6 +62,59 @@ function median(values) {
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
+
+function percentile(sortedValues, probability) {
+  if (!sortedValues.length) return null;
+  const position = (sortedValues.length - 1) * probability;
+  const lower = Math.floor(position);
+  const upper = Math.ceil(position);
+  if (lower === upper) return sortedValues[lower];
+  return sortedValues[lower] + (sortedValues[upper] - sortedValues[lower]) * (position - lower);
+}
+
+function bootstrapMeanInterval(differences, seed, samples = 1000) {
+  const random = makeRandom(seed);
+  const means = [];
+  for (let sample = 0; sample < samples; sample++) {
+    let total = 0;
+    for (let i = 0; i < differences.length; i++) {
+      total += differences[Math.floor(random() * differences.length)];
+    }
+    means.push(total / differences.length);
+  }
+  means.sort((a, b) => a - b);
+  return {
+    lower95: percentile(means, 0.025),
+    upper95: percentile(means, 0.975),
+    samples
+  };
+}
+
+function comparePairedEpisodes(comparisons, seed) {
+  if (comparisons.length < 2) return [];
+  const baseline = comparisons[0];
+  return comparisons.slice(1).map((candidate, index) => {
+    const scoreDifferences = candidate.games.map((game, i) => game.score - baseline.games[i].score);
+    const tileDifferences = candidate.games.map((game, i) => game.maxTile - baseline.games[i].maxTile);
+    const wins = scoreDifferences.filter(value => value > 0).length;
+    const losses = scoreDifferences.filter(value => value < 0).length;
+    const ties = scoreDifferences.length - wins - losses;
+    const interval = bootstrapMeanInterval(scoreDifferences, (seed + (index + 1) * 0x85ebca6b) >>> 0);
+    return {
+      baselineDepth: baseline.depth,
+      candidateDepth: candidate.depth,
+      episodes: scoreDifferences.length,
+      scoreWins: wins,
+      scoreTies: ties,
+      scoreLosses: losses,
+      averagePairedScoreDelta: average(scoreDifferences),
+      medianPairedScoreDelta: median(scoreDifferences),
+      averagePairedMaxTileDelta: average(tileDifferences),
+      scoreDeltaBootstrap95: interval
+    };
+  });
+}
+
 export function simulate2048Episodes({
   seed = 2048,
   episodes = 5,
@@ -105,6 +158,7 @@ export function simulate2048Episodes({
   return {
     seed,
     note: "Seeded local simulations only. These are not real-site win rates, guarantees, or evidence of earnings.",
-    comparisons
+    comparisons,
+    pairedComparisons: comparePairedEpisodes(comparisons, seed)
   };
 }
