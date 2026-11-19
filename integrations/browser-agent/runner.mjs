@@ -74,6 +74,24 @@ async function main() {
       maxPages,
       maxDepth,
       maxDurationMs,
+      maxInteractions: 20,
+      expandFolderButton: async name => {
+        if (navigationBlocked || page.isClosed()) return false;
+        const button = page.getByRole("button", { name, exact: true });
+        if (await button.count() !== 1) return false;
+        const safe = await button.evaluate(element =>
+          !element.closest("form") &&
+          !(element.tagName.toLowerCase() === "button" && element.type === "submit") &&
+          element.getAttribute("aria-disabled") !== "true"
+        ).catch(() => false);
+        if (!safe) return false;
+        const beforeUrl = page.url();
+        await button.click();
+        if (navigationBlocked || page.isClosed() || new URL(page.url()).origin !== target.origin) {
+          throw new Error("Folder expansion crossed the approved origin boundary.");
+        }
+        return page.url() === beforeUrl;
+      },
       openPage: async url => {
         if (navigationBlocked || page.isClosed()) throw new Error("Browser navigation was stopped.");
         await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20_000 });
