@@ -1,4 +1,5 @@
 import { classifySitePage } from "./page-classifier.mjs";
+import { detectKnownGame } from "./game-detector.mjs";
 
 const FOLDER_BUTTON_LABEL = /folder|category|categories|collection|library|arcade|room|level|پوشه|دسته|مجموعه|اتاق|مرحله/i;
 
@@ -75,6 +76,7 @@ export async function crawlSameOriginSite({
       depth: current.depth,
       title: String(observation?.title || "").slice(0, 200),
       classification,
+      gameDetection: detectKnownGame(observation),
       expandedButtons,
       targets
     });
