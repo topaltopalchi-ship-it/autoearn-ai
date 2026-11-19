@@ -134,6 +134,10 @@ export function chooseConnectFourMove(input, { player = "X", depth = 4 } = {}) {
   if (!["X", "O"].includes(own)) throw new TypeError("Player must be X or O.");
   if (!Number.isInteger(depth) || depth < 1 || depth > 6) throw new RangeError("Depth must be 1..6.");
   if (getConnectFourOutcome(board) !== "playing") return null;
+  const xCount = board.flat().filter(mark => mark === "X").length;
+  const oCount = board.flat().filter(mark => mark === "O").length;
+  const expectedPlayer = xCount === oCount ? "X" : "O";
+  if (own !== expectedPlayer) throw new TypeError(`It is ${expectedPlayer}'s turn in this Connect Four position.`);
   const opponent = own === "X" ? "O" : "X";
   let best = null, bestScore = -Infinity;
   for (const col of ORDER) {
