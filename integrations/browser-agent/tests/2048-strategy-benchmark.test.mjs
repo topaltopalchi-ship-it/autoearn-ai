@@ -26,9 +26,14 @@ test("compares bounded 2048 search depths with reproducible aggregate metrics", 
     assert.equal(result.legalDecisions + result.terminalPositions, 4);
     assert.ok(Number.isFinite(result.immediateHeuristicMean));
     assert.ok(Number.isFinite(result.immediateHeuristicMedian));
+    if (result.legalDecisions) assert.ok(Number.isFinite(result.expectedSearchValueMean));
     assert.equal(Object.values(result.directionCounts).reduce((sum, count) => sum + count, 0), result.legalDecisions);
   }
-  assert.match(report.note, /not a win-rate/);
+  assert.match(report.note, /not measured win rates/);
+});
+
+test("reports the seed for generated positions", () => {
+  assert.equal(benchmark2048Strategies({ seed: 55, count: 2, occupied: 6, depths: [1] }).seed, 55);
 });
 
 test("rejects unsafe benchmark sizes and unsupported depths", () => {
