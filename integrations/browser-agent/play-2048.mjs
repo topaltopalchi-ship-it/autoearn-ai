@@ -31,6 +31,14 @@ async function main() {
   const context = await browser.newContext({ acceptDownloads: false });
   const page = await context.newPage();
   let blocked = false;
+  context.on("page", popup => {
+    if (popup !== page) {
+      blocked = true;
+      console.error("STOP: unexpected popup blocked.");
+      void popup.close();
+      void context.close();
+    }
+  });
   page.on("framenavigated", frame => {
     if (frame !== page.mainFrame()) return;
     try {
