@@ -105,5 +105,6 @@
     summarizeOpportunities,
     formatCategoryLabels,
     safePublicHttpsUrl,
+    replaceOwnerEligibilityReview,
   });
 })(globalThis);
