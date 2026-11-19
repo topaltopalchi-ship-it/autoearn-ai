@@ -362,7 +362,7 @@ Deno.test("merges duplicate discovery URLs and preserves distinct search provena
   assertEquals(String(merged[0].eligibility).includes("PayPal"), true);
   assertEquals(String(merged[0].eligibility).includes("Skrill"), true);
   const notes = String(merged[0].notes);
-  const provenance = JSON.parse(notes.split("[DISCOVERY PROVENANCE]\\n")[1]);
+  const provenance = JSON.parse(notes.split("[DISCOVERY PROVENANCE]\n")[1]);
   assertEquals(provenance.search_query, "free puzzle prize | official contest payout");
   assertEquals(provenance.excerpt.includes("Prize: $100."), true);
   assertEquals(provenance.excerpt.includes("Payout within 30 days."), true);
