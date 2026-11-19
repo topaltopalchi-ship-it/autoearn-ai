@@ -45,7 +45,7 @@ Scores use only metadata entered by the owner. They are not proof that a platfor
 
 ## Discovery due-diligence signals
 
-Automatically discovered candidates remain unverified and are saved for owner review. The discovery pipeline records text-based review alerts when a search result mentions identity/KYC checks or geographic restrictions, or when it does not disclose a minimum withdrawal, a specific payout method, or withdrawal-fee terms. These alerts are prompts to inspect the official terms, not findings that a site definitely requires KYC, excludes a particular country, or charges fees. Country restrictions are surfaced for review and are not used to filter discovery results. A clean alert list is not proof of legitimacy, official domain ownership, eligibility, or payment.
+Automatically discovered candidates remain unverified and are saved for owner review. The discovery pipeline records text-based review alerts when a search result mentions identity/KYC checks or geographic restrictions, or when it does not disclose a minimum withdrawal, a specific payout method, withdrawal-fee terms, a prize amount, payout timing, organizer identity, or winner-selection method. These alerts are prompts to inspect the official terms, not findings that a site definitely requires KYC, excludes a particular country, or charges fees. Country restrictions are surfaced for review and are not used to filter discovery results. A clean alert list is not proof of legitimacy, official domain ownership, eligibility, or payment.
 
 ## Opportunity eligibility gate
 
