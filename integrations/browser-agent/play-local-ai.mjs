@@ -6,6 +6,7 @@ import { createOllamaGameRulesExtractor } from "./game-rule-extractor.mjs";
 import { discoverGameInstructions } from "./game-instruction-discovery.mjs";
 import { createGameExperienceMemory } from "./game-experience-memory.mjs";
 import { recordVerifiedExperience } from "./experience-verification.mjs";
+import { readSafeGameCells, clickSafeGameCell } from "./game-cell-browser-adapter.mjs";
 
 const gameUrl = process.env.AUTOEARN_GAME_URL;
 const approvedOrigins = new Set(String(process.env.AUTOEARN_ALLOWED_ORIGINS || "")
@@ -31,25 +32,6 @@ function verificationGate(text) {
   return /captcha|are you human|verify you are human|robot check|security challenge|cloudflare turnstile|hcaptcha|recaptcha|تأیید انسان|کد امنیتی/i.test(text);
 }
 
-async function readSafeGameCells(page) {
-  const board = page.locator("[data-game-board]");
-  if (await board.count() !== 1) return [];
-  const cells = await board.locator("[data-game-cell][data-game-cell-index]").evaluateAll(elements =>
-    elements.slice(0, 100).map(element => {
-      const rect = element.getBoundingClientRect();
-      const style = getComputedStyle(element);
-      const forbidden = element.closest("a,button,input,select,textarea,form,[role=button],[role=link]");
-      return {
-        index: Number(element.getAttribute("data-game-cell-index")),
-        label: (element.getAttribute("aria-label") || element.textContent || "").trim().slice(0, 80),
-        visible: !forbidden && !element.hasAttribute("disabled") &&
-          style.display !== "none" && style.visibility !== "hidden" &&
-          rect.width > 0 && rect.height > 0
-      };
-    })
-  );
-  return cells.filter(cell => Number.isInteger(cell.index) && cell.index >= 0 && cell.index < 100 && cell.visible);
-}
 
 async function main() {
   const target = validateTarget();
@@ -145,20 +127,7 @@ async function main() {
           return { type: "press", key: action.key };
         }
         if (action.type === "click-cell" && Number.isInteger(action.index) && action.index >= 0 && action.index < 100) {
-          const board = page.locator("[data-game-board]");
-          if (await board.count() !== 1) throw new Error("Mouse action requires exactly one explicitly marked game board.");
-          const cell = board.locator(`[data-game-cell][data-game-cell-index="${action.index}"]`);
-          if (await cell.count() !== 1) throw new Error("Mouse action target is not one unique marked game cell.");
-          const safe = await cell.evaluate(element => {
-            const forbidden = element.closest("a,button,input,select,textarea,form,[role=button],[role=link]");
-            const rect = element.getBoundingClientRect();
-            const style = getComputedStyle(element);
-            return !forbidden && !element.hasAttribute("disabled") &&
-              style.display !== "none" && style.visibility !== "hidden" &&
-              rect.width > 0 && rect.height > 0;
-          });
-          if (!safe) throw new Error("Refusing to click a hidden, disabled, or interactive non-cell element.");
-          await cell.click();
+          await clickSafeGameCell(page, action.index);
           return { type: "click-cell", index: action.index };
         }
         throw new Error("Only allowlisted keyboard actions or explicitly marked game-cell clicks are permitted.");
