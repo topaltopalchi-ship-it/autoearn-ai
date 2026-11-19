@@ -10,7 +10,18 @@ function validIndexedCells(cells) {
         !["", "-", "EMPTY", "X", "O"].includes(mark)) return false;
     indexes.add(index);
   }
-  return indexes.size === 9;
+  if (indexes.size !== 9) return false;
+  const board = Array(9);
+  for (const cell of cells) board[Number(cell.index)] = String(cell.mark ?? "").trim().toUpperCase();
+  const xCount = board.filter(mark => mark === "X").length;
+  const oCount = board.filter(mark => mark === "O").length;
+  if (xCount < oCount || xCount - oCount > 1) return false;
+  const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  const xWon = lines.some(line => line.every(index => board[index] === "X"));
+  const oWon = lines.some(line => line.every(index => board[index] === "O"));
+  if (xWon && oWon) return false;
+  if ((xWon && xCount !== oCount + 1) || (oWon && xCount !== oCount)) return false;
+  return true;
 }
 
 function validConnectFourCells(cells) {
