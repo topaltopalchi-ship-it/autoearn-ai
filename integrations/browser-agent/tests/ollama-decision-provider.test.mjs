@@ -191,3 +191,20 @@ test("falls back to the full screenshot when the canvas crop exceeds the image b
   });
   assert.deepEqual(body.messages[0].images, ["AAAA"]);
 });
+
+
+test("explains that Canvas click JSON must include confidence", async () => {
+  let prompt;
+  const decide = createOllamaGameDecision({
+    model: "local-model", allowCanvasClicks: true,
+    fetchImpl: async (_url, options) => {
+      prompt = JSON.parse(options.body).messages[0].content;
+      return { ok: true, status: 200, json: async () => ({
+        message: { content: '{"type":"press","key":"ArrowRight"}' }
+      }) };
+    }
+  });
+  await decide({ canvasAvailable: true });
+  assert.match(prompt, /"confidence":0\.9/);
+  assert.match(prompt, /at least 0\.8/);
+});
