@@ -67,7 +67,7 @@ export function createOthelloBrowserAdapter(page,{player,boardSelector="[data-ga
     },
     async verify({before,after,action,result}) {
       if(action?.type==="wait-for-turn") return result?.ready===true&&(after?.gameState?.outcome!=="playing"||after?.gameState?.currentPlayer===player);
-      if(action?.type==="pass-turn") return result?.passed===true&&after?.gameState?.currentPlayer!==player;
+      if(action?.type==="pass-turn") return result?.passed===true&&(after?.gameState?.outcome!=="playing"||after?.gameState?.currentPlayer!==player);
       return action?.type==="click-cell"&&Array.isArray(result?.expected)&&Array.isArray(after?.gameState?.board)&&
         result.expected.every((mark,index)=>after.gameState.board[index]===mark);
     },
