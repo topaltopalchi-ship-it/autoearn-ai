@@ -187,7 +187,7 @@ test("guided sessions require an explicitly eligible opportunity status", () => 
   for (const status of ["discovered", "reviewing", "ineligible", "archived", "pending", "approved", "", null]) {
     assert.equal(canStart({ status }), false, String(status));
   }
-  assert.equal(canStart({ status: "eligible" }), true);
+  assert.equal(canStart({ status: "eligible" }), false);
   assert.equal(canStart(null), false);
   assert.equal(canStart(undefined), false);
 });
