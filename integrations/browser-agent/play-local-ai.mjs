@@ -88,6 +88,11 @@ async function main() {
         }
         const screenshot = await page.screenshot({ type: "jpeg", quality: 65, fullPage: false, timeout: 5_000 });
         const screenshotData = "data:image/jpeg;base64," + screenshot.toString("base64");
+        const canvasLocator = page.locator("[data-game-board] canvas[data-game-canvas]");
+        const canvasCount = await canvasLocator.count();
+        const decisionScreenshot = canvasCount === 1
+          ? "data:image/jpeg;base64," + (await canvasLocator.screenshot({ type: "jpeg", quality: 75, timeout: 5_000 })).toString("base64")
+          : screenshotData;
         const gameState = await perceive({ screenshot: screenshotData, title, text: visibleText });
         const outcomeMarkers = await page.locator("[data-game-outcome], [data-game-status]").evaluateAll(elements =>
           elements.slice(0, 10).map(element => ({
@@ -131,7 +136,8 @@ async function main() {
           rules: extractedRules,
           clickTargets: await readSafeGameCells(page),
           canvasAvailable: await page.locator("[data-game-board] canvas[data-game-canvas]").count() === 1,
-          screenshot: screenshotData
+          screenshot: screenshotData,
+          decisionScreenshot
         };
       },
       async execute(action) {
