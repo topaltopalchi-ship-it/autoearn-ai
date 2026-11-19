@@ -29,7 +29,11 @@ function makePage(marks = Array(9).fill("")) {
       };
     }
   };
-  return { url: () => "https://game.example/ttt", locator: () => board };
+  return {
+    url: () => "https://game.example/ttt",
+    locator: () => board,
+    setMark(index, mark) { cells[index].mark = mark; }
+  };
 }
 
 test("reads normalized 9-cell board and reports configured turn", async () => {
@@ -84,10 +88,7 @@ test("wait-for-turn observes opponent move and verifies the next agent turn", as
     boardSelector: "#board", cellSelector: ".cell", player: "X"
   });
   const before = await adapter.observe();
-  setTimeout(() => { page.locator("#board").locator('.cell[data-index="1"]').then?.(() => {}); }, 1);
-  const board = page.locator("#board");
-  const opponentCell = board.locator('.cell[data-index="1"]');
-  setTimeout(async () => { await opponentCell.click(); }, 100);
+  setTimeout(() => page.setMark(1, "O"), 100);
   const result = await adapter.execute({ type: "wait-for-turn" });
   const after = await adapter.observe();
   assert.equal(result.ready, true);
