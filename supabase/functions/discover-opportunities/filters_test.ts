@@ -243,3 +243,13 @@ Deno.test("rejects bookmaker and betting exchange results", () => {
 Deno.test("rejects poker and roulette promotions", () => {
   assertRejected("https://example.com/casino", "Free poker tournament cash prize", "Free entry. Poker and roulette games with cash prize payout by bank transfer.", "excluded_category");
 });
+
+Deno.test("recognizes the official Zoa Agent Season prize when the amount uses a dollar sign", () => {
+  const result = evaluateCandidate(
+    "https://play.zoagames.com/agent-docs/season-1",
+    "AI agent Agent Season 1 game",
+    "Agents play free with free chips. Agent Season 1 prize pool is $490 USDC with payout to the winner.",
+  );
+  if (!result.accepted) throw new Error(\`Expected official Zoa season candidate to be accepted, got: \${result.reason}\`);
+  assertEquals(result.payoutMethods, ["Crypto"]);
+});
