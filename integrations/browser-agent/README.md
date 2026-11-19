@@ -8,23 +8,25 @@ This is a separate Node.js runtime. It is not loaded by the public website and d
 cd integrations/browser-agent
 npm install
 npx playwright install chromium
+npm test
 ```
 
-Set `AUTOEARN_GAME_URL` to the game URL and `AUTOEARN_ALLOWED_ORIGINS` to a comma-separated list of exact HTTPS origins that have been reviewed and explicitly permit automated play. The origin must match exactly; wildcards are not supported.
+Set `AUTOEARN_GAME_URL` to a game-site URL and `AUTOEARN_ALLOWED_ORIGINS` to the exact HTTPS origin reviewed and explicitly approved for automated play.
 
 ```sh
-AUTOEARN_GAME_URL=https://example-game.invalid/play \
-AUTOEARN_ALLOWED_ORIGINS=https://example-game.invalid \
+AUTOEARN_GAME_URL=https://example-game.invalid/arcade \\
+AUTOEARN_ALLOWED_ORIGINS=https://example-game.invalid \\
 npm start
 ```
 
-The runtime opens a fresh isolated browser context, inspects the page's accessibility tree, and exposes a small action allowlist (exact accessible-name button clicks and a limited keyboard set). It stops if it detects common CAPTCHA / bot-verification interstitials, navigates off the approved origin, reaches its step/time budget, or cannot verify a move.
+The browser runtime now inspects the accessibility tree and lists visible, same-origin links and buttons that may represent folders, categories, rooms, or game entries. It filters out obvious account, payment, prize-claim, and destructive actions. The adapter can click a uniquely named safe same-origin link or a non-sensitive button, which allows a later strategy to open nested folders and inspect the next page.
 
-## Important boundaries
+## Current stage and boundaries
 
-- Only use game sites whose official rules explicitly permit automated play. Add only the exact approved origin to the allowlist.
-- CAPTCHA, anti-bot, anti-fraud, access-control, geolocation and payment safeguards are not solved, hidden, or bypassed. Detection pauses the run for a human.
+- **Implemented:** isolated Chromium context, exact HTTPS origin allowlist, folder/category target discovery, limited safe navigation actions, keyboard allowlist, step/time budgets, and basic verification-gate detection.
+- **Not yet implemented:** autonomous AI decision-making, game-specific strategies, reliable folder-vs-game classification, and end-to-end gameplay. The runner currently discovers targets and stops; it does not yet choose or click them.
+- Only use game sites whose official rules explicitly permit automated play.
+- CAPTCHA, anti-bot, anti-fraud, access-control, geolocation and payment safeguards are never bypassed. Detection pauses the run for a human.
 - No login, signup, form submission, purchases, deposits, withdrawals, prize claims, or personal-data entry are implemented.
-- No cookies or browser profile are imported or persisted. This initial runtime starts logged out.
-- This package deliberately has no model API key or decision provider yet. The next stage is a game-specific strategy adapter and an optional server-side model provider with explicit cost limits.
-- A browser driver is not a winning strategy. A game-specific adapter must understand the game's state and verify the actual result.
+- No cookies or browser profile are imported or persisted. This runtime starts logged out.
+- No model API key or decision provider is configured. A model provider, if later added, must run server-side with explicit user approval and cost limits.
