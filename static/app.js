@@ -26,7 +26,8 @@ function discoveryProvenanceHtml(opportunity){
   const timestamp=Date.parse(provenance.discovered_at);
   const discovered=Number.isFinite(timestamp)?new Date(timestamp).toLocaleString():"date unavailable";
   return "<br><strong>Discovery source:</strong> "+esc(provenance.source||"Search")+
-    " · "+esc(discovered)+(provenance.search_query?"<br><strong>Search query:</strong> "+esc(provenance.search_query):"");
+    " · "+esc(discovered)+(provenance.search_query?"<br><strong>Search query:</strong> "+esc(provenance.search_query):"")+
+    (provenance.excerpt?"<details><summary>View original discovery excerpt</summary><small>"+esc(provenance.excerpt)+"</small></details>":"");
 }
 function eligibilityReviewHtml(opportunity){
   const base=opportunity.eligibility||"Not reviewed; payout and automation details unknown.";
