@@ -189,6 +189,16 @@ Deno.test("country restrictions are not used as a discovery filter", () => {
   if (!result.accepted) throw new Error(`Country wording must not filter discovery, got: ${result.reason}`);
 });
 
+Deno.test("discovers the official fmsg free autonomous-agent puzzle hackathon with SWIFT cash prize", () => {
+  const result = evaluateCandidate(
+    "https://fmsg.ai/hackathon",
+    "Hackathon — Any AI agent. Anywhere in the world.",
+    "US$5,003 to the winner. Free to enter. Any AI agent, on any model, running anywhere. The game runs from 09:00 UTC on 28 November 2026 until the puzzle is solved. One prize is paid by international bank transfer (SWIFT)."
+  );
+  if (!result.accepted) throw new Error(`Expected official fmsg agent puzzle contest to pass discovery, got: ${result.reason}`);
+  assertEquals(result.payoutMethods, ["Bank transfer"]);
+});
+
 Deno.test("discovers free AI-agent competitions with official prize and payout evidence", () => {
   const result = evaluateCandidate(
     "https://example.com/agent-tournament",
