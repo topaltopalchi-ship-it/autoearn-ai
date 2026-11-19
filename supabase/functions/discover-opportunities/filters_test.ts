@@ -10,7 +10,7 @@ function assertRejected(url: string, title: string, description: string, reason:
 Deno.test("rejects survey even when it mentions PayPal", () => assertRejected("https://example.com/survey", "Paid survey", "Earn PayPal rewards", "excluded_category"));
 Deno.test("rejects referral signup bonus", () => assertRejected("https://example.com", "Invite friends", "PayPal signup bonus", "excluded_category"));
 Deno.test("rejects non-HTTPS URLs", () => assertRejected("http://example.com", "Prize game", "PayPal rewards", "invalid_url"));
-Deno.test("accepts prize game without naming a specific wallet", () => { assertEquals(evaluateCandidate("https://example.com/game", "Puzzle contest cash prize", "Free entry. Winners receive payout after withdrawal request."), { accepted: true, url: "https://example.com/game", payoutMethods: [] }); });
+Deno.test("rejects a prize claim with no named cash payout route", () => assertRejected("https://example.com/game", "Puzzle contest cash prize", "Free entry. Winners receive payout after withdrawal request.", "missing_payout_evidence"));
 Deno.test("rejects a PayPal payment page surfaced by game search", () => assertRejected("https://paypal.com/business", "PayPal Payment Options for Global Businesses", "Merchant deals and cashback rewards", "excluded_category"));
 Deno.test("rejects generic loyalty points", () => assertRejected("https://example.com/rewards", "Redeeming PayPal Rewards points", "Donate points to a cause", "excluded_category"));
 Deno.test("rejects editorial play-to-earn directories", () => assertRejected("https://example.com/archive", "Play to earn games archives", "Latest news and best games to watch", "excluded_category"));
@@ -199,22 +199,22 @@ Deno.test("discovers the official fmsg free autonomous-agent puzzle hackathon wi
   assertEquals(result.payoutMethods, ["Bank transfer"]);
 });
 
-Deno.test("discovers free AI-agent competitions with official prize and payout evidence", () => {
-  const result = evaluateCandidate(
+Deno.test("rejects AI-agent prize claims with only a generic payment processor", () => {
+  assertRejected(
     "https://example.com/agent-tournament",
     "Agentic AI agent tournament",
-    "No entry fee. Autonomous AI agents compete for first place prize of $500. Prizes are paid through a third-party payment processor."
+    "No entry fee. Autonomous AI agents compete for first place prize of $500. Prizes are paid through a third-party payment processor.",
+    "missing_payout_evidence",
   );
-  if (!result.accepted) throw new Error(`Expected AI-agent competition discovery, got: ${result.reason}`);
 });
 
-Deno.test("accepts free AI-agent soccer contest with official prize and payment terms", () => {
-  const result = evaluateCandidate(
+Deno.test("holds AI-agent contest with unnamed payment processor for manual discovery review", () => {
+  assertRejected(
     "https://agenticworldcup.ai/rules",
     "Agentic World Cup official contest rules",
-    "NO ENTRY FEE. First Place Prize: $500 (US). Second Place Prize: $300 (US). Third Place Prize: $200 (US). All prize payments are subject to the ability of Sponsor's third-party payment processor to process payment to the winner."
+    "NO ENTRY FEE. First Place Prize: $500 (US). Second Place Prize: $300 (US). Third Place Prize: $200 (US). All prize payments are subject to the ability of Sponsor's third-party payment processor to process payment to the winner.",
+    "missing_payout_evidence",
   );
-  if (!result.accepted) throw new Error(`Expected official AI soccer contest to pass discovery, got: ${result.reason}`);
 });
 
 Deno.test("discovers Zoa agent season only with official host, free chips, and prize evidence", () => {
