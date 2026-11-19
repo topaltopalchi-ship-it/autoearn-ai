@@ -20,6 +20,28 @@ let rewards = [];
 const DISCOVERY_CATEGORIES = new Set(["game","sweepstakes","wheel","raffle","prediction","puzzle","iq-test","instant-win"]);
 const CATEGORY_LABELS = { game:"Game", sweepstakes:"Sweepstakes", wheel:"Spin wheel", raffle:"Raffle", prediction:"Prediction contest", puzzle:"Puzzle", "iq-test":"Quiz", "instant-win":"Instant win" };
 function categoryLabel(category){ return CATEGORY_LABELS[category] || category || "Other"; }
+function eligibilityReviewHtml(opportunity){
+  const base=opportunity.eligibility||"Not reviewed; payout and automation details unknown.";
+  const marker="[OWNER OFFICIAL ELIGIBILITY REVIEW]";
+  const notes=String(opportunity.notes||"");
+  const index=notes.lastIndexOf(marker);
+  if(index<0)return esc(base);
+  try{
+    const report=JSON.parse(notes.slice(index+marker.length).trim());
+    const yesNo=value=>value==="yes"?"Yes":value==="no"?"No":value||"Not stated";
+    const automation=report.automation_explicitly_allowed=== "yes"?"Explicitly permitted":report.automation_explicitly_allowed==="no"?"Prohibited":"Unclear / not stated";
+    const details=[
+      "Confirmed payment method: "+(report.payment_method||"Not stated"),
+      "Official payout confirmation: "+yesNo(report.payment_confirmed),
+      "Minimum withdrawal: "+(report.minimum_withdrawal||"Not stated"),
+      "Withdrawal fees: "+(report.fees||"Not stated"),
+      "KYC: "+(report.kyc==="required"?"Required":report.kyc==="not-required"?"Not required":"Unknown"),
+      "Free entry / no deposit: "+yesNo(report.free_entry),
+      "Automated gameplay: "+automation
+    ];
+    return esc(base)+"<br><strong>Owner's official review:</strong> "+details.map(esc).join(" · ");
+  }catch(_){return esc(base);}
+}
 
 const money = (n,c="USD") => new Intl.NumberFormat(undefined,{style:"currency",currency:c}).format(Number(n||0));
 function toast(message){const el=$("toast");el.textContent=message;el.classList.add("show");setTimeout(()=>el.classList.remove("show"),2600)}
@@ -59,7 +81,7 @@ function render(){
 function renderOpportunities(){
   const q=$("search").value.toLowerCase(),status=$("filter").value;
   const rows=opportunities.filter(o=>(!status||o.status===status)&&[o.title,o.platform,o.category].some(x=>(x||"").toLowerCase().includes(q)));
-  $("opportunity-list").innerHTML=rows.length?rows.map(o=>`<div class="item"><div><h3>${esc(o.title)} <span class="pill">${esc(o.status==="eligible"?"Owner-cleared · not independently verified":o.status)}</span></h3><p>${esc(o.platform)} · ${esc(categoryLabel(o.category))} · Review score ${o.score}/60<br><a href="${esc(o.url)}" target="_blank" rel="noopener noreferrer">Open platform ↗</a> ${o.terms_url?'· <a href="'+esc(o.terms_url)+'" target="_blank" rel="noopener noreferrer">Terms ↗</a>':''}<br>${esc(o.reward_description||"No reward details entered")}<br><strong>Eligibility review:</strong> ${esc(o.eligibility||"Not reviewed; payout and automation details unknown.")}</p></div><div class="item-actions">${'<button class="secondary" data-review="'+o.id+'">Review eligibility</button>'}<button class="primary" data-start="${o.id}" ${["ineligible","archived"].includes(o.status)?"disabled":""}>Open manually</button><button class="secondary" data-status="${o.id}" data-next="reviewing">Mark reviewing</button></div></div>`).join(""):'<div class="empty">No matching opportunities.</div>';
+  $("opportunity-list").innerHTML=rows.length?rows.map(o=>`<div class="item"><div><h3>${esc(o.title)} <span class="pill">${esc(o.status==="eligible"?"Owner-cleared · not independently verified":o.status)}</span></h3><p>${esc(o.platform)} · ${esc(categoryLabel(o.category))} · Review score ${o.score}/60<br><a href="${esc(o.url)}" target="_blank" rel="noopener noreferrer">Open platform ↗</a> ${o.terms_url?'· <a href="'+esc(o.terms_url)+'" target="_blank" rel="noopener noreferrer">Terms ↗</a>':''}<br>${esc(o.reward_description||"No reward details entered")}<br><strong>Eligibility review:</strong> ${eligibilityReviewHtml(o)}</p></div><div class="item-actions">${'<button class="secondary" data-review="'+o.id+'">Review eligibility</button>'}<button class="primary" data-start="${o.id}" ${["ineligible","archived"].includes(o.status)?"disabled":""}>Open manually</button><button class="secondary" data-status="${o.id}" data-next="reviewing">Mark reviewing</button></div></div>`).join(""):'<div class="empty">No matching opportunities.</div>';
   $("opportunity-list").querySelectorAll("[data-review]").forEach(b=>b.onclick=()=>verifyEligibility(Number(b.dataset.review)));
   $("opportunity-list").querySelectorAll("[data-start]").forEach(b=>b.onclick=()=>createTask(Number(b.dataset.start)));
   $("opportunity-list").querySelectorAll("[data-status]").forEach(b=>b.onclick=()=>setStatus(Number(b.dataset.status),b.dataset.next));
