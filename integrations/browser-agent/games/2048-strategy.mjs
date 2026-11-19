@@ -177,16 +177,16 @@ export function choose2048Move(board, { depth = 3, maxNodes = 25000 } = {}) {
         key: move.key,
         direction: move.direction,
         score,
-        expectedBoard: move.result.board,
-        searchStats: {
-          nodesVisited: budget.nodesVisited,
-          cacheHits: budget.cacheHits,
-          budgetExhausted: budget.budgetExhausted,
-          maxNodes
-        }
+        expectedBoard: move.result.board
       };
     }
   }
+  best.searchStats = {
+    nodesVisited: budget.nodesVisited,
+    cacheHits: budget.cacheHits,
+    budgetExhausted: budget.budgetExhausted,
+    maxNodes
+  };
   return best;
 }
 
