@@ -24,6 +24,16 @@ test("scores evidence completeness without treating the score as verification", 
   });
 });
 
+test("penalizes unverified organizer domain and official terms in discovery evidence", () => {
+  const notes = "Due-diligence flags: official_source_not_verified, official_terms_source_not_verified. Review manually.";
+  const result = globalThis.AutoEarnDueDiligence.calculateEvidenceCompleteness(notes, "");
+  assert.deepEqual(result, {
+    score: 60,
+    missing: ["official_source_not_verified", "official_terms_source_not_verified"],
+    officialTermsProvided: false,
+  });
+});
+
 test("clean text signals score 90 without official terms and 100 when terms are linked", () => {
   const notes = "Due-diligence flags: no missing details detected by text heuristics. Review manually.";
   assert.equal(globalThis.AutoEarnDueDiligence.calculateEvidenceCompleteness(notes, "").score, 90);
