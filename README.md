@@ -102,3 +102,8 @@ Run `node integrations/browser-agent/games/run-2048-heuristic-comparison.mjs` to
 ### Paired 2048 heuristic-weight experiment (experimental)
 
 Run `node integrations/browser-agent/games/run-2048-heuristic-comparison.mjs` to compare the classic evaluation (snake weight 0) against the current snake-position term (weight 1). Both variants use the same deterministic episode seeds, expectimax depth, and move limit. The report includes per-variant score/tile/outcome summaries and paired score deltas with a deterministic bootstrap interval. The runner currently defaults to 10 paired episodes at depth 2. These are synthetic local-game measurements only; do not interpret them as third-party win rates or expected earnings.
+
+
+### Fail-closed free-cash eligibility review
+
+The Python opportunity module now exposes `EligibilityReview` and `evaluate_eligibility`. A candidate remains blocked unless the owner confirms all five items from official information: terms reviewed, country eligibility, a supported cash payout, no required deposit or purchase, and platform rules reviewed. The result lists each confirmation still missing. Passing this checklist permits manual review only; it never enables automated gameplay or proves that a platform will pay. Automated interaction remains disabled unless separately authorized by the platform's official rules and the applicable safety checks.
