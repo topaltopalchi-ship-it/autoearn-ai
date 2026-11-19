@@ -1,7 +1,7 @@
 import { detectKnownGame } from "./game-detector.mjs";
 
 const GAME_HINT = /\b(game|games|play|puzzle|arcade|level|stage|folder|category|2048|tic.?tac.?toe|connect.?four)\b|بازی|بازی‌ها|بازیها|مرحله|مراحل|پوشه|دسته‌بندی|معما/i;
-const GAME_PATH = /(?:^|\/)(?:games?|play|puzzles?|arcade|levels?|stages?|folders?|categories|2048|tic[-_]?tac[-_]?toe|connect[-_]?four)(?:\/|$)/i;
+const GAME_PATH = /(?:^|\/)(?:games?|play|puzzles?|arcade|levels?|stages?|folders?|categories|2048|tic[-_]?tac[-_]?toe|connect[-_]?four|othello)(?:\/|$)/i;
 const BLOCKED_PATH = /(?:^|\/)(?:login|logout|signout|signin|register|signup|account|profile|checkout|purchase|payment|deposit|withdraw|claim|delete|remove|settings|admin)(?:\/|$)/i;
 const VERIFY = /captcha|verify you are human|robot check|security challenge|cloudflare turnstile|hcaptcha|recaptcha|تأیید انسان|کد امنیتی/i;
 
