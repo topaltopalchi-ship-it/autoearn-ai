@@ -35,14 +35,10 @@ async function inspectPage(page, origin) {
   const body = page.locator("body");
   const text = await body.innerText().catch(() => "");
   if (VERIFY.test(title + "\n" + text)) throw new Error("Verification or anti-bot gate found; human action is required.");
-  const candidates = await body.evaluate(element => Array.from(element.querySelectorAll("[data-game-board]"))
+  const readCandidates = () => body.evaluate(element => Array.from(element.querySelectorAll("[data-game-board]"))
     .slice(0, 10).map((board, index) => {
       const boardKey = board.getAttribute("data-game-board") || String(index);
-      const connectFourCells = Array.from(board.querySelectorAll("[data-game-cell][data-game-cell-index]")).map(cell => ({
-        index: cell.getAttribute("data-game-cell-index"),
-        mark: cell.getAttribute("data-mark") ?? cell.textContent
-      }));
-      const othelloCells = Array.from(board.querySelectorAll("[data-game-cell][data-game-cell-index]")).map(cell => ({
+      const indexedCells = Array.from(board.querySelectorAll("[data-game-cell][data-game-cell-index]")).map(cell => ({
         index: cell.getAttribute("data-game-cell-index"),
         mark: cell.getAttribute("data-mark") ?? cell.textContent
       }));
@@ -54,12 +50,13 @@ async function inspectPage(page, origin) {
       const tiles = Array.from(board.querySelectorAll("[data-x][data-y][data-value]")).map(tile => ({
         x: tile.getAttribute("data-x"), y: tile.getAttribute("data-y"), value: tile.getAttribute("data-value")
       }));
-      if (connectFourCells.length === 42) return { kind: "connect-four", boardKey, cells: connectFourCells };
-      if (othelloCells.length === 64) return { kind: "othello", boardKey, cells: othelloCells, currentPlayer };
+      if (indexedCells.length === 42) return { kind: "connect-four", boardKey, cells: indexedCells };
+      if (indexedCells.length === 64) return { kind: "othello", boardKey, cells: indexedCells, currentPlayer };
       if (cells.length) return { kind: "tic-tac-toe", boardKey, cells };
       if (tiles.length) return { kind: "2048", boardKey, tiles };
       return null;
-    }).filter(Boolean)).catch(() => []);
+    }).filter(Boolean));
+  let candidates = await readCandidates().catch(() => []);
   // Only expand controls explicitly marked by the site as folder toggles.
   // They must be non-form buttons; arbitrary buttons are never activated.
   const toggleLocator = page.locator("button[data-game-folder-toggle]");
@@ -85,6 +82,9 @@ async function inspectPage(page, origin) {
     if (page.url() !== beforeUrl || new URL(page.url()).origin !== origin) {
       throw new Error("Explicit folder toggle navigated away; discovery stopped.");
     }
+    // A folder can reveal a playable board directly, without adding a link.
+    const revealedCandidates = await readCandidates().catch(() => []);
+    candidates.push(...revealedCandidates);
     const revealed = await page.locator("a[href]").evaluateAll(anchors => anchors.map(anchor => ({
       href: anchor.href, label: (anchor.innerText || "").trim(),
       title: anchor.getAttribute("title") || "", ariaLabel: anchor.getAttribute("aria-label") || "",
@@ -104,7 +104,9 @@ async function inspectPage(page, origin) {
     title: anchor.getAttribute("title") || "", ariaLabel: anchor.getAttribute("aria-label") || "",
     gameLink: anchor.hasAttribute("data-game-link"), folderLink: anchor.hasAttribute("data-game-folder")
   }))).catch(() => []);
-  return { url: current.href, title: String(title).slice(0, 160), candidates, links: [...links, ...expandedLinks] };
+  const uniqueCandidates = [...new Map(candidates.map(candidate =>
+    [candidate.kind + ":" + String(candidate.boardKey), candidate])).values()];
+  return { url: current.href, title: String(title).slice(0, 160), candidates: uniqueCandidates, links: [...links, ...expandedLinks] };
 }
 
 export async function discoverSupportedGame(page, {
