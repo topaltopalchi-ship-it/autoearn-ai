@@ -1,4 +1,4 @@
-const BLOCKED_LABEL = /\\b(log ?in|sign ?in|log ?out|sign ?out|register|sign ?up|account|profile|settings|password|payment|checkout|buy|purchase|deposit|withdraw|claim|redeem|submit|delete|remove|transfer|wallet|billing)\\b|ورود|ثبت.?نام|حساب|پرداخت|خرید|واریز|برداشت|دریافت.?جایزه|حذف|انتقال|کیف.?پول/i;
+const BLOCKED_LABEL = /\b(log ?in|sign ?in|log ?out|sign ?out|register|sign ?up|account|profile|settings|password|payment|checkout|buy|purchase|deposit|withdraw|claim|redeem|submit|delete|remove|transfer|wallet|billing)\b|ورود|ثبت.?نام|حساب|پرداخت|خرید|واریز|برداشت|دریافت.?جایزه|حذف|انتقال|کیف.?پول/i;
 
 export function isSafeNavigationTarget(target, approvedOrigin) {
   if (!target || typeof target !== "object") return false;
@@ -28,7 +28,7 @@ async function collectFromFrame(frame, approvedOrigin) {
         element.innerText || element.getAttribute("title") || "";
       return {
         role,
-        name: String(name).replace(/\\s+/g, " ").trim().slice(0, 120),
+        name: String(name).replace(/\s+/g, " ").trim().slice(0, 120),
         href: element.href || null,
         visible: Boolean(element.getClientRects().length) &&
           getComputedStyle(element).visibility !== "hidden"
@@ -44,7 +44,7 @@ export async function collectNavigationTargets(page, approvedOrigin) {
   for (const raw of rawGroups.flat()) {
     if (!raw.visible || !isSafeNavigationTarget(raw, approvedOrigin)) continue;
     const target = { role: raw.role, name: raw.name, href: raw.href };
-    const key = target.role + "\\0" + target.name + "\\0" + (target.href || "");
+    const key = target.role + "\0" + target.name + "\0" + (target.href || "");
     if (!unique.has(key)) unique.set(key, target);
   }
   return [...unique.values()].slice(0, 100);
