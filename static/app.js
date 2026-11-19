@@ -154,6 +154,13 @@ function renderTasks(){
   $("task-list").querySelectorAll("[data-complete]").forEach(b=>b.onclick=async()=>{const {error}=await supabase.from("tasks").update({status:"completed",completed_at:new Date().toISOString()}).eq("id",b.dataset.complete).eq("status","approved");if(error)return fail(error);await loadData()});
 }
 function renderRewards(){
+  const ledger=window.AutoEarnRewardLedger;
+  const summary=ledger?.summarize(rewards)||{paid:[],pending:[],confirmed:[]};
+  const paidTotals=ledger?.sumByCurrency(summary.paid)||{};
+  const pendingTotals=ledger?.sumByCurrency(summary.pending)||{};
+  const confirmedTotals=ledger?.sumByCurrency(summary.confirmed)||{};
+  const currencies=[...new Set([...Object.keys(paidTotals),...Object.keys(pendingTotals),...Object.keys(confirmedTotals)])].sort();
+  $("reward-summary").innerHTML=currencies.length?currencies.map(currency=>`<div class="item"><div><strong>${esc(currency)}</strong><p>Paid with reference: ${money(paidTotals[currency]||0,currency)} · Confirmed: ${money(confirmedTotals[currency]||0,currency)} · Pending: ${money(pendingTotals[currency]||0,currency)}</p></div></div>`).join(""):'<p class="translator-privacy">No validated reward totals yet. Paid totals include only records with a payment reference; all figures are manually entered, not bank-verified.</p>';
   $("reward-list").innerHTML=rewards.length?rewards.map(r=>{const recordedPaid=r.status==="paid"&&(r.reference||"").trim();const label=recordedPaid?"Paid (reference recorded)":r.status==="paid"?"Paid status missing reference":r.status;return `<div class="item"><div><h3>${money(r.amount,r.currency)} <span class="pill">${esc(label)}</span></h3><p>${esc(r.opportunities?.title||"Unlinked reward")} · ${esc(r.reference||"No transaction reference recorded")}</p></div></div>`}).join(""):'<div class="empty">No rewards recorded.</div>';
 }
 function fillRewardOptions(){$("reward-opportunity").innerHTML='<option value="">Not linked</option>'+opportunities.map(o=>'<option value="'+o.id+'">'+esc(o.title)+'</option>').join("")}
