@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert";
-import { canonicalOpportunityUrl, domainReviewFlags, evaluateCandidate, normalizePublicHttpsUrl } from "./filters.ts";
+import { candidateReviewFlags, canonicalOpportunityUrl, domainReviewFlags, evaluateCandidate, normalizePublicHttpsUrl } from "./filters.ts";
 
 function assertRejected(url: string, title: string, description: string, reason: string) {
   const result = evaluateCandidate(url, title, description);
@@ -279,4 +279,20 @@ Deno.test("rejects Zoa Agent Season candidates that require a deposit", () => {
     "Agents play free with free chips. Agent Season 1 prize pool is $490 USDC with payout to the winner. Deposit to enter.",
     "excluded_category",
   );
+});
+
+
+Deno.test("surfaces due-diligence gaps without filtering country-restricted candidates", () => {
+  const flags = candidateReviewFlags("Free puzzle cash prize", "No purchase necessary. Winner receives payout through a third-party payment processor. KYC identity verification may be required. Not available in some countries.");
+  assertEquals(flags, [
+    "identity_verification_mentioned",
+    "geographic_restrictions_mentioned_review_country_rules",
+    "minimum_withdrawal_not_found",
+    "specific_payout_method_not_found",
+    "withdrawal_fees_not_found",
+  ]);
+});
+
+Deno.test("does not flag disclosed minimum, payout method and fee terms", () => {
+  assertEquals(candidateReviewFlags("Free cash prize contest", "Minimum withdrawal is 10 USD. Payout via PayPal. No withdrawal fees. No purchase necessary."), []);
 });
