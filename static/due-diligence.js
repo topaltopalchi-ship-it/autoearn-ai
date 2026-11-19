@@ -74,7 +74,7 @@
     const source = String(notes || "");
     const markerIndex = source.indexOf(marker);
     const base = markerIndex >= 0 ? source.slice(0, markerIndex).trimEnd() : source.trimEnd();
-    return base + (base ? "\\n\\n" : "") + marker + "\\n" + JSON.stringify(report, null, 2);
+    return base + (base ? "\n\n" : "") + marker + "\n" + JSON.stringify(report, null, 2);
   }
 
   function summarizeOpportunities(opportunities) {
