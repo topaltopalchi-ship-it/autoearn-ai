@@ -214,8 +214,9 @@ export function select2048SearchDepth(board, { minDepth = 1, maxDepth = 3 } = {}
 }
 
 export function choose2048MoveAdaptive(board, options = {}) {
-  const depth = select2048SearchDepth(board, options);
-  const move = choose2048Move(board, { depth });
+  const { minDepth, maxDepth, maxNodes = 25000 } = options;
+  const depth = select2048SearchDepth(board, { minDepth, maxDepth });
+  const move = choose2048Move(board, { depth, maxNodes });
   return move ? { ...move, searchDepth: depth, position: analyze2048Position(board) } : null;
 }
 
