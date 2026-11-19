@@ -94,6 +94,31 @@ async function main() {
           ? "data:image/jpeg;base64," + (await canvasLocator.screenshot({ type: "jpeg", quality: 75, timeout: 5_000 })).toString("base64")
           : screenshotData;
         const gameState = await perceive({ screenshot: screenshotData, title, text: visibleText });
+        const canvasObjects = await (async () => {
+          if (canvasCount !== 1) return [];
+          const box = await canvasLocator.boundingBox().catch(() => null);
+          const viewport = page.viewportSize();
+          if (!box || !viewport?.width || !viewport?.height) return [];
+          return (gameState.objects || []).flatMap(object => {
+            const left = object.x * viewport.width;
+            const top = object.y * viewport.height;
+            const right = left + object.width * viewport.width;
+            const bottom = top + object.height * viewport.height;
+            const clippedLeft = Math.max(left, box.x);
+            const clippedTop = Math.max(top, box.y);
+            const clippedRight = Math.min(right, box.x + box.width);
+            const clippedBottom = Math.min(bottom, box.y + box.height);
+            if (clippedRight <= clippedLeft || clippedBottom <= clippedTop) return [];
+            return [{
+              role: object.role, label: object.label,
+              x: (clippedLeft - box.x) / box.width,
+              y: (clippedTop - box.y) / box.height,
+              width: (clippedRight - clippedLeft) / box.width,
+              height: (clippedBottom - clippedTop) / box.height,
+              confidence: object.confidence
+            }];
+          });
+        })();
         const outcomeMarkers = await page.locator("[data-game-outcome], [data-game-status]").evaluateAll(elements =>
           elements.slice(0, 10).map(element => ({
             outcome: element.getAttribute("data-game-outcome") || "",
@@ -135,7 +160,8 @@ async function main() {
           } : { ...gameState, outcome: domOutcome.outcome, outcomeSource: domOutcome.source },
           rules: extractedRules,
           clickTargets: await readSafeGameCells(page),
-          canvasAvailable: await page.locator("[data-game-board] canvas[data-game-canvas]").count() === 1,
+          canvasAvailable: canvasCount === 1,
+          canvasObjects,
           screenshot: screenshotData,
           decisionScreenshot
         };
