@@ -81,7 +81,8 @@ async function main() {
         passSelector: "[data-game-pass]",
         player: plan.player
       });
-      decide = decideKnownGame;\n    } else if (plan.adapter === "connect-four") {
+      decide = decideKnownGame;
+    } else if (plan.adapter === "connect-four") {
       adapter = createConnectFourBrowserAdapter(page, {
         boardSelector: "[data-game-board]",
         cellSelector: "[data-game-cell][data-game-cell-index]",
