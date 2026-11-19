@@ -34,6 +34,14 @@ test("penalizes unverified organizer domain and official terms in discovery evid
   });
 });
 
+test("a terms URL is only provided, never independently verified", () => {
+  const notes = "Due-diligence flags: official_source_not_verified, official_terms_source_not_verified.";
+  const result = globalThis.AutoEarnDueDiligence.calculateEvidenceCompleteness(notes, "https://example.com/terms");
+  assert.equal(result.officialTermsProvided, true);
+  assert.equal(result.officialTermsVerified, false);
+  assert.equal(result.organizerIdentityVerified, false);
+});
+
 test("clean text signals score 90 without official terms and 100 when terms are linked", () => {
   const notes = "Due-diligence flags: no missing details detected by text heuristics. Review manually.";
   assert.equal(globalThis.AutoEarnDueDiligence.calculateEvidenceCompleteness(notes, "").score, 90);
