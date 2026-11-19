@@ -59,8 +59,9 @@ function render(){
 function renderOpportunities(){
   const q=$("search").value.toLowerCase(),status=$("filter").value;
   const rows=opportunities.filter(o=>(!status||o.status===status)&&[o.title,o.platform,o.category].some(x=>(x||"").toLowerCase().includes(q)));
-  $("opportunity-list").innerHTML=rows.length?rows.map(o=>`<div class="item"><div><h3>${esc(o.title)} <span class="pill">${esc(o.status==="eligible"?"Owner-cleared · not independently verified":o.status)}</span></h3><p>${esc(o.platform)} · ${esc(categoryLabel(o.category))} · Review score ${o.score}/60<br><a href="${esc(o.url)}" target="_blank" rel="noopener noreferrer">Open platform ↗</a> ${o.terms_url?'· <a href="'+esc(o.terms_url)+'" target="_blank" rel="noopener noreferrer">Terms ↗</a>':''}<br>${esc(o.reward_description||"No reward details entered")}<br><strong>Eligibility review:</strong> ${esc(o.eligibility||"Not reviewed; payout and automation details unknown.")}</p></div><div class="item-actions">${'<button class="secondary" data-review="'+o.id+'">Review eligibility</button>'}<button class="secondary" data-status="${o.id}" data-next="reviewing">Mark reviewing</button></div></div>`).join(""):'<div class="empty">No matching opportunities.</div>';
+  $("opportunity-list").innerHTML=rows.length?rows.map(o=>`<div class="item"><div><h3>${esc(o.title)} <span class="pill">${esc(o.status==="eligible"?"Owner-cleared · not independently verified":o.status)}</span></h3><p>${esc(o.platform)} · ${esc(categoryLabel(o.category))} · Review score ${o.score}/60<br><a href="${esc(o.url)}" target="_blank" rel="noopener noreferrer">Open platform ↗</a> ${o.terms_url?'· <a href="'+esc(o.terms_url)+'" target="_blank" rel="noopener noreferrer">Terms ↗</a>':''}<br>${esc(o.reward_description||"No reward details entered")}<br><strong>Eligibility review:</strong> ${esc(o.eligibility||"Not reviewed; payout and automation details unknown.")}</p></div><div class="item-actions">${'<button class="secondary" data-review="'+o.id+'">Review eligibility</button>'}<button class="primary" data-start="${o.id}" ${["ineligible","archived"].includes(o.status)?"disabled":""}>Open manually</button><button class="secondary" data-status="${o.id}" data-next="reviewing">Mark reviewing</button></div></div>`).join(""):'<div class="empty">No matching opportunities.</div>';
   $("opportunity-list").querySelectorAll("[data-review]").forEach(b=>b.onclick=()=>verifyEligibility(Number(b.dataset.review)));
+  $("opportunity-list").querySelectorAll("[data-start]").forEach(b=>b.onclick=()=>createTask(Number(b.dataset.start)));
   $("opportunity-list").querySelectorAll("[data-status]").forEach(b=>b.onclick=()=>setStatus(Number(b.dataset.status),b.dataset.next));
 }
 async function verifyEligibility(id){
@@ -76,7 +77,7 @@ async function verifyEligibility(id){
 async function createTask(id){
   const opportunity=opportunities.find(item=>Number(item.id)===Number(id));
   if(!opportunity)return toast("Opportunity not found. Refresh and try again.");
-  if(opportunity.status!=="independently_verified")return toast("Guided sessions are disabled until an independent verification process confirms the official organizer, payout method, free entry and automation rules.");
+  if(["ineligible","archived"].includes(opportunity.status))return toast("This opportunity is marked ineligible or archived and cannot be opened from a guided session.");
   let target;
   try {
     const safeUrl=safePublicHttpsUrl(opportunity.url);
@@ -84,8 +85,9 @@ async function createTask(id){
     target=new URL(safeUrl);
   } catch(error) { return toast(error.message||"Invalid platform URL."); }
   if(!confirm("Start a guided session for this opportunity? AutoEarn will only open the official HTTPS page and record the session. It will NOT sign up, log in, play automatically, submit information, or spend money."))return;
-  const opened=window.open(target.href,"_blank","noopener,noreferrer");
-  if(!opened){toast("Allow pop-ups for AutoEarn AI, then tap Start guided session again.");return;}
+  const opened=window.open(target.href,"_blank");
+  if(!opened){toast("Allow pop-ups for AutoEarn AI, then tap Open manually again.");return;}
+  opened.opener=null;
   const description="Guided session opened by owner. Follow platform rules manually; no automated gameplay or spending.";
   const {error}=await supabase.from("tasks").insert({
     owner_id:currentUser.id,
