@@ -7,7 +7,7 @@ export function normalizeDomGameMetrics(raw) {
     const value = raw[key];
     if (value === null || value === undefined || value === "") continue;
     const number = typeof value === "number" ? value :
-      typeof value === "string" && /^\\d{1,12}$/.test(value.trim()) ? Number(value) : NaN;
+      typeof value === "string" && /^\d{1,12}$/.test(value.trim()) ? Number(value) : NaN;
     if (Number.isSafeInteger(number) && number >= 0) metrics[key] = number;
   }
   return Object.keys(metrics).length ? { gameState: { metrics, metricsSource: "dom-attribute" } } : null;
