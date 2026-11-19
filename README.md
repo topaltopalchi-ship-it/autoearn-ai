@@ -55,3 +55,8 @@ Guided sessions are available only after the owner reviews the official terms UR
 - Third-party game adapters remain disabled until official rules explicitly permit automation. CAPTCHA, anti-bot, access-control and payment safeguards are never bypassed.
 
 - The built-in sliding-puzzle demo now runs through the same bounded agent loop and verifies each move before reporting completion.
+
+
+### Observable game-progress feedback (experimental)
+
+The local browser agent can attach a conservative progress assessment to a verified action. It uses only high-confidence visible player/target boxes, predicted hazard overlap, and explicit terminal outcome markers. It labels a step good, bad, or neutral as a review suggestion; neutral is the default when evidence is missing. These suggestions are not automatically promoted into owner ratings or model training, and visual geometry can be wrong. No win-rate or earnings guarantee is made.
