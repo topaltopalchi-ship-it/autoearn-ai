@@ -253,3 +253,30 @@ Deno.test("recognizes the official Zoa Agent Season prize when the amount uses a
   if (!result.accepted) throw new Error("Expected official Zoa season candidate to be accepted, got: " + result.reason);
   assertEquals(result.payoutMethods, ["Crypto"]);
 });
+
+Deno.test("does not extend the Zoa exception to lookalike hosts", () => {
+  assertRejected(
+    "https://play.zoagames.com.attacker.example/agent-docs/season-1",
+    "AI agent Agent Season 1 game",
+    "Agents play free with free chips. Agent Season 1 prize pool is $490 USDC with payout to the winner.",
+    "excluded_category",
+  );
+});
+
+Deno.test("does not accept the Zoa exception without free-entry evidence", () => {
+  assertRejected(
+    "https://play.zoagames.com/agent-docs/season-1",
+    "AI agent Agent Season 1 game",
+    "Agent Season 1 prize pool is $490 USDC with payout to the winner.",
+    "missing_free_entry_evidence",
+  );
+});
+
+Deno.test("rejects Zoa Agent Season candidates that require a deposit", () => {
+  assertRejected(
+    "https://play.zoagames.com/agent-docs/season-1",
+    "AI agent Agent Season 1 game",
+    "Agents play free with free chips. Agent Season 1 prize pool is $490 USDC with payout to the winner. Deposit to enter.",
+    "excluded_category",
+  );
+});
