@@ -111,3 +111,28 @@ test("enforces extraction call budget", async () => {
   await extract({ text: "Use arrows." });
   await assert.rejects(() => extract({ text: "Use arrows." }), /budget exhausted/);
 });
+
+
+test("accepts canvas-only controls only when one visible marked canvas is reported", async () => {
+  const canvasRules = {
+    ...sufficientRules,
+    controls: [{ input: "Click the canvas", actionFa: "برای حرکت روی بوم بازی کلیک کن" }]
+  };
+  const extract = createOllamaGameRulesExtractor({ model: "local-model", fetchImpl: mockFetch(canvasRules) });
+  const withoutCanvas = await extract({ text: "Click the canvas to move.", canvasAvailable: false });
+  assert.equal(withoutCanvas.controls.length, 0);
+  assert.equal(withoutCanvas.rulesSufficient, false);
+  const withCanvas = await extract({ text: "Click the canvas to move.", canvasAvailable: true });
+  assert.equal(withCanvas.controls.length, 1);
+  assert.equal(withCanvas.rulesSufficient, true);
+});
+
+test("includes explicit canvas availability in the local rules prompt", async () => {
+  const capture = {};
+  const extract = createOllamaGameRulesExtractor({
+    model: "local-model", fetchImpl: mockFetch(sufficientRules, capture)
+  });
+  await extract({ text: "Click the canvas.", canvasAvailable: true });
+  const prompt = JSON.parse(capture.options.body).messages[0].content;
+  assert.match(prompt, /Explicitly reported canvasAvailable: true/);
+});
