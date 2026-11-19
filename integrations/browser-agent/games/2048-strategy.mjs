@@ -97,66 +97,93 @@ function legalMoves(board) {
     .filter(move => move.result.changed);
 }
 
-function expectimaxMax(board, depth, cache) {
+function consumeSearchNode(budget) {
+  if (budget.nodesVisited >= budget.maxNodes) {
+    budget.budgetExhausted = true;
+    return false;
+  }
+  budget.nodesVisited++;
+  return true;
+}
+
+function expectimaxMax(board, depth, cache, budget) {
   if (depth <= 0) return evaluate2048Board(board);
   const key = `M${depth}:${board.flat().join(",")}`;
-  if (cache.has(key)) return cache.get(key);
+  if (cache.has(key)) {
+    budget.cacheHits++;
+    return cache.get(key);
+  }
+  if (!consumeSearchNode(budget)) return evaluate2048Board(board);
   const moves = legalMoves(board);
   if (!moves.length) return evaluate2048Board(board);
   let best = -Infinity;
   for (const move of moves) {
     const score = move.result.gained * 0.08 +
-      expectimaxChance(move.result.board, depth - 1, cache);
+      expectimaxChance(move.result.board, depth - 1, cache, budget);
     if (score > best) best = score;
   }
   cache.set(key, best);
   return best;
 }
 
-function expectimaxChance(board, depth, cache) {
+function expectimaxChance(board, depth, cache, budget) {
   if (depth <= 0) return evaluate2048Board(board);
   const key = `C${depth}:${board.flat().join(",")}`;
-  if (cache.has(key)) return cache.get(key);
+  if (cache.has(key)) {
+    budget.cacheHits++;
+    return cache.get(key);
+  }
+  if (!consumeSearchNode(budget)) return evaluate2048Board(board);
   const empty = [];
   for (let y = 0; y < SIZE; y++) {
     for (let x = 0; x < SIZE; x++) {
       if (board[y][x] === 0) empty.push([y, x]);
     }
   }
-  if (!empty.length) return expectimaxMax(board, depth, cache);
+  if (!empty.length) return expectimaxMax(board, depth, cache, budget);
   let expected = 0;
   for (const [y, x] of empty) {
     const withTwo = board.map(row => [...row]);
     withTwo[y][x] = 2;
     const withFour = board.map(row => [...row]);
     withFour[y][x] = 4;
-    expected += 0.9 * expectimaxMax(withTwo, depth, cache) +
-      0.1 * expectimaxMax(withFour, depth, cache);
+    expected += 0.9 * expectimaxMax(withTwo, depth, cache, budget) +
+      0.1 * expectimaxMax(withFour, depth, cache, budget);
   }
   const score = expected / empty.length;
   cache.set(key, score);
   return score;
 }
 
-export function choose2048Move(board, { depth = 3 } = {}) {
+export function choose2048Move(board, { depth = 3, maxNodes = 25000 } = {}) {
   validateBoard(board);
   if (!Number.isInteger(depth) || depth < 1 || depth > 4) {
     throw new RangeError("2048 search depth must be an integer from 1 to 4.");
   }
+  if (!Number.isInteger(maxNodes) || maxNodes < 1 || maxNodes > 200000) {
+    throw new RangeError("2048 maxNodes must be an integer from 1 to 200000.");
+  }
   const moves = legalMoves(board);
   if (!moves.length) return null;
   const cache = new Map();
+  const budget = { maxNodes, nodesVisited: 0, cacheHits: 0, budgetExhausted: false };
   let best = null;
   for (const move of moves) {
     const score = move.result.gained * 0.08 +
-      expectimaxChance(move.result.board, depth - 1, cache);
+      expectimaxChance(move.result.board, depth - 1, cache, budget);
     if (!best || score > best.score) {
       best = {
         type: "press",
         key: move.key,
         direction: move.direction,
         score,
-        expectedBoard: move.result.board
+        expectedBoard: move.result.board,
+        searchStats: {
+          nodesVisited: budget.nodesVisited,
+          cacheHits: budget.cacheHits,
+          budgetExhausted: budget.budgetExhausted,
+          maxNodes
+        }
       };
     }
   }
