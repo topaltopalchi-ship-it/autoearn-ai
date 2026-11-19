@@ -1,6 +1,8 @@
 import unittest
 
-from autoearn.opportunities import (\n    EligibilityReview, Opportunity, evaluate_eligibility, normalize_url, score_opportunity,\n)
+from autoearn.opportunities import (
+    EligibilityReview, Opportunity, evaluate_eligibility, normalize_url, score_opportunity,
+)
 
 
 class NormalizeUrlTests(unittest.TestCase):
