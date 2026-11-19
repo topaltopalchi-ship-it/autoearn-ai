@@ -69,12 +69,16 @@ export function createTicTacToeBrowserAdapter(page, {
           action.index < 0 || action.index > 8 || action.mark !== player) {
         throw new Error("Only a valid select-cell or wait-for-turn action is allowed.");
       }
+      const state = await readState();
+      if (state.outcome !== "playing" || state.currentPlayer !== player) {
+        throw new Error("It is not the agent's turn in this tic-tac-toe position.");
+      }
       const board = page.locator(boardSelector);
       const cell = board.locator(`${cellSelector}[${indexAttribute}="${action.index}"]`);
       if (await cell.count() !== 1) throw new Error("Target cell must match exactly one element.");
       const markAttributeValue = await cell.getAttribute(markAttribute);
-      const currentMark = String(markAttributeValue || await cell.innerText()).trim();
-      if (currentMark !== "" && currentMark !== "-" && currentMark.toUpperCase() !== "EMPTY") {
+      const currentMark = String(markAttributeValue ?? await cell.innerText()).trim().toUpperCase();
+      if (currentMark !== "" && currentMark !== "-" && currentMark !== "EMPTY") {
         throw new Error("Refusing to click a non-empty tic-tac-toe cell.");
       }
       await cell.click();
@@ -87,7 +91,9 @@ export function createTicTacToeBrowserAdapter(page, {
       }
       const beforeBoard = before?.gameState?.board;
       const afterBoard = after?.gameState?.board;
-      return Array.isArray(beforeBoard) && Array.isArray(afterBoard) &&
+      return before?.gameState?.outcome === "playing" &&
+        before?.gameState?.currentPlayer === player &&
+        Array.isArray(beforeBoard) && Array.isArray(afterBoard) &&
         beforeBoard[action.index] === null && afterBoard[action.index] === player &&
         beforeBoard.filter(Boolean).length + 1 === afterBoard.filter(Boolean).length;
     },
