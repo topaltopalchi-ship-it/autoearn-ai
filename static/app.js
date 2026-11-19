@@ -38,6 +38,8 @@ function eligibilityReviewHtml(opportunity){
       "Official payout confirmation: "+yesNo(report.payment_confirmed),
       "Minimum withdrawal: "+(report.minimum_withdrawal||"Not stated"),
       "Withdrawal fees: "+(report.fees||"Not stated"),
+      "Country eligibility: "+yesNo(report.country_eligible),
+      "Minimum age: "+(report.minimum_age||"Not stated"),
       "KYC: "+(report.kyc==="required"?"Required":report.kyc==="not-required"?"Not required":"Unknown"),
       "Free entry / no deposit: "+yesNo(report.free_entry),
       "Automated gameplay: "+automation
@@ -196,8 +198,8 @@ function bindWorkspace(){
       try{const safe=safePublicHttpsUrl(data[key]);if(!safe)throw new Error();data[key]=safe}
       catch(_){return toast("All three official evidence links must be valid public HTTPS URLs.")}
     }
-    const passed=data.payment_method&&data.payment_method!=="Other / not specified"&&data.payment_confirmed==="yes"&&data.minimum.trim()&&data.fees.trim()&&data.kyc!=="unknown"&&data.free_entry==="yes"&&data.automation==="yes";
-    const report={reviewed_at:new Date().toISOString(),payment_method:data.payment_method,payment_confirmed:data.payment_confirmed,minimum_withdrawal:data.minimum.trim(),fees:data.fees.trim(),kyc:data.kyc,free_entry:data.free_entry,automation_explicitly_allowed:data.automation,payout_source:data.payout_source,automation_source:data.automation_source};
+    const passed=data.payment_method&&data.payment_method!=="Other / not specified"&&data.payment_confirmed==="yes"&&data.minimum.trim()&&data.fees.trim()&&data.country_eligible==="yes"&&data.minimum_age.trim()&&data.kyc!=="unknown"&&data.free_entry==="yes"&&data.automation==="yes";
+    const report={reviewed_at:new Date().toISOString(),payment_method:data.payment_method,payment_confirmed:data.payment_confirmed,minimum_withdrawal:data.minimum.trim(),fees:data.fees.trim(),country_eligible:data.country_eligible,minimum_age:data.minimum_age.trim(),kyc:data.kyc,free_entry:data.free_entry,automation_explicitly_allowed:data.automation,payout_source:data.payout_source,automation_source:data.automation_source};
     const note="\n\n[OWNER OFFICIAL ELIGIBILITY REVIEW]\n"+JSON.stringify(report,null,2);
     const {error}=await supabase.from("opportunities").update({status:passed?"reviewing":"ineligible",terms_url:data.terms_url,notes:(opportunity.notes||"")+note}).eq("id",id);
     if(error)return fail(error);
