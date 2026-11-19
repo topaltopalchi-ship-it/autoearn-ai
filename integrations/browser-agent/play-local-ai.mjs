@@ -194,11 +194,20 @@ async function main() {
       maxPages: 5,
       maxDurationMs: 20_000
     });
+    const markedCanvas = page.locator("[data-game-board] canvas[data-game-canvas]");
+    const canvasAvailable = await markedCanvas.count() === 1 && await markedCanvas.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return rect.width > 20 && rect.height > 20 && style.display !== "none" &&
+        style.visibility !== "hidden" && style.pointerEvents !== "none" &&
+        !element.closest("a,button,[role=button],[role=link],form");
+    }).catch(() => false);
     extractedRules = await extractRules({
       title: instructionSet.title || await page.title().catch(() => ""),
       url: target.href,
       text: instructionSet.text,
-      snapshot: instructionSet.snapshot
+      snapshot: instructionSet.snapshot,
+      canvasAvailable
     });
     if (!extractedRules.rulesSufficient) {
       throw new Error("قوانین بازی به اندازه کافی روشن نیست؛ عامل برای جلوگیری از حرکت اشتباه متوقف شد. متن راهنما یا توضیحات کامل‌تری لازم است.");
