@@ -1,5 +1,5 @@
 import { withSupabase } from "npm:@supabase/server@^1";
-import { candidateReviewFlags, canonicalOpportunityUrl, domainReviewFlags, evaluateCandidate } from "./filters.ts";
+import { candidateReviewFlags, canonicalOpportunityUrl, domainReviewFlags, evaluateCandidate, mergeDuplicateCandidates } from "./filters.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -138,7 +138,7 @@ Deno.serve((req: Request) => {
       }
     }
 
-    const unique = [...new Map(found.map((row) => [row.url, row])).values()];
+    const unique = mergeDuplicateCandidates(found);
     const diagnostics = {
       accepted_candidates: acceptedCandidates,
       rejected,
