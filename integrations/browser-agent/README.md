@@ -72,6 +72,12 @@ Before each decision, a separate local vision pass sends the current JPEG screen
 
 Ollama inference is local and has no per-request API fee, but downloading model weights and running them requires disk space, RAM/CPU/GPU, and electricity. A 3B vision model may be slow or fail on modest hardware. The provider/runner are not connected to the public website and no model is hosted by AutoEarn.
 
+## Persian rule understanding before play
+
+The experimental local AI runner now performs a separate rule-extraction pass before it starts the action loop. It sends bounded visible page text and an accessibility snapshot to the local Ollama model, asks for a Persian explanation of the objective, controls, turn order, scoring, win/loss conditions, hazards, and unresolved questions, and validates the response against a JSON Schema. The runner refuses to start if the objective or at least one control is missing, confidence is below 0.75, or the page explicitly prohibits automation. A missing statement about automation permission is treated as unclear, never as permission; the operator must still explicitly confirm that the site's published rules allow automated play.
+
+The extractor strips URL query strings/fragments, limits page text, uses a loopback-only Ollama endpoint, and treats all page content as untrusted data rather than instructions to the agent. It does not click help menus or navigate away to hunt for instructions yet; if the current page does not expose enough rules, it stops rather than inventing them. This is a first safe gate, not proof that a model has understood every game mechanic. The same local model is used for perception and rule extraction; no paid API is called.
+
 ## Current stage and boundaries
 
 - **Implemented:** isolated Chromium context; exact HTTPS origin allowlist; bounded same-origin page traversal; duplicate/loop avoidance; visible link/button discovery; limited in-page expansion of folder-like controls; same-origin iframe inspection; heuristic folder/game/help/login/verification classification; limited safe button/link and keyboard adapter actions; and page/depth/time/interaction budgets.
