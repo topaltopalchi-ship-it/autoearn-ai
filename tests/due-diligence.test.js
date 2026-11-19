@@ -59,6 +59,30 @@ test("sorts opportunities by evidence completeness without mutating input", () =
   );
 });
 
+test("summarizes evidence completeness bands and excludes unscored entries from average", () => {
+  const rows = [
+    { notes: "Due-diligence flags: no missing details detected by text heuristics.", terms_url: "https://example.com/terms" },
+    { notes: "Due-diligence flags: prize_amount_not_found, organizer_identity_not_found.", terms_url: "" },
+    { notes: "Due-diligence flags: prize_amount_not_found.", terms_url: "" },
+    { notes: "Owner notes only", terms_url: "" },
+  ];
+  assert.deepEqual(globalThis.AutoEarnDueDiligence.summarizeOpportunities(rows), {
+    total: 4,
+    scored: 3,
+    counts: { high: 1, medium: 0, low: 2, unscored: 1 },
+    averageScore: 72,
+  });
+});
+
+test("returns null average when there are no scored opportunities", () => {
+  assert.deepEqual(globalThis.AutoEarnDueDiligence.summarizeOpportunities([{ notes: "manual", terms_url: "" }]), {
+    total: 1,
+    scored: 0,
+    counts: { high: 0, medium: 0, low: 0, unscored: 1 },
+    averageScore: null,
+  });
+});
+
 test("unscored manual entries sort after scored discovery candidates", () => {
   const manual = { id: "manual", notes: "Owner-entered notes", terms_url: "" };
   const discovered = {
