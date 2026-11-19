@@ -15,8 +15,9 @@ function parseAction(text, allowCellClicks = false, allowCanvasClicks = false) {
   }
   if (parsed.type === "click-canvas" && allowCanvasClicks &&
       Number.isFinite(parsed.x) && parsed.x >= 0 && parsed.x <= 1 &&
-      Number.isFinite(parsed.y) && parsed.y >= 0 && parsed.y <= 1) {
-    return { type: "click-canvas", x: parsed.x, y: parsed.y };
+      Number.isFinite(parsed.y) && parsed.y >= 0 && parsed.y <= 1 &&
+      Number.isFinite(parsed.confidence) && parsed.confidence >= 0.8 && parsed.confidence <= 1) {
+    return { type: "click-canvas", x: parsed.x, y: parsed.y, confidence: parsed.confidence };
   }
   throw new Error("Local model requested an unsupported action.");
 }
@@ -89,7 +90,7 @@ export function createOllamaGameDecision({
       "Allowed keys: " + [...keys].join(", "),
       "If the game is unclear, blocked, requests CAPTCHA/verification, or no safe move is evident, return {\"action\":\"stop\"}.",
       "Owner-rated experience hints for this exact state (not guarantees; do not blindly follow): " + JSON.stringify(memoryHints),
-      "For canvas clicks, choose a point inside the visible game canvas using the screenshot; if target location is uncertain, stop.",
+      "For canvas clicks, choose a point inside the visible game canvas using the screenshot and include confidence from 0 to 1. Only act when confidence is at least 0.8; otherwise return stop.",
       "Observation JSON: " + JSON.stringify(snapshot)
     ].join("\n");
     calls++;
