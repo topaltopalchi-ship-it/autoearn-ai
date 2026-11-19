@@ -94,6 +94,10 @@ test("unscored manual entries sort after scored discovery candidates", () => {
     globalThis.AutoEarnDueDiligence.sortOpportunities([manual, discovered]).map((item) => item.id),
     ["discovered", "manual"],
   );
+  assert.deepEqual(
+    globalThis.AutoEarnDueDiligence.sortOpportunities([manual, discovered], "evidence-low").map((item) => item.id),
+    ["discovered", "manual"],
+  );
 });
 
 test("returns null when no discovery due-diligence result exists", () => {
