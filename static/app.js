@@ -44,7 +44,9 @@ function eligibilityReviewHtml(opportunity){
       "Free entry / no deposit: "+yesNo(report.free_entry),
       "Automated gameplay: "+automation
     ];
-    return html+"<br><strong>Owner's official review:</strong> "+details.map(esc).join(" · ");
+    const sourceLinks=[["Official terms",opportunity.terms_url],["Payout evidence",report.payout_source],["Automation rules",report.automation_source]].map(([label,url])=>{const safe=safePublicHttpsUrl(url||"");return safe?'<a href="'+esc(safe)+'" target="_blank" rel="noopener noreferrer">'+label+'</a>':null;}).filter(Boolean);
+    const reviewed=report.reviewed_at?new Date(report.reviewed_at).toLocaleString():"date not recorded";
+    return html+"<br><strong>Owner's official review ("+esc(reviewed)+"):</strong> "+details.map(esc).join(" · ")+(sourceLinks.length?"<br><strong>Evidence:</strong> "+sourceLinks.join(" · "):"");
   }catch(_){return html;}
 }
 
