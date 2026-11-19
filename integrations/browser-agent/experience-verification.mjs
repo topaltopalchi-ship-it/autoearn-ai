@@ -31,7 +31,17 @@ export async function recordVerifiedExperience(memory, pending, { before, action
       action
     });
     const progress = evaluateGameProgress(before, after);
-    pending?.push({ id, gameType, actionKey, progress });
+    let feedbackStatus = "needs-review";
+    // Only explicit, machine-readable terminal outcomes are strong enough for automatic rating.
+    if (progress.confidence === 1 && ["good", "bad"].includes(progress.feedback)) {
+      try {
+        await memory.rate(id, progress.feedback);
+        feedbackStatus = "auto-rated-explicit-outcome";
+      } catch (error) {
+        onMemoryError(error);
+      }
+    }
+    pending?.push({ id, gameType, actionKey, progress, feedbackStatus });
   } catch (error) {
     onMemoryError(error);
   }
