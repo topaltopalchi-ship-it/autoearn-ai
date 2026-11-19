@@ -1,6 +1,6 @@
 const DEFAULT_KEYS = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "Escape", " "]);
 
-function parseAction(text) {
+function parseAction(text, allowCellClicks = false) {
   let parsed;
   try {
     const cleaned = String(text || "").trim().replace(/^`{3}(?:json)?\s*/i, "").replace(/\s*`{3}$/i, "");
@@ -9,10 +9,11 @@ function parseAction(text) {
     throw new Error("Local model returned invalid JSON.");
   }
   if (parsed === null || parsed.action === "stop") return null;
-  if (parsed.type !== "press" || typeof parsed.key !== "string") {
-    throw new Error("Local model requested an unsupported action.");
+  if (parsed.type === "press" && typeof parsed.key === "string") return { type: "press", key: parsed.key };
+  if (parsed.type === "click-cell" && allowCellClicks && Number.isInteger(parsed.index) && parsed.index >= 0 && parsed.index < 100) {
+    return { type: "click-cell", index: parsed.index };
   }
-  return { type: "press", key: parsed.key };
+  throw new Error("Local model requested an unsupported action.");
 }
 
 function validateLocalEndpoint(endpoint) {
@@ -32,6 +33,7 @@ export function createOllamaGameDecision({
   maxCalls = 20,
   timeoutMs = 30_000,
   allowedKeys = DEFAULT_KEYS,
+  allowCellClicks = false,
   fetchImpl = globalThis.fetch,
   experienceMemory = null
 } = {}) {
@@ -92,8 +94,8 @@ export function createOllamaGameDecision({
       });
       if (!response.ok) throw new Error(`Local Ollama request failed (HTTP ${response.status}).`);
       const payload = await response.json();
-      const action = parseAction(payload?.message?.content);
-      if (action && !keys.has(action.key)) throw new Error("Local model selected a key outside the configured allowlist.");
+      const action = parseAction(payload?.message?.content, allowCellClicks);
+      if (action?.type === "press" && !keys.has(action.key)) throw new Error("Local model selected a key outside the configured allowlist.");
       return action;
     } finally {
       clearTimeout(timeout);
