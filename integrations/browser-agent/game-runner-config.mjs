@@ -1,5 +1,5 @@
 export function resolveDetectedGame(detected, player = "") {
-  if (!detected || !["2048", "tic-tac-toe", "connect-four"].includes(detected.gameType)) {
+  if (!detected || !["2048", "tic-tac-toe", "connect-four", "othello"].includes(detected.gameType)) {
     return { ok: false, reason: detected?.reason || "unsupported_or_ambiguous_game" };
   }
   if (detected.gameType === "2048") {
@@ -10,7 +10,7 @@ export function resolveDetectedGame(detected, player = "") {
     return { ok: false, reason: detected.gameType === "connect-four"
       ? "connect_four_player_must_be_X_or_O" : "tic_tac_toe_player_must_be_X_or_O" };
   }
-  if (detected.gameType === "connect-four") {
+  if (detected.gameType === "othello") {\n    return {\n      ok: true, gameType: "othello", adapter: "othello",\n      player: normalizedPlayer, allowedActions: ["click-cell", "pass-turn", "wait-for-turn"]\n    };\n  }\n  if (detected.gameType === "connect-four") {
     return {
       ok: true, gameType: "connect-four", adapter: "connect-four",
       player: normalizedPlayer, allowedActions: ["click-column", "wait-for-turn"]
