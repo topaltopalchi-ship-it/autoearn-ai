@@ -14,7 +14,7 @@ function fakePage() {
     count:async()=>1,
     getAttribute:async name=>name==="data-current-player"?current:null,
     locator(selector) {
-      if(selector.startsWith("[data-game-cell][data-game-cell-index]")) return {
+      if(selector === "[data-game-cell][data-game-cell-index]") return {
         evaluateAll:async callback=>callback(board.map((mark,index)=>({
           getAttribute:name=>name==="data-game-cell-index"?String(index):name==="data-mark"?mark:null,
           textContent:mark
