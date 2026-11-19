@@ -81,7 +81,8 @@ The extractor strips URL query strings/fragments, limits page text, uses a loopb
 ## Current stage and boundaries
 
 - **Implemented:** isolated Chromium context; exact HTTPS origin allowlist; bounded same-origin page traversal; duplicate/loop avoidance; visible link/button discovery; limited in-page expansion of folder-like controls; same-origin iframe inspection; heuristic folder/game/help/login/verification classification; limited safe button/link and keyboard adapter actions; and page/depth/time/interaction budgets.
-- **Implemented for one wired game:** bounded expectimax 2048 strategy, a defensive configurable DOM-to-board adapter, and a separate guarded runner that can execute and verify arrow-key moves when the site's board selectors are configured. The 2048 runner has not yet been tested against a live third-party game site.\n- **Implemented as a tested strategy module:** exact minimax for tic-tac-toe, plus a strategy registry that accepts normalized game state. It is not yet connected to screenshot/DOM recognition or a browser click adapter, so it does not autonomously play tic-tac-toe on websites yet.
+- **Implemented for one wired game:** bounded expectimax 2048 strategy, a defensive configurable DOM-to-board adapter, and a separate guarded runner that can execute and verify arrow-key moves when the site's board selectors are configured. The 2048 runner has not yet been tested against a live third-party game site.
+- **Implemented as a tested strategy module:** exact minimax for tic-tac-toe, plus a strategy registry that accepts normalized game state. It is not yet connected to screenshot/DOM recognition or a browser click adapter, so it does not autonomously play tic-tac-toe on websites yet.
 - **Implemented and wired into the experimental local AI runner:** local Ollama visual perception, a separate local decision call, and a private feedback memory that uses only owner-rated actions from matching hashed states. Both providers reject remote endpoints, validate responses, enforce timeouts and call budgets, and use no paid AI API or API key.
 - **Not yet implemented:** reliable classification across arbitrary sites, automatic site-specific selector discovery, more game strategies, and robust end-to-end prize/win verification.
 - Only use game sites whose official rules explicitly permit automated play.
@@ -177,4 +178,18 @@ The experimental local AI runner supports a narrow mouse action: `click-cell` wi
 ## Conservative win/loss state reporting
 
 The local AI runner now checks explicit `data-game-outcome` and `data-game-status` markers before using clear visible win/loss phrases. Explicit active-state markers override incidental text elsewhere on the page. Unknown states remain unknown; a page change or a higher score is not counted as a win. This reports a game's visible/DOM terminal state only and does not prove a cash reward, prize eligibility, or withdrawable income.
-\n\n## Connect Four browser runner (explicit column controls required)\n\nThe combined `npm run play:auto` runner now recognizes a Connect Four board only when a single `[data-game-board]` contains exactly 42 uniquely indexed `[data-game-cell][data-game-cell-index]` cells with readable X/O/empty marks. It also requires seven explicit, uniquely indexed `[data-game-column][data-game-column-index="0..6"]` column controls; the agent clicks a column control, never an arbitrary screen coordinate or guessed cell. The adapter validates gravity and turn counts, waits for the configured player's turn, and verifies that exactly one token appeared in the expected landing cell.\n\nSet `AUTOEARN_CONNECT_FOUR_PLAYER=X` or `O` when the site assigns the agent a mark. The same opt-in and exact HTTPS origin checks apply, and the site's published rules must explicitly permit automation. If the board does not expose these exact semantics, the runner refuses to play. This strategy uses bounded depth-4 minimax with alpha-beta pruning and tactical win/block checks; it is a heuristic, not a guarantee of winning. No live third-party Connect Four site has been tested.\n\n```sh\nAUTOEARN_GAME_URL=https://your-approved-game.example/connect-four \\\nAUTOEARN_ALLOWED_ORIGINS=https://your-approved-game.example \\\nAUTOEARN_AUTOMATION_APPROVED=YES \\\nAUTOEARN_CONNECT_FOUR_PLAYER=X \\\nnpm run play:auto\n```\n
+
+
+## Connect Four browser runner (explicit column controls required)
+
+The combined `npm run play:auto` runner now recognizes a Connect Four board only when a single `[data-game-board]` contains exactly 42 uniquely indexed `[data-game-cell][data-game-cell-index]` cells with readable X/O/empty marks. It also requires seven explicit, uniquely indexed `[data-game-column][data-game-column-index="0..6"]` column controls; the agent clicks a column control, never an arbitrary screen coordinate or guessed cell. The adapter validates gravity and turn counts, waits for the configured player's turn, and verifies that exactly one token appeared in the expected landing cell.
+
+Set `AUTOEARN_CONNECT_FOUR_PLAYER=X` or `O` when the site assigns the agent a mark. The same opt-in and exact HTTPS origin checks apply, and the site's published rules must explicitly permit automation. If the board does not expose these exact semantics, the runner refuses to play. This strategy uses bounded depth-4 minimax with alpha-beta pruning and tactical win/block checks; it is a heuristic, not a guarantee of winning. No live third-party Connect Four site has been tested.
+
+```sh
+AUTOEARN_GAME_URL=https://your-approved-game.example/connect-four \\
+AUTOEARN_ALLOWED_ORIGINS=https://your-approved-game.example \\
+AUTOEARN_AUTOMATION_APPROVED=YES \\
+AUTOEARN_CONNECT_FOUR_PLAYER=X \\
+npm run play:auto
+```
