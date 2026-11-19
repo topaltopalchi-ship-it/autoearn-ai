@@ -76,19 +76,19 @@ export function evaluateGameProgress(before, after) {
     after?.gameState?.metricsSource === "dom-attribute" &&
     oldMetrics && newMetrics && typeof oldMetrics === "object" && typeof newMetrics === "object";
   if (trustedMetrics) {
-    for (const [key, direction, signal] of [
-      ["score", 1, "score-increased"],
-      ["level", 1, "level-increased"],
-      ["lives", -1, "lives-increased"],
-      ["mistakes", -1, "mistakes-decreased"]
+    for (const [key, direction, improvedSignal, worsenedSignal] of [
+      ["score", 1, "score-increased", "score-decreased"],
+      ["level", 1, "level-increased", "level-decreased"],
+      ["lives", -1, "lives-decreased", "lives-increased"],
+      ["mistakes", -1, "mistakes-decreased", "mistakes-increased"]
     ]) {
       const oldValue = oldMetrics[key], newValue = newMetrics[key];
       if (!Number.isFinite(oldValue) || !Number.isFinite(newValue) || oldValue === newValue) continue;
       const improved = (newValue - oldValue) * direction > 0;
       reward += improved ? 1 : -1;
-      signals.push(improved ? signal : signal.replace("increased", "decreased").replace("decreased", "increased"));
+      signals.push(improved ? improvedSignal : worsenedSignal);
     }
-  }
+  }  }
 
   const feedback = reward >= 1 ? "good" : reward <= -1 ? "bad" : "neutral";
   return {
