@@ -34,3 +34,17 @@ test("returns no move when the player has no legal placement",()=>{
   board[0]="";
   assert.equal(chooseOthelloMove(board,{player:"W"}),null);
 });
+
+test("rejects malformed boards, invalid players, and unbounded search depths",()=>{
+  assert.throws(()=>getOthelloLegalMoves(Array(63).fill(""),"B"),/64 cells/);
+  assert.throws(()=>getOthelloLegalMoves(initialBoard(),"R"),/player must be B or W/);
+  assert.throws(()=>chooseOthelloMove(initialBoard(),{player:"B",depth:0}),/depth must be 1..5/);
+  const malformed=initialBoard(); malformed[0]="RED";
+  assert.throws(()=>getOthelloOutcome(malformed),/black, white, or empty/);
+});
+
+test("accepts a two-dimensional board and normalizes documented disc aliases",()=>{
+  const board=Array.from({length:8},()=>Array(8).fill(""));
+  board[3][3]="white"; board[3][4]="x"; board[4][3]="black"; board[4][4]="o";
+  assert.deepEqual(getOthelloLegalMoves(board,"BLACK"),[19,26,37,44]);
+});
