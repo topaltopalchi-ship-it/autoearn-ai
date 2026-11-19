@@ -4,6 +4,7 @@ import { dirname } from "node:path";
 
 const VERSION = 1;
 const MAX_RECORDS = 1000;
+const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const ACTION_KEYS = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "Escape", " "]);
 
 export function createStateKey({ gameType = "unknown", stateSummary = "", objective = "" } = {}) {
@@ -60,7 +61,10 @@ export function createGameExperienceMemory({ filePath = ".autoearn/experience-me
       if (parsed?.version !== VERSION || !Array.isArray(parsed.records)) {
         throw new Error("Unsupported or invalid local experience memory format.");
       }
-      records = parsed.records.filter(validRecord).slice(-MAX_RECORDS);
+      const cutoff = Date.parse(now()) - MAX_AGE_MS;
+      records = parsed.records.filter(record => validRecord(record) &&
+        Number.isFinite(Date.parse(record.createdAt)) && Date.parse(record.createdAt) >= cutoff
+      ).slice(-MAX_RECORDS);
     } catch (error) {
       if (error.code !== "ENOENT") throw error;
       records = [];
