@@ -49,3 +49,8 @@ test("refuses a move when it is not the configured player's turn",async()=>{
   const page=fakePage(),adapter=createOthelloBrowserAdapter(page,{player:"W"});
   await assert.rejects(()=>adapter.execute({type:"click-cell",index:19}),/not the agent's turn/);
 });
+
+test("refuses to pass while a legal Othello placement exists",async()=>{
+  const page=fakePage(),adapter=createOthelloBrowserAdapter(page,{player:"B"});
+  await assert.rejects(()=>adapter.execute({type:"pass-turn"}),/pass is legal only when no placement exists/);
+});
