@@ -10,14 +10,14 @@ function initialBoard() {
 
 test("finds the four legal opening moves and returns a legal move",()=>{
   const board=initialBoard();
-  assert.deepEqual(getOthelloLegalMoves(board,"B"),[20,29,34,43]);
+  assert.deepEqual(getOthelloLegalMoves(board,"B"),[19,26,37,44]);
   const move=chooseOthelloMove(board,{player:"B",depth:3});
   assert.ok(getOthelloLegalMoves(board,"B").includes(move.index));
 });
 
 test("applies a legal move and flips the bracketed opponent disc",()=>{
   const board=initialBoard();
-  const next=applyOthelloMove(board,20,"B");
+  const next=applyOthelloMove(board,19,"B");
   assert.equal(next[20],"B");
   assert.equal(next[28],"B");
   assert.equal(board[28],"B");
