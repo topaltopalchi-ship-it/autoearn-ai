@@ -2,6 +2,7 @@ import { chromium } from "playwright";
 import "../../static/game-agent.js";
 import { createOllamaGameDecision } from "./ollama-decision-provider.mjs";
 import { createOllamaGamePerception } from "./ollama-game-perception.mjs";
+import { createGameExperienceMemory } from "./game-experience-memory.mjs";
 
 const gameUrl = process.env.AUTOEARN_GAME_URL;
 const approvedOrigins = new Set(String(process.env.AUTOEARN_ALLOWED_ORIGINS || "")
@@ -61,7 +62,12 @@ async function main() {
       throw new Error("Navigation left the approved origin.");
     }
 
-    const decide = createOllamaGameDecision({ model, maxCalls: maxModelCalls });
+    const experienceMemory = createGameExperienceMemory({
+      filePath: process.env.AUTOEARN_MEMORY_FILE || ".autoearn/experience-memory.json"
+    });
+    await experienceMemory.load();
+    const pendingFeedback = [];
+    const decide = createOllamaGameDecision({ model, maxCalls: maxModelCalls, experienceMemory });
     const perceive = createOllamaGamePerception({ model, maxCalls: maxModelCalls });
     const adapter = {
       async observe() {
@@ -100,11 +106,29 @@ async function main() {
         return { type: "press", key: action.key };
       },
       async verify({ before, after }) {
-        return Boolean(after && before && (
+        const verified = Boolean(after && before && (
           before.url !== after.url ||
           before.snapshot !== after.snapshot ||
           before.screenshot !== after.screenshot
         ));
+        if (verified) {
+          try {
+            const id = await experienceMemory.recordPending({
+              gameType: before.gameState?.gameType || "unknown",
+              stateSummary: before.gameState?.stateSummary || "",
+              objective: before.gameState?.objective || "",
+              action
+            });
+            pendingFeedback.push({
+              id,
+              gameType: before.gameState?.gameType || "unknown",
+              actionKey: action.key
+            });
+          } catch (error) {
+            console.warn("Experience memory was not saved:", error.message);
+          }
+        }
+        return verified;
       },
       isTerminal(observation) {
         return /game over|you win|you won|you lost|victory|defeat|بازی تمام شد|برنده شدی|باختی/i
@@ -136,6 +160,7 @@ async function main() {
       result,
       localModelUsage: decide.usage,
       localVisionUsage: perceive.usage,
+      pendingExperienceFeedback: pendingFeedback,
       finalUrl: page.isClosed() ? null : page.url()
     }, null, 2));
   } finally {
