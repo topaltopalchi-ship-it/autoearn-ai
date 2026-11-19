@@ -285,6 +285,7 @@ Deno.test("rejects Zoa Agent Season candidates that require a deposit", () => {
 Deno.test("surfaces due-diligence gaps without filtering country-restricted candidates", () => {
   const flags = candidateReviewFlags("Free puzzle cash prize", "No purchase necessary. Winner receives payout through a third-party payment processor. KYC identity verification may be required. Not available in some countries.");
   assertEquals(flags, [
+    "official_terms_source_not_verified",
     "identity_verification_mentioned",
     "geographic_restrictions_mentioned_review_country_rules",
     "minimum_withdrawal_not_found",
@@ -300,7 +301,7 @@ Deno.test("surfaces due-diligence gaps without filtering country-restricted cand
 Deno.test("flags missing prize amount, payout timing, organizer identity and winner selection", () => {
   assertEquals(
     candidateReviewFlags("Free puzzle cash prize", "No purchase necessary. Winner receives payout through PayPal. Minimum withdrawal is 10 USD. No withdrawal fees."),
-    ["prize_amount_not_found", "payout_timing_not_found", "organizer_identity_not_found", "winner_selection_method_not_found"],
+    ["official_terms_source_not_verified", "prize_amount_not_found", "payout_timing_not_found", "organizer_identity_not_found", "winner_selection_method_not_found"],
   );
 });
 
@@ -323,7 +324,7 @@ Deno.test("recognizes a prize amount when explicitly tied to a prize label", () 
 Deno.test("does not flag disclosed prize, payout timing, organizer and winner selection terms", () => {
   assertEquals(
     candidateReviewFlags("Free cash prize contest", "Sponsor: Example Games. Prize is $500 USD. Winners are selected by highest score. Payment will be made within 30 days via PayPal. Minimum withdrawal is 10 USD. No withdrawal fees. No purchase necessary."),
-    [],
+    ["official_terms_source_not_verified"],
   );
 });
 
