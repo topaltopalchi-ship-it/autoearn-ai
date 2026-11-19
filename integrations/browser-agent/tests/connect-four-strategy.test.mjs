@@ -38,4 +38,11 @@ test("Connect Four detects win, draw and invalid board shapes", () => {
   const impossible = empty();
   for (let c = 0; c < 4; c++) { impossible[5][c] = "X"; impossible[4][c] = "O"; }
   assert.throws(() => getConnectFourOutcome(impossible), /wins for both/);
+  const wrongTurn = empty();
+  wrongTurn[5][0] = "O";
+  assert.throws(() => getConnectFourOutcome(wrongTurn), /turn counts/);
+  const wrongWinner = empty();
+  for (let c = 0; c < 4; c++) wrongWinner[5][c] = "X";
+  wrongWinner[4][4] = "O";
+  assert.throws(() => getConnectFourOutcome(wrongWinner), /winner is inconsistent/);
 });
