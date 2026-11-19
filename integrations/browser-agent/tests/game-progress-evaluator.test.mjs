@@ -94,3 +94,29 @@ test("ignores missing and non-numeric metric values", () => {
   assert.equal(result.reward, 0);
   assert.deepEqual(result.signals, []);
 });
+
+
+test("trusted terminal outcomes take precedence over contradictory weaker signals", () => {
+  const before = {
+    gameState: {
+      outcome: "playing", outcomeSource: "dom-attribute",
+      metricsSource: "dom-attribute", metrics: { score: 100, lives: 5, mistakes: 0 }
+    },
+    canvasObjects: [box("player", 0.1, 0.1), box("target", 0.8, 0.8)]
+  };
+  const won = evaluateGameProgress(before, {
+    gameState: {
+      outcome: "won", outcomeSource: "dom-attribute",
+      metricsSource: "dom-attribute", metrics: { score: 0, lives: 0, mistakes: 99 }
+    },
+    canvasObjects: [box("player", 0.1, 0.1), box("target", 0.8, 0.8)],
+    canvasMotion: { predictedHazards: [{ x: 0.1, y: 0.1, width: 0.1, height: 0.1, confidence: 0.99 }] }
+  });
+  assert.deepEqual(won, { reward: 3, feedback: "good", confidence: 1, signals: ["explicit-win"] });
+
+  const lost = evaluateGameProgress(before, {
+    gameState: { outcome: "lost", outcomeSource: "dom-attribute" },
+    canvasObjects: [box("player", 0.1, 0.1), box("target", 0.8, 0.8)]
+  });
+  assert.deepEqual(lost, { reward: -3, feedback: "bad", confidence: 1, signals: ["explicit-loss"] });
+});
