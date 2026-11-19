@@ -33,6 +33,8 @@ test("penalizes unverified organizer domain and official terms in discovery evid
     score: 60,
     missing: ["official_source_not_verified", "official_terms_source_not_verified"],
     officialTermsProvided: false,
+    officialTermsVerified: false,
+    organizerIdentityVerified: false,
   });
 });
 
