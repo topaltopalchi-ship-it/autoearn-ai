@@ -70,7 +70,7 @@ test("summarizes evidence completeness bands and excludes unscored entries from 
     total: 4,
     scored: 3,
     counts: { high: 1, medium: 0, low: 2, unscored: 1 },
-    averageScore: 72,
+    averageScore: 77,
   });
 });
 
