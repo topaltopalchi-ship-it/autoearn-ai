@@ -163,10 +163,47 @@ export function choose2048Move(board, { depth = 3 } = {}) {
   return best;
 }
 
+export function analyze2048Position(board) {
+  validateBoard(board);
+  const values = board.flat();
+  const emptyCells = values.filter(value => value === 0).length;
+  return {
+    emptyCells,
+    occupiedCells: 16 - emptyCells,
+    highestTile: Math.max(...values),
+    legalMoves: legalMoves(board).length
+  };
+}
+
+export function select2048SearchDepth(board, { minDepth = 1, maxDepth = 3 } = {}) {
+  if (!Number.isInteger(minDepth) || !Number.isInteger(maxDepth) ||
+      minDepth < 1 || maxDepth > 4 || minDepth > maxDepth) {
+    throw new RangeError("Adaptive depth bounds must satisfy 1 <= minDepth <= maxDepth <= 4.");
+  }
+  const metrics = analyze2048Position(board);
+  if (metrics.legalMoves === 0) return minDepth;
+  const suggested = metrics.emptyCells >= 10 ? 1 : metrics.emptyCells >= 6 ? 2 : 3;
+  return Math.max(minDepth, Math.min(maxDepth, suggested));
+}
+
+export function choose2048MoveAdaptive(board, options = {}) {
+  const depth = select2048SearchDepth(board, options);
+  const move = choose2048Move(board, { depth });
+  return move ? { ...move, searchDepth: depth, position: analyze2048Position(board) } : null;
+}
+
 export function create2048Decision({ depth = 3 } = {}) {
   return async observation => {
     if (!observation || !Array.isArray(observation.board)) return null;
     const move = choose2048Move(observation.board, { depth });
+    return move ? { type: move.type, key: move.key, direction: move.direction } : null;
+  };
+}
+
+export function createAdaptive2048Decision(options = {}) {
+  return async observation => {
+    if (!observation || !Array.isArray(observation.board)) return null;
+    const move = choose2048MoveAdaptive(observation.board, options);
     return move ? { type: move.type, key: move.key, direction: move.direction } : null;
   };
 }
