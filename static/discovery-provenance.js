@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
   function extractDiscoveryProvenance(notes) {
-    const match = String(notes || "").match(/\\[DISCOVERY PROVENANCE\\]\\s*(\\{[^\\n]*\\})/);
+    const match = String(notes || "").match(/\[DISCOVERY PROVENANCE\]\s*(\{[^\n]*\})/);
     if (!match) return null;
     try {
       const value = JSON.parse(match[1]);
