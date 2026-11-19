@@ -23,6 +23,12 @@ test("compares fixed and adaptive policies on identical reproducible seeds", () 
   ));
   assert.ok(first.summaries[3].depthCounts[1] + first.summaries[3].depthCounts[2] +
     first.summaries[3].depthCounts[3] > 0);
+  for (const summary of first.summaries) {
+    assert.ok(Number.isFinite(summary.averageSearchNodesPerMove));
+    assert.ok(summary.searchStats.nodesVisited >= 0);
+    assert.ok(summary.searchStats.cacheHits >= 0);
+    assert.ok(summary.searchStats.budgetExhaustedMoves >= 0);
+  }
   assert.match(first.note, /do not establish real-site win rates/);
 });
 
