@@ -149,3 +149,21 @@ test("ignores tiny or low-confidence Canvas detection jitter", () => {
   };
   assert.equal(hasMeaningfulStateChange(before, after), false);
 });
+
+test("does not remember arbitrary keyboard keys or retain extra action properties", async () => {
+  const calls = [];
+  const memory = { async recordPending(value) { calls.push(value); return "safe-exp"; } };
+  const before = { snapshot: "before" };
+  const after = { snapshot: "after" };
+  await recordVerifiedExperience(memory, [], {
+    before, after, action: { type: "press", key: "Control+V", pastedSecret: "must-not-be-stored" }
+  });
+  assert.equal(calls.length, 0);
+  await recordVerifiedExperience(memory, [], {
+    before, after, action: { type: "press", key: "ArrowLeft", pastedSecret: "must-not-be-stored" }
+  });
+  assert.deepEqual(calls, [{
+    gameType: "unknown", stateSummary: "", objective: "",
+    action: { type: "press", key: "ArrowLeft" }
+  }]);
+});
