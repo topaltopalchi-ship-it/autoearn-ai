@@ -56,7 +56,7 @@ Automatically discovered candidates remain unverified and are saved for owner re
 
 ## Opportunity eligibility gate
 
-Guided sessions are available only after the owner reviews the official terms URL and confirms country eligibility, a specific, officially supported payout method (wallet, bank transfer, or bank card), no required deposit or purchase, and explicit permission for automated gameplay. This is an owner attestation, not an independent verification by AutoEarn; do not mark an opportunity eligible unless every item is confirmed from official sources. Guided sessions still open the platform for manual participation only.
+Guided sessions are blocked for discovered, reviewing, ineligible, and archived opportunities. They can start only when an opportunity has the explicit `eligible` status, which must be reserved for opportunities whose official terms, country eligibility, specific supported cash-out method, no-deposit/no-purchase entry, minimum age, KYC requirements, and platform rules have been independently checked. The owner checklist is an attestation and does not itself grant `eligible` status. Guided sessions only open the public HTTPS page for manual participation; they do not sign up, log in, submit information, spend money, or automate gameplay. If official rules do not clearly permit automation, automated gameplay remains disabled.
 
 ## Autonomous game-agent engine
 
