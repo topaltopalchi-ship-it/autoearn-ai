@@ -35,8 +35,10 @@ function eligibilityReviewHtml(opportunity){
   const notes=String(opportunity.notes||"");
   const index=notes.lastIndexOf(marker);
   const dueFlags=window.AutoEarnDueDiligence.extractReviewFlags(notes);
+  const evidence=window.AutoEarnDueDiligence.calculateEvidenceCompleteness(notes,opportunity.terms_url);
   let html=esc(base);
   if(dueFlags)html+="<br><strong>Review alerts:</strong> "+esc(dueFlags.replaceAll("_"," "));
+  if(evidence)html+="<br><strong>Evidence completeness (text heuristic):</strong> "+evidence.score+"/100 · Not a legitimacy or payout guarantee.";
   if(index<0)return html;
   try{
     const report=JSON.parse(notes.slice(index+marker.length).trim());
