@@ -336,7 +336,7 @@ Deno.test("merges duplicate discovery URLs and preserves distinct search provena
       category: "game",
       reward_description: "Prize: $100. Free entry.",
       eligibility: "Payout method hints: PayPal. Due-diligence flags: fees missing.",
-      notes: "Review the official terms.\\n[DISCOVERY PROVENANCE]\\n" + JSON.stringify({
+      notes: "Review the official terms.\n[DISCOVERY PROVENANCE]\n" + JSON.stringify({
         source: "Mwmbl search", search_query: "free puzzle prize", discovered_at: "2026-11-19T10:00:00.000Z", excerpt: "Prize: $100.",
       }),
     },
@@ -346,7 +346,7 @@ Deno.test("merges duplicate discovery URLs and preserves distinct search provena
       category: "contest",
       reward_description: "Winners receive $100 payout within 30 days.",
       eligibility: "Payout method hints: Skrill. Due-diligence flags: organizer missing.",
-      notes: "Other notes.\\n[DISCOVERY PROVENANCE]\\n" + JSON.stringify({
+      notes: "Other notes.\n[DISCOVERY PROVENANCE]\n" + JSON.stringify({
         source: "Mwmbl search", search_query: "official contest payout", discovered_at: "2026-11-19T11:00:00.000Z", excerpt: "Payout within 30 days.",
       }),
     },
