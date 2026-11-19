@@ -17,8 +17,9 @@ test("Connect Four blocks an opponent's immediate horizontal win", () => {
   const board = empty();
   for (let c = 0; c < 3; c++) board[5][c] = "O";
   board[5][4] = board[5][5] = board[5][6] = "X";
-  // Three X and three O discs: X legitimately moves next.
-  const move = chooseConnectFourMove(board, { player: "X" });
+  board[4][4] = "X";
+  // Four X and three O discs: O must block the horizontal threat.
+  const move = chooseConnectFourMove(board, { player: "O" });
   assert.equal(move.column, 3);
 });
 
@@ -35,7 +36,7 @@ test("Connect Four refuses to move out of turn", () => {
   board[5][6] = "X";
   board[4][6] = "X";
   assert.throws(() => chooseConnectFourMove(board, { player: "X" }), /It is O's turn/);
-  assert.equal(chooseConnectFourMove(board, { player: "O" }).column, 3);
+  assert.equal(chooseConnectFourMove(board, { player: "O" }).column, 6);
 });
 
 test("Connect Four detects win, draw and invalid board shapes", () => {
