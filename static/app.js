@@ -1,15 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const cfg = window.AUTOEARN_CONFIG || {};
 function safePublicHttpsUrl(value){
-  try{
-    const u=new URL(String(value||"").trim());
-    const host=u.hostname.toLowerCase().replace(/\.$/,"");
-    if(u.protocol!=="https:"||u.username||u.password||(u.port&&u.port!=="443"))return null;
-    if(!host||host==="localhost"||host.endsWith(".localhost")||host.endsWith(".local")||host.startsWith("[")||/^\d{1,3}(?:\.\d{1,3}){3}$/.test(host))return null;
-    const labels=host.split(".");
-    if(labels.length<2||labels.some(label=>!label||label.length>63||!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label)))return null;
-    return u.href;
-  }catch(_){return null}
+  return window.AutoEarnDueDiligence?.safePublicHttpsUrl(value) || null;
 }
 const configured = Boolean(cfg.url && cfg.publishableKey && !cfg.publishableKey.includes("PASTE_"));
 let supabase = null;
