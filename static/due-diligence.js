@@ -50,6 +50,11 @@
     return rows;
   }
 
+  function formatCategoryLabels(category, labels = {}) {
+    const values = String(category || "").split(",").map((value) => value.trim()).filter(Boolean);
+    return values.map((value) => labels[value] || value).join(", ") || "Other";
+  }
+
   function summarizeOpportunities(opportunities) {
     const rows = Array.isArray(opportunities) ? opportunities : [];
     const scored = rows
@@ -76,5 +81,6 @@
     calculateEvidenceCompleteness,
     sortOpportunities,
     summarizeOpportunities,
+    formatCategoryLabels,
   });
 })(globalThis);
