@@ -116,8 +116,8 @@ test("automatically rates only explicit terminal win or loss outcomes", async ()
     async rate(id, feedback) { rated.push({ id, feedback }); }
   };
   const pending = [];
-  const before = { snapshot: "playing", gameState: { gameType: "puzzle", outcome: "playing" } };
-  const after = { snapshot: "finished", gameState: { gameType: "puzzle", outcome: "won" } };
+  const before = { snapshot: "playing", gameState: { gameType: "puzzle", outcome: "playing", outcomeSource: "dom-attribute" } };
+  const after = { snapshot: "finished", gameState: { gameType: "puzzle", outcome: "won", outcomeSource: "dom-attribute" } };
   await recordVerifiedExperience(memory, pending, {
     before, after, action: { type: "press", key: "ArrowRight" }
   });
