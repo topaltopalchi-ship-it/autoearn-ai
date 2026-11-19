@@ -21,7 +21,7 @@ function normalizeBoard(board) {
   const xWon = WIN_LINES.some(line => line.every(index => normalized[index] === "X"));
   const oWon = WIN_LINES.some(line => line.every(index => normalized[index] === "O"));
   if (xWon && oWon) throw new TypeError("Tic-tac-toe board cannot have two winners.");
-  if (xWon && xCount !== oCount + 1 || oWon && xCount !== oCount) {
+  if ((xWon && xCount !== oCount + 1) || (oWon && xCount !== oCount)) {
     throw new TypeError("Tic-tac-toe winner conflicts with move counts.");
   }
   return normalized;
@@ -34,27 +34,21 @@ function winner(board) {
   return null;
 }
 
-function scorePosition(board, player, depth, alpha, beta, memo) {
+function minimax(board, player, memo) {
   const key = board.map(cell => cell || ".").join("") + ":" + player;
   if (memo.has(key)) return memo.get(key);
   const won = winner(board);
+  const depth = board.filter(Boolean).length;
   if (won) return won === "X" ? 10 - depth : depth - 10;
-  const empty = board.map((cell, index) => cell === null ? index : -1).filter(index => index >= 0);
-  if (!empty.length) return 0;
+  if (depth === 9) return 0;
 
   let best = player === "X" ? -Infinity : Infinity;
-  for (const index of empty) {
+  for (let index = 0; index < 9; index++) {
+    if (board[index] !== null) continue;
     board[index] = player;
-    const score = scorePosition(board, player === "X" ? "O" : "X", depth + 1, alpha, beta, memo);
+    const score = minimax(board, player === "X" ? "O" : "X", memo);
     board[index] = null;
-    if (player === "X") {
-      best = Math.max(best, score);
-      alpha = Math.max(alpha, best);
-    } else {
-      best = Math.min(best, score);
-      beta = Math.min(beta, best);
-    }
-    if (beta <= alpha) break;
+    best = player === "X" ? Math.max(best, score) : Math.min(best, score);
   }
   memo.set(key, best);
   return best;
@@ -73,12 +67,12 @@ export function chooseTicTacToeMove(inputBoard, { player } = {}) {
   if (winner(board) || board.every(Boolean)) return null;
 
   const memo = new Map();
-  const candidates = board.map((cell, index) => cell === null ? index : -1).filter(index => index >= 0);
   let bestIndex = null;
   let bestScore = nextPlayer === "X" ? -Infinity : Infinity;
-  for (const index of candidates) {
+  for (let index = 0; index < 9; index++) {
+    if (board[index] !== null) continue;
     board[index] = nextPlayer;
-    const score = scorePosition(board, nextPlayer === "X" ? "O" : "X", 1, -Infinity, Infinity, memo);
+    const score = minimax(board, nextPlayer === "X" ? "O" : "X", memo);
     board[index] = null;
     if (nextPlayer === "X" ? score > bestScore : score < bestScore) {
       bestScore = score;
