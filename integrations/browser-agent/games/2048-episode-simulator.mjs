@@ -135,8 +135,12 @@ export function compare2048HeuristicWeights({ seed = 2048, episodes = 10, depth 
   const tileDeltas = candidate.map((game, index) => game.maxTile - baseline[index].maxTile);
   const wins = scoreDeltas.filter(delta => delta > 0).length;
   const losses = scoreDeltas.filter(delta => delta < 0).length;
+  const tileWins = tileDeltas.filter(delta => delta > 0).length;
+  const tileLosses = tileDeltas.filter(delta => delta < 0).length;
+  const baselineWins = baseline.filter(game => game.outcome === "won").length;
+  const candidateWins = candidate.filter(game => game.outcome === "won").length;
   return {
-    seed, depth, episodes, maxMoves,
+    seed, depth, episodes, maxMoves, pairedSeeds: seeds,
     note: "Controlled local simulation: both heuristic variants receive identical deterministic seeds and search depth. Results are not real-site win rates or earnings evidence.",
     variants: results.map(item => ({
       variant: item.variant, averageScore: average(item.games.map(game => game.score)),
@@ -144,10 +148,14 @@ export function compare2048HeuristicWeights({ seed = 2048, episodes = 10, depth 
       averageMaxTile: average(item.games.map(game => game.maxTile)),
       reached2048: item.games.filter(game => game.outcome === "won").length,
       gameOvers: item.games.filter(game => game.outcome === "game_over").length,
+      moveLimitStops: item.games.filter(game => game.moveLimitReached).length,
       averageMoves: average(item.games.map(game => game.moves))
     })),
     paired: {
       scoreWins: wins, scoreTies: scoreDeltas.length - wins - losses, scoreLosses: losses,
+      maxTileWins: tileWins, maxTileTies: tileDeltas.length - tileWins - tileLosses, maxTileLosses: tileLosses,
+      baseline2048Wins: baselineWins, candidate2048Wins: candidateWins,
+      reached2048Delta: candidateWins - baselineWins,
       averageScoreDelta: average(scoreDeltas), medianScoreDelta: median(scoreDeltas),
       averageMaxTileDelta: average(tileDeltas),
       scoreDeltaBootstrap95: bootstrapMeanInterval(scoreDeltas, (seed ^ 0x9e3779b9) >>> 0)
