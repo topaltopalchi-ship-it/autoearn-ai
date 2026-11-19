@@ -53,7 +53,13 @@ function validConnectFourCells(cells) {
     }
     return false;
   };
-  return !(wins("X") && wins("O"));
+  const xCount = board.flat().filter(mark => mark === "X").length;
+  const oCount = board.flat().filter(mark => mark === "O").length;
+  if (xCount < oCount || xCount - oCount > 1) return false;
+  const xWon = wins("X"), oWon = wins("O");
+  if (xWon && oWon) return false;
+  if ((xWon && xCount !== oCount + 1) || (oWon && xCount !== oCount)) return false;
+  return true;
 }
 
 function validOthelloCells(cells, currentPlayer) {
