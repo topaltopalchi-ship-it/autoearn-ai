@@ -15,6 +15,9 @@ export function create2048BrowserAdapter(page, {
       typeof tileSelector !== "string" || !tileSelector.trim()) {
     throw new TypeError("Explicit boardSelector and tileSelector are required for site-specific mapping.");
   }
+  if (coordinateBase !== 0 && coordinateBase !== 1) {
+    throw new TypeError("coordinateBase must be 0 or 1.");
+  }
 
   async function readBoard() {
     const board = page.locator(boardSelector);
@@ -25,15 +28,23 @@ export function create2048BrowserAdapter(page, {
       value: element.getAttribute(attrs.value) ?? element.getAttribute("aria-label") ?? element.textContent
     })), { x: xAttribute, y: yAttribute, value: valueAttribute });
     const grid = Array.from({ length: 4 }, () => Array(4).fill(0));
+    const occupied = new Set();
     for (const cell of cells) {
+      if (cell.x === null || cell.x.trim() === "" || cell.y === null || cell.y.trim() === "") {
+        throw new Error("Every rendered tile must expose explicit x/y coordinates.");
+      }
       const x = Number(cell.x) - coordinateBase;
       const y = Number(cell.y) - coordinateBase;
-      const match = String(cell.value || "").match(/\d+/);
-      const value = match ? Number(match[0]) : 0;
+      const rawValue = String(cell.value ?? "").trim();
+      const match = rawValue.match(/\d+/);
+      const value = match ? Number(match[0]) : NaN;
+      const key = `${x},${y}`;
       if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || x > 3 || y < 0 || y > 3 ||
-          !Number.isSafeInteger(value) || (value !== 0 && (value & (value - 1)) !== 0)) {
+          !Number.isSafeInteger(value) || value <= 0 || (value & (value - 1)) !== 0) {
         throw new Error("The configured tile attributes do not describe a valid 4x4 2048 board.");
       }
+      if (occupied.has(key)) throw new Error("Duplicate tile coordinates detected; refusing an ambiguous board.");
+      occupied.add(key);
       grid[y][x] = value;
     }
     return grid;
