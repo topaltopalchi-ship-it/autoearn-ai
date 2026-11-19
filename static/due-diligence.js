@@ -69,6 +69,14 @@
     return values.map((value) => labels[value] || value).join(", ") || "Other";
   }
 
+  function replaceOwnerEligibilityReview(notes, report) {
+    const marker = "[OWNER OFFICIAL ELIGIBILITY REVIEW]";
+    const source = String(notes || "");
+    const markerIndex = source.indexOf(marker);
+    const base = markerIndex >= 0 ? source.slice(0, markerIndex).trimEnd() : source.trimEnd();
+    return base + (base ? "\\n\\n" : "") + marker + "\\n" + JSON.stringify(report, null, 2);
+  }
+
   function summarizeOpportunities(opportunities) {
     const rows = Array.isArray(opportunities) ? opportunities : [];
     const scored = rows
