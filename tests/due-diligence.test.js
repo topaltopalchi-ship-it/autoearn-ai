@@ -191,3 +191,29 @@ test("guided sessions require an explicitly eligible opportunity status", () => 
   assert.equal(canStart(null), false);
   assert.equal(canStart(undefined), false);
 });
+
+test("eligible status alone cannot bypass the complete official evidence review", () => {
+  const canStart = globalThis.AutoEarnDueDiligence.canStartGuidedSession;
+  const valid = {
+    status: "eligible",
+    terms_url: "https://example.com/terms",
+    notes: "[OWNER OFFICIAL ELIGIBILITY REVIEW]\n" + JSON.stringify({
+      payment_method: "PayPal",
+      payment_confirmed: "yes",
+      minimum_withdrawal: "10 USD",
+      fees: "0%",
+      country_eligible: "yes",
+      minimum_age: "18",
+      kyc: "required",
+      free_entry: "yes",
+      automation_explicitly_allowed: "yes",
+      payout_source: "https://example.com/payout",
+      automation_source: "https://example.com/automation"
+    })
+  };
+  assert.equal(canStart({ status: "eligible" }), false);
+  assert.equal(canStart({ ...valid, notes: valid.notes.replace('"fees": "0%"', '"fees": "Not stated"') }), false);
+  assert.equal(canStart({ ...valid, notes: valid.notes.replace('"automation_explicitly_allowed": "yes"', '"automation_explicitly_allowed": "unknown"') }), false);
+  assert.equal(canStart({ ...valid, terms_url: "javascript:alert(1)" }), false);
+  assert.equal(canStart(valid), true);
+});
