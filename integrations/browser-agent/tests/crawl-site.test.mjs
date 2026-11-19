@@ -65,3 +65,36 @@ test("rejects a start URL outside the exact HTTPS origin", async () => {
     inspectPage: async () => ({})
   }), /approved HTTPS origin/);
 });
+
+test("expands a safe folder button and discovers newly revealed links", async () => {
+  let current = origin + "/";
+  let expanded = false;
+  const visited = [];
+  const result = await crawlSameOriginSite({
+    startUrl: origin + "/",
+    approvedOrigin: origin,
+    openPage: async url => { current = url; visited.push(url); },
+    inspectPage: async () => current === origin + "/" && !expanded
+      ? {
+          title: "Arcade Categories",
+          navigationTargets: [{ role: "button", name: "Puzzle category" }]
+        }
+      : current === origin + "/puzzle"
+        ? { title: "Puzzle Game", snapshot: "canvas Score: 5", navigationTargets: [] }
+        : {
+            title: "Arcade Categories",
+            navigationTargets: [
+              { role: "button", name: "Puzzle category" },
+              { role: "link", name: "Puzzle game", href: origin + "/puzzle" }
+            ]
+          },
+    expandFolderButton: async name => {
+      assert.equal(name, "Puzzle category");
+      expanded = true;
+      return true;
+    }
+  });
+  assert.deepEqual(visited, [origin + "/", origin + "/puzzle"]);
+  assert.deepEqual(result.pages[0].expandedButtons, ["Puzzle category"]);
+  assert.equal(result.pages[1].classification.type, "game");
+});
