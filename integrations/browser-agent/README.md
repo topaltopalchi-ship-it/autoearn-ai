@@ -214,3 +214,10 @@ The local rule extractor accepts canvas-only controls only when the browser conf
 
 
 Canvas click decisions also require the local model to report confidence of at least 0.8. The decision parser and the browser adapter both enforce this threshold; it is a conservative self-reported confidence gate, not a calibrated probability or guarantee of a correct move.
+
+
+## Canvas motion estimation (experimental)
+
+The local visual pass can now return up to 30 bounded object boxes (player, target, hazard, goal, obstacle, or other). The runner maps those full-viewport boxes into the explicitly marked game canvas, then tracks same-role/same-label detections between observations. For matched objects it estimates normalized velocity and extrapolates a short 500 ms position; only high-confidence hazards and obstacles are forwarded as predicted hazard regions to the decision prompt. Stale observations are not extrapolated, boxes are clipped to the canvas, and the model is instructed to treat predictions as uncertain clues rather than guaranteed trajectories.
+
+This is deliberately a lightweight constant-velocity estimate, not physics simulation or pathfinding. It can fail when objects change appearance, overlap, teleport, accelerate, or are detected inconsistently. The agent must still stop if the next action is unclear; no claim of safe navigation or improved win rate is made until tested on an approved real game.
