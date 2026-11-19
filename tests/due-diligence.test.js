@@ -120,3 +120,32 @@ test("formats merged opportunity categories with readable labels", () => {
   );
   assert.equal(globalThis.AutoEarnDueDiligence.formatCategoryLabels("", labels), "Other");
 });
+
+test("accepts public HTTPS URLs and normalizes them", () => {
+  assert.equal(
+    globalThis.AutoEarnDueDiligence.safePublicHttpsUrl(" https://Example.com/path "),
+    "https://example.com/path",
+  );
+  assert.equal(
+    globalThis.AutoEarnDueDiligence.safePublicHttpsUrl("https://example.com:443/terms"),
+    "https://example.com/terms",
+  );
+});
+
+test("rejects unsafe schemes, credentials, local hosts, IP literals, and nonstandard ports", () => {
+  const validate = globalThis.AutoEarnDueDiligence.safePublicHttpsUrl;
+  for (const value of [
+    "javascript:alert(1)",
+    "http://example.com",
+    "https://user:pass@example.com",
+    "https://localhost",
+    "https://sub.localhost",
+    "https://service.local",
+    "https://127.0.0.1",
+    "https://192.168.1.10",
+    "https://example.com:8443",
+    "not a URL",
+  ]) {
+    assert.equal(validate(value), null, value);
+  }
+});
