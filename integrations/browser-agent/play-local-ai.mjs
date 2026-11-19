@@ -9,6 +9,7 @@ import { recordVerifiedExperience } from "./experience-verification.mjs";
 import { readSafeGameCells, clickSafeGameCell, clickSafeGameCanvas } from "./game-cell-browser-adapter.mjs";
 import { detectGameOutcome } from "./game-outcome-detector.mjs";
 import { mapViewportObjectsToCanvas } from "./canvas-object-mapper.mjs";
+import { createCanvasMotionTracker } from "./canvas-motion-tracker.mjs";
 
 const gameUrl = process.env.AUTOEARN_GAME_URL;
 const approvedOrigins = new Set(String(process.env.AUTOEARN_ALLOWED_ORIGINS || "")
@@ -78,6 +79,7 @@ async function main() {
     const perceive = createOllamaGamePerception({ model, maxCalls: maxModelCalls });
     const extractRules = createOllamaGameRulesExtractor({ model, maxCalls: 3 });
     let extractedRules = null;
+    const motionTracker = createCanvasMotionTracker({ horizonMs: 500 });
     const adapter = {
       async observe() {
         if (blocked || page.isClosed()) throw new Error("Browser session was stopped.");
@@ -102,6 +104,7 @@ async function main() {
               page.viewportSize()
             )
           : [];
+        const canvasMotion = motionTracker.update(canvasObjects);
 
         const outcomeMarkers = await page.locator("[data-game-outcome], [data-game-status]").evaluateAll(elements =>
           elements.slice(0, 10).map(element => ({
@@ -146,6 +149,7 @@ async function main() {
           clickTargets: await readSafeGameCells(page),
           canvasAvailable: canvasCount === 1,
           canvasObjects,
+          canvasMotion,
           screenshot: screenshotData,
           decisionScreenshot
         };
