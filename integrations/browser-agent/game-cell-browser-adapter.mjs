@@ -7,7 +7,7 @@ function validatePage(page) {
 function safeCell(element) {
   const forbidden = element.closest("a,button,input,select,textarea,form,[role=button],[role=link]");
   const rect = element.getBoundingClientRect();
-  const style = getComputedStyle(element);
+  const style = typeof getComputedStyle === "function" ? getComputedStyle(element) : (element.style || { display: "block", visibility: "visible" });
   return !forbidden && !element.hasAttribute("disabled") &&
     style.display !== "none" && style.visibility !== "hidden" &&
     rect.width > 0 && rect.height > 0;
@@ -21,7 +21,14 @@ export async function readSafeGameCells(page) {
     elements.slice(0, 100).map(element => ({
       index: Number(element.getAttribute("data-game-cell-index")),
       label: (element.getAttribute("aria-label") || element.textContent || "").trim().slice(0, 80),
-      visible: safeCell(element)
+      visible: (() => {
+        const forbidden = element.closest("a,button,input,select,textarea,form,[role=button],[role=link]");
+        const rect = element.getBoundingClientRect();
+        const style = typeof getComputedStyle === "function" ? getComputedStyle(element) : (element.style || { display: "block", visibility: "visible" });
+        return !forbidden && !element.hasAttribute("disabled") &&
+          style.display !== "none" && style.visibility !== "hidden" &&
+          rect.width > 0 && rect.height > 0;
+      })()
     }))
   );
   return cells.filter(cell => Number.isInteger(cell.index) && cell.index >= 0 &&
