@@ -256,3 +256,34 @@ test("passes bounded predicted hazard regions to the local planner", async () =>
   assert.match(prompt, /"horizonMs":500/);
   assert.match(prompt, /"x":0.4/);
 });
+
+
+test("passes only the five most recent sanitized progress outcomes to the next decision", async () => {
+  let prompt;
+  const decide = createOllamaGameDecision({
+    model: "local-model",
+    fetchImpl: async (_url, options) => {
+      prompt = JSON.parse(options.body).messages[0].content;
+      return { ok: true, status: 200, json: async () => ({
+        message: { content: '{"type":"press","key":"ArrowRight"}' }
+      }) };
+    }
+  });
+  await decide({
+    recentProgress: [
+      { actionKey: "old", feedback: "bad", confidence: 1, signals: ["old-signal"] },
+      ...Array.from({ length: 6 }, (_, index) => ({
+        actionKey: "Arrow" + index,
+        feedback: index % 2 ? "good" : "neutral",
+        confidence: 0.75,
+        signals: ["verified-movement"]
+      })),
+      { actionKey: "invalid", feedback: "forged", confidence: 99, signals: ["x".repeat(100)] }
+    ]
+  });
+  assert.match(prompt, /Recent verified outcomes from this same session/);
+  assert.doesNotMatch(prompt, /old-signal/);
+  assert.match(prompt, /"feedback":"neutral"/);
+  assert.doesNotMatch(prompt, /forged/);
+  assert.doesNotMatch(prompt, /x{61}/);
+});
