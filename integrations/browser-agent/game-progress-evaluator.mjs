@@ -88,7 +88,7 @@ export function evaluateGameProgress(before, after) {
       reward += improved ? 1 : -1;
       signals.push(improved ? improvedSignal : worsenedSignal);
     }
-  }  }
+  }
 
   const feedback = reward >= 1 ? "good" : reward <= -1 ? "bad" : "neutral";
   return {
