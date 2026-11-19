@@ -171,3 +171,13 @@ test("rejects unknown or placeholder values in owner eligibility details", () =>
     assert.equal(known(value), true, value);
   }
 });
+
+test("keeps unknown eligibility under review and disqualifies only explicit blockers", () => {
+  const status = globalThis.AutoEarnDueDiligence.getEligibilityReviewStatus;
+  assert.equal(status({ payment_confirmed: "unknown", country_eligible: "unknown", free_entry: "unknown" }), "reviewing");
+  assert.equal(status({ payment_confirmed: "yes", country_eligible: "yes", free_entry: "yes", automation: "unknown" }), "reviewing");
+  assert.equal(status({ payment_confirmed: "yes", country_eligible: "yes", free_entry: "yes", automation: "no" }), "reviewing");
+  assert.equal(status({ payment_confirmed: "no", country_eligible: "yes", free_entry: "yes" }), "ineligible");
+  assert.equal(status({ payment_confirmed: "yes", country_eligible: "no", free_entry: "yes" }), "ineligible");
+  assert.equal(status({ payment_confirmed: "yes", country_eligible: "yes", free_entry: "no" }), "ineligible");
+});
