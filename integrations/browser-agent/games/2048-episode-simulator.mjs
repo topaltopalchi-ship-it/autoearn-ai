@@ -19,7 +19,7 @@ function spawnTile(board, random) {
   return true;
 }
 
-function playEpisode({ seed, depth, maxMoves }) {
+function playEpisode({ seed, depth, maxMoves, evaluationOptions = {} }) {
   const random = makeRandom(seed);
   const board = Array.from({ length: 4 }, () => Array(4).fill(0));
   spawnTile(board, random);
@@ -29,7 +29,7 @@ function playEpisode({ seed, depth, maxMoves }) {
   let outcome = get2048Outcome(board);
 
   while (outcome === "playing" && moves < maxMoves) {
-    const decision = choose2048Move(board, { depth });
+    const decision = choose2048Move(board, { depth, evaluationOptions });
     if (!decision) break;
     const result = move2048(board, decision.direction);
     if (!result.changed) throw new Error("Strategy returned a non-changing move.");
@@ -115,6 +115,45 @@ function comparePairedEpisodes(comparisons, seed) {
   });
 }
 
+export function compare2048HeuristicWeights({ seed = 2048, episodes = 10, depth = 2, maxMoves = 500 } = {}) {
+  if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff) throw new RangeError("Simulation seed must be an unsigned 32-bit integer.");
+  if (!Number.isInteger(episodes) || episodes < 2 || episodes > 20) throw new RangeError("Heuristic comparison episodes must be 2..20.");
+  if (!Number.isInteger(depth) || depth < 1 || depth > 3) throw new RangeError("Heuristic comparison depth must be 1..3.");
+  if (!Number.isInteger(maxMoves) || maxMoves < 1 || maxMoves > 1000) throw new RangeError("Move limit must be 1..1000.");
+  const variants = [
+    { label: "classic-no-snake", evaluationOptions: { snakeWeight: 0 } },
+    { label: "snake-weight-1", evaluationOptions: { snakeWeight: 1 } }
+  ];
+  const seeds = Array.from({ length: episodes }, (_, index) => (seed + index * 0x9e3779b9) >>> 0);
+  const results = variants.map(variant => ({
+    variant: variant.label, depth, episodes,
+    games: seeds.map(gameSeed => playEpisode({ seed: gameSeed, depth, maxMoves, evaluationOptions: variant.evaluationOptions }))
+  }));
+  const baseline = results[0].games;
+  const candidate = results[1].games;
+  const scoreDeltas = candidate.map((game, index) => game.score - baseline[index].score);
+  const tileDeltas = candidate.map((game, index) => game.maxTile - baseline[index].maxTile);
+  const wins = scoreDeltas.filter(delta => delta > 0).length;
+  const losses = scoreDeltas.filter(delta => delta < 0).length;
+  return {
+    seed, depth, episodes, maxMoves,
+    note: "Controlled local simulation: both heuristic variants receive identical deterministic seeds and search depth. Results are not real-site win rates or earnings evidence.",
+    variants: results.map(item => ({
+      variant: item.variant, averageScore: average(item.games.map(game => game.score)),
+      medianScore: median(item.games.map(game => game.score)),
+      averageMaxTile: average(item.games.map(game => game.maxTile)),
+      reached2048: item.games.filter(game => game.outcome === "won").length,
+      gameOvers: item.games.filter(game => game.outcome === "game_over").length,
+      averageMoves: average(item.games.map(game => game.moves))
+    })),
+    paired: {
+      scoreWins: wins, scoreTies: scoreDeltas.length - wins - losses, scoreLosses: losses,
+      averageScoreDelta: average(scoreDeltas), medianScoreDelta: median(scoreDeltas),
+      averageMaxTileDelta: average(tileDeltas),
+      scoreDeltaBootstrap95: bootstrapMeanInterval(scoreDeltas, (seed ^ 0x9e3779b9) >>> 0)
+    }
+  };
+}
 export function simulate2048Episodes({
   seed = 2048,
   episodes = 5,
