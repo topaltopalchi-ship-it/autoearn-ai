@@ -70,7 +70,7 @@
   }
 
   function hasKnownReviewValue(value) {
-    const normalized = String(value ?? "").trim().toLowerCase().replace(/\\s+/g, " ");
+    const normalized = String(value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
     if (!normalized) return false;
     return !new Set([
       "not stated",
