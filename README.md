@@ -51,7 +51,7 @@ Guided sessions are available only after the owner reviews the official terms UR
 
 - `static/game-agent.js` provides an observe → decide → act → verify loop for game adapters.
 - Each adapter exposes only its own game state and bounded actions. Runs have explicit action allowlists, step/time budgets, cancellation, event reporting and post-action verification.
-- Failed verification stops the run. The strategy/model provider is pluggable; credentials and paid model calls are not embedded in browser code.
+- Failed verification stops the run. AI decisions will use local/open-weight models or deterministic game strategies only; no paid hosted AI API, API key, or per-call billing is required.
 - Third-party game adapters remain disabled until official rules explicitly permit automation. CAPTCHA, anti-bot, access-control and payment safeguards are never bypassed.
 
 - The built-in sliding-puzzle demo now runs through the same bounded agent loop and verifies each move before reporting completion.
