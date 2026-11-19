@@ -23,12 +23,19 @@ export function evaluateGameProgress(before, after) {
   let reward = 0;
   const beforeOutcome = before?.gameState?.outcome;
   const afterOutcome = after?.gameState?.outcome;
-  if (afterOutcome === "won" && beforeOutcome !== "won") {
+  const explicitOutcome = after?.gameState?.outcomeSource === "dom-attribute";
+  if (explicitOutcome && afterOutcome === "won" && beforeOutcome !== "won") {
     signals.push("explicit-win");
     reward += 3;
-  } else if (afterOutcome === "lost" && beforeOutcome !== "lost") {
+  } else if (explicitOutcome && afterOutcome === "lost" && beforeOutcome !== "lost") {
     signals.push("explicit-loss");
     reward -= 3;
+  } else if (afterOutcome === "won" && beforeOutcome !== "won") {
+    signals.push("visible-win-hint");
+    reward += 1;
+  } else if (afterOutcome === "lost" && beforeOutcome !== "lost") {
+    signals.push("visible-loss-hint");
+    reward -= 1;
   }
 
   const oldObjects = Array.isArray(before?.canvasObjects) ? before.canvasObjects : [];
