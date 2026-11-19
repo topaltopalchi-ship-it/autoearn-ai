@@ -24,10 +24,10 @@ function validConnectFourCells(cells) {
     indexes.add(index);
   }
   if (indexes.size !== 42) return false;
+  const indexed = new Map(cells.map(cell => [Number(cell.index), String(cell.mark ?? "").trim().toUpperCase()]));
   const board = Array.from({ length: 6 }, (_, row) =>
     Array.from({ length: 7 }, (_, col) => {
-      const cell = cells.find(item => Number(item.index) === row * 7 + col);
-      const mark = String(cell.mark ?? "").trim().toUpperCase();
+      const mark = indexed.get(row * 7 + col);
       return ["", "-", "EMPTY"].includes(mark) ? "" : mark;
     })
   );
