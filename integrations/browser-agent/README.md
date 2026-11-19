@@ -54,4 +54,4 @@ By default, each rendered tile must expose `data-x`, `data-y`, and `data-value` 
 - CAPTCHA, anti-bot, anti-fraud, access-control, geolocation and payment safeguards are never bypassed. Detection pauses the run for a human.
 - No login, signup, form submission, purchases, deposits, withdrawals, prize claims, or personal-data entry are implemented.
 - No cookies or browser profile are imported or persisted. This runtime starts logged out.
-- No model API key or decision provider is configured. A model provider, if later added, must run server-side with explicit user approval and cost limits.
+- No model API key is configured. The optional provider must run only in the isolated trusted worker, with explicit user approval, a model-call budget, and server-side secret storage; it is not enabled by default.
