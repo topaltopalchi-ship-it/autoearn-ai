@@ -141,7 +141,8 @@ export function domainReviewFlags(rawUrl: string): string[] {
 
 export function candidateReviewFlags(title: string, description: string): string[] {
   const text = [title, description].join(" ");
-  const flags: string[] = [];
+  // Search snippets do not establish that an official rules/terms page was reviewed.
+  const flags: string[] = ["official_terms_source_not_verified"];
   if (/\b(kyc|know your customer|identity verification|government[- ]issued id|proof of identity)\b/i.test(text)) flags.push("identity_verification_mentioned");
   if (/\b(not available|restricted|excluded|ineligible|prohibited)\b.{0,50}\b(countr(?:y|ies)|region|jurisdiction|territor(?:y|ies))\b|\b(countr(?:y|ies)|region|jurisdiction)\b.{0,50}\b(not available|restricted|excluded|ineligible|prohibited)\b/i.test(text)) flags.push("geographic_restrictions_mentioned_review_country_rules");
   if (!/\b(minimum withdrawal|minimum payout|minimum cash.?out|withdrawal threshold|cash.?out threshold)\b/i.test(text)) flags.push("minimum_withdrawal_not_found");
