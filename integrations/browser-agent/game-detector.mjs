@@ -1,4 +1,4 @@
-const TYPES = new Set(["tic-tac-toe", "2048"]);
+const TYPES = new Set(["tic-tac-toe", "2048", "connect-four"]);
 
 function validIndexedCells(cells) {
   if (!Array.isArray(cells) || cells.length !== 9) return false;
@@ -13,7 +13,7 @@ function validIndexedCells(cells) {
   return indexes.size === 9;
 }
 
-function valid2048Tiles(tiles) {
+function validConnectFourCells(cells) {\n  if (!Array.isArray(cells) || cells.length !== 42) return false;\n  const indexes = new Set();\n  for (const cell of cells) {\n    const index = Number(cell.index);\n    const mark = String(cell.mark ?? "").trim().toUpperCase();\n    if (!Number.isInteger(index) || index < 0 || index > 41 || indexes.has(index) ||\n        !["", "-", "EMPTY", "X", "O"].includes(mark)) return false;\n    indexes.add(index);\n  }\n  return indexes.size === 42;\n}\n\nfunction valid2048Tiles(tiles) {
   if (!Array.isArray(tiles) || tiles.length < 2 || tiles.length > 16) return false;
   const coordinates = new Set();
   for (const tile of tiles) {
@@ -41,7 +41,7 @@ export function detectKnownGame(observation = {}) {
     if (candidate.kind === "tic-tac-toe" && validIndexedCells(candidate.cells)) {
       matches.push({ gameType: "tic-tac-toe", boardKey: candidate.boardKey || null, confidence: 0.99 });
     }
-    if (candidate.kind === "2048" && valid2048Tiles(candidate.tiles)) {
+    if (candidate.kind === "connect-four" && validConnectFourCells(candidate.cells)) {\n      matches.push({ gameType: "connect-four", boardKey: candidate.boardKey || null, confidence: 0.99 });\n    }\n    if (candidate.kind === "2048" && valid2048Tiles(candidate.tiles)) {
       matches.push({ gameType: "2048", boardKey: candidate.boardKey || null, confidence: 0.99 });
     }
   }
