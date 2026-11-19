@@ -195,6 +195,6 @@ test("detects a game board revealed directly inside an explicitly expanded folde
   const result = await discoverSupportedGame(page, { maxPages: 2, maxDepth: 0 });
   assert.equal(result.selected?.detection.gameType, "tic-tac-toe");
   assert.equal(result.selected?.url, start);
-  assert.equal(clickCount, 2);
-  assert.equal(expanded, false);
+  assert.equal(clickCount, 1, "the folder stays open while its directly revealed board is handed to the runner");
+  assert.equal(expanded, true);
 });
