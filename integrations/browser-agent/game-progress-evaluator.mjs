@@ -79,7 +79,7 @@ export function evaluateGameProgress(before, after) {
     for (const [key, direction, signal] of [
       ["score", 1, "score-increased"],
       ["level", 1, "level-increased"],
-      ["lives", 1, "lives-increased"],
+      ["lives", -1, "lives-increased"],
       ["mistakes", -1, "mistakes-decreased"]
     ]) {
       const oldValue = oldMetrics[key], newValue = newMetrics[key];
