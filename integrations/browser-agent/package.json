@@ -9,7 +9,8 @@
     "play:2048": "node play-2048.mjs",
     "play:local-ai": "node play-local-ai.mjs",
     "play:tic-tac-toe": "node play-tic-tac-toe.mjs",
-    "play:auto": "node play-detected-game.mjs"
+    "play:auto": "node play-detected-game.mjs",
+    "feedback": "node rate-game-experience.mjs"
   },
   "dependencies": {
     "playwright": "1.56.1"
