@@ -181,3 +181,13 @@ test("keeps unknown eligibility under review and disqualifies only explicit bloc
   assert.equal(status({ payment_confirmed: "yes", country_eligible: "no", free_entry: "yes" }), "ineligible");
   assert.equal(status({ payment_confirmed: "yes", country_eligible: "yes", free_entry: "no" }), "ineligible");
 });
+
+test("guided sessions require an explicitly eligible opportunity status", () => {
+  const canStart = globalThis.AutoEarnDueDiligence.canStartGuidedSession;
+  for (const status of ["discovered", "reviewing", "ineligible", "archived", "pending", "approved", "", null]) {
+    assert.equal(canStart({ status }), false, String(status));
+  }
+  assert.equal(canStart({ status: "eligible" }), true);
+  assert.equal(canStart(null), false);
+  assert.equal(canStart(undefined), false);
+});
