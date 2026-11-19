@@ -5,6 +5,7 @@ import { dirname } from "node:path";
 const VERSION = 1;
 const MAX_RECORDS = 1000;
 const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const MIN_RATINGS_FOR_HINT = 2;
 const ACTION_KEYS = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "Escape", " "]);
 
 export function createStateKey({ gameType = "unknown", stateSummary = "", objective = "" } = {}) {
@@ -123,8 +124,21 @@ export function createGameExperienceMemory({ filePath = ".autoearn/experience-me
       counts.set(item.actionKey, current);
     }
     return [...counts.entries()]
-      .map(([key, value]) => ({ key, good: value.good, bad: value.bad, net: value.good - value.bad }))
-      .sort((a, b) => b.net - a.net || b.good - a.good)
+      .map(([key, value]) => {
+        const sampleCount = value.good + value.bad;
+        return {
+          key,
+          good: value.good,
+          bad: value.bad,
+          net: value.good - value.bad,
+          sampleCount,
+          // Laplace smoothing prevents tiny samples from looking perfectly reliable.
+          successRate: Number(((value.good + 1) / (sampleCount + 2)).toFixed(3))
+        };
+      })
+      .filter(hint => hint.sampleCount >= MIN_RATINGS_FOR_HINT)
+      .sort((a, b) => b.successRate - a.successRate ||
+        b.sampleCount - a.sampleCount || b.net - a.net || a.key.localeCompare(b.key))
       .slice(0, 5);
   }
 
