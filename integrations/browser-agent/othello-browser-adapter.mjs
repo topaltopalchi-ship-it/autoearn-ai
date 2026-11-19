@@ -1,4 +1,4 @@
-import { applyOthelloMove, getOthelloOutcome } from "./games/othello-strategy.mjs";
+import { applyOthelloMove, getOthelloLegalMoves, getOthelloOutcome } from "./games/othello-strategy.mjs";
 
 const MARKS=new Set(["B","W"]);
 export function createOthelloBrowserAdapter(page,{player,boardSelector="[data-game-board]",cellSelector="[data-game-cell][data-game-cell-index]",passSelector="[data-game-pass]"}={}) {
@@ -44,7 +44,7 @@ export function createOthelloBrowserAdapter(page,{player,boardSelector="[data-ga
       const state=await readState();
       if(state.outcome!=="playing"||state.currentPlayer!==player) throw new Error("It is not the agent's turn.");
       if(action?.type==="pass-turn") {
-        if((await import("./games/othello-strategy.mjs")).getOthelloLegalMoves(state.board,player).length) throw new Error("A pass is legal only when no placement exists.");
+        if(getOthelloLegalMoves(state.board,player).length) throw new Error("A pass is legal only when no placement exists.");
         const pass=page.locator(boardSelector).locator(passSelector);
         if(await pass.count()!==1) throw new Error("A unique explicit data-game-pass control is required to pass.");
         const safe=await pass.evaluate(element=>{
@@ -69,7 +69,7 @@ export function createOthelloBrowserAdapter(page,{player,boardSelector="[data-ga
       if(action?.type==="wait-for-turn") return result?.ready===true&&(after?.gameState?.outcome!=="playing"||after?.gameState?.currentPlayer===player);
       if(action?.type==="pass-turn") return result?.passed===true&&after?.gameState?.currentPlayer!==player;
       return action?.type==="click-cell"&&Array.isArray(result?.expected)&&Array.isArray(after?.gameState?.board)&&
-        result.expected.every((mark,index)=>after.gameState.board[index]===mark)&&after.gameState.currentPlayer!==player;
+        result.expected.every((mark,index)=>after.gameState.board[index]===mark);
     },
     isTerminal(observation){return observation?.gameState?.outcome!=="playing";}
   };
