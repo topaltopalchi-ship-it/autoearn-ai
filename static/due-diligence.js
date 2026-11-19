@@ -47,9 +47,31 @@
     return rows;
   }
 
+  function summarizeOpportunities(opportunities) {
+    const rows = Array.isArray(opportunities) ? opportunities : [];
+    const scored = rows
+      .map((item) => calculateEvidenceCompleteness(item?.notes, item?.terms_url))
+      .filter(Boolean);
+    const counts = { high: 0, medium: 0, low: 0, unscored: rows.length - scored.length };
+    for (const item of scored) {
+      if (item.score >= 80) counts.high++;
+      else if (item.score >= 50) counts.medium++;
+      else counts.low++;
+    }
+    return {
+      total: rows.length,
+      scored: scored.length,
+      counts,
+      averageScore: scored.length
+        ? Math.round(scored.reduce((sum, item) => sum + item.score, 0) / scored.length)
+        : null,
+    };
+  }
+
   root.AutoEarnDueDiligence = Object.freeze({
     extractReviewFlags,
     calculateEvidenceCompleteness,
     sortOpportunities,
+    summarizeOpportunities,
   });
 })(globalThis);
