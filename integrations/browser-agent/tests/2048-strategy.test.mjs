@@ -147,7 +147,9 @@ test("bounds expectimax work and reports when its node budget is exhausted", () 
   const move = choose2048Move(board, { depth: 4, maxNodes: 1 });
   assert.ok(move);
   assert.equal(move.searchStats.maxNodes, 1);
-  assert.equal(move.searchStats.nodesVisited, 1);
+  assert.ok(move.searchStats.nodesVisited <= 1);
+  assert.equal(move.searchStats.perMoveNodeBudget, 0);
+  assert.ok(move.searchStats.rootMovesEvaluated >= 1);
   assert.equal(move.searchStats.budgetExhausted, true);
   assert.ok(move.searchStats.cacheHits >= 0);
 });
@@ -171,4 +173,19 @@ test("adaptive strategy forwards a caller's bounded node budget", async () => {
   assert.ok(move);
   assert.equal(move.searchStats.maxNodes, 1);
   assert.equal(move.searchStats.budgetExhausted, true);
+});
+
+
+test("shares the node allowance fairly across all legal root moves", () => {
+  const board = [
+    [2, 4, 8, 16],
+    [4, 8, 16, 32],
+    [8, 16, 32, 64],
+    [16, 32, 64, 0]
+  ];
+  const move = choose2048Move(board, { depth: 4, maxNodes: 100 });
+  assert.ok(move);
+  assert.equal(move.searchStats.perMoveNodeBudget,
+    Math.floor(100 / move.searchStats.rootMovesEvaluated));
+  assert.ok(move.searchStats.nodesVisited <= 100);
 });
