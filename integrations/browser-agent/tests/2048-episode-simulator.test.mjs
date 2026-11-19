@@ -15,7 +15,16 @@ test("runs reproducible complete 2048 episodes for multiple search depths", () =
     assert.ok(comparison.games.every(game => game.moves <= 80));
     assert.ok(comparison.games.every(game => ["won", "game_over", "playing"].includes(game.outcome)));
   }
-  assert.match(first.note, /not real-site win rates/);\n  assert.deepEqual(first.pairedComparisons, second.pairedComparisons);\n  assert.equal(first.pairedComparisons.length, 1);\n  const paired = first.pairedComparisons[0];\n  assert.equal(paired.baselineDepth, 1);\n  assert.equal(paired.candidateDepth, 2);\n  assert.equal(paired.scoreWins + paired.scoreTies + paired.scoreLosses, 2);\n  assert.ok(Number.isFinite(paired.averagePairedScoreDelta));\n  assert.ok(paired.scoreDeltaBootstrap95.lower95 <= paired.scoreDeltaBootstrap95.upper95);\n  assert.equal(paired.scoreDeltaBootstrap95.samples, 1000);
+  assert.match(first.note, /not real-site win rates/);
+  assert.deepEqual(first.pairedComparisons, second.pairedComparisons);
+  assert.equal(first.pairedComparisons.length, 1);
+  const paired = first.pairedComparisons[0];
+  assert.equal(paired.baselineDepth, 1);
+  assert.equal(paired.candidateDepth, 2);
+  assert.equal(paired.scoreWins + paired.scoreTies + paired.scoreLosses, 2);
+  assert.ok(Number.isFinite(paired.averagePairedScoreDelta));
+  assert.ok(paired.scoreDeltaBootstrap95.lower95 <= paired.scoreDeltaBootstrap95.upper95);
+  assert.equal(paired.scoreDeltaBootstrap95.samples, 1000);
 });
 
 test("reports explicit move-limit stops instead of calling them losses", () => {
