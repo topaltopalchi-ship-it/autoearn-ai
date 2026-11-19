@@ -89,18 +89,40 @@
     render("Finding a solution on this device…");
     const solution=findSolution();
     if(!solution){busy=false;$("puzzle-shuffle").disabled=false;render("Could not solve within the safe search limit. Shuffle and try again.");return;}
-    const deltas={U:-3,D:3,L:-1,R:1};
-    $("puzzle-status").textContent="Solution found: "+solution.length+" moves. Playing it now…";
-    for(const direction of solution) {
-      await new Promise(resolve=>setTimeout(resolve,170));
-      const blank=state.indexOf("0"), next=blank+deltas[direction];
-      [state[blank],state[next]]=[state[next],state[blank]];
-      moves++;
-      render("Auto-solver running…");
+    if(!globalThis.AutoEarnGameAgent?.createAgent){
+      busy=false;$("puzzle-shuffle").disabled=false;
+      render("Game-agent engine unavailable. Reload the page and try again.");return;
     }
-    busy=false;
-    $("puzzle-shuffle").disabled=false;
-    render("Puzzle solved by AutoEarn's local demo solver. No external website or reward involved.");
+    const deltas={U:-3,D:3,L:-1,R:1};
+    $("puzzle-status").textContent="Agent has a plan: "+solution.length+" moves. Executing and verifying…";
+    const agent=globalThis.AutoEarnGameAgent.createAgent({
+      adapter:{
+        observe:async()=>({board:state.join("")}),
+        isTerminal:observation=>observation.board===goal,
+        execute:async action=>{
+          await new Promise(resolve=>setTimeout(resolve,170));
+          const blank=state.indexOf("0"),next=blank+deltas[action.direction];
+          if(next<0||next>=9||(action.direction==="L"&&blank%3===0)||(action.direction==="R"&&blank%3===2))throw new Error("Illegal puzzle move.");
+          [state[blank],state[next]]=[state[next],state[blank]];
+          moves++;render("Agent executing move "+moves+"…");
+          return {board:state.join("")};
+        },
+        verify:async({result,after})=>result.board===after.board
+      },
+      decide:async(_observation,history)=>history.length<solution.length?{type:"move",direction:solution[history.length]}:null,
+      limits:{maxSteps:solution.length+1,maxDurationMs:30000,allowedActions:["move"]},
+      onEvent:event=>{if(event.type==="step")$("puzzle-status").textContent="Agent verified "+event.steps+" / "+solution.length+" moves…";}
+    });
+    try{
+      const result=await agent.run();
+      busy=false;$("puzzle-shuffle").disabled=false;
+      render(result.status==="completed"&&solved()
+        ?"Agent completed the puzzle. Every move was executed and verified locally; no external reward is involved."
+        :"Agent stopped: "+result.reason+". Shuffle and try again.");
+    }catch(error){
+      busy=false;$("puzzle-shuffle").disabled=false;
+      render("Agent error: "+(error.message||"unknown error"));
+    }
   }
   $("puzzle-shuffle").addEventListener("click",shuffle);
   $("puzzle-solve").addEventListener("click",autoSolve);
