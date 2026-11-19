@@ -36,7 +36,23 @@ async function observe(page, origin) {
     inputCount: body.querySelectorAll("input,textarea,select").length,
     textSample: (body.innerText || "").slice(0, 4_000)
   })).catch(() => ({}));
-  return { title, url: page.url(), snapshot: snapshot.slice(0, 18_000), navigationTargets, domSignals };
+  const gameCandidates = await page.locator("body").evaluate(body =>
+    Array.from(body.querySelectorAll("[data-game-board]")).slice(0, 10).map((board, index) => {
+      const boardKey = board.getAttribute("data-game-board") || String(index);
+      const cells = Array.from(board.querySelectorAll("[data-index]")).map(cell => ({
+        index: cell.getAttribute("data-index"),
+        mark: cell.getAttribute("data-mark") ?? cell.textContent
+      }));
+      const tiles = Array.from(board.querySelectorAll("[data-x][data-y][data-value]")).map(tile => ({
+        x: tile.getAttribute("data-x"),
+        y: tile.getAttribute("data-y"),
+        value: tile.getAttribute("data-value")
+      }));
+      return cells.length ? { kind: "tic-tac-toe", boardKey, cells } :
+        tiles.length ? { kind: "2048", boardKey, tiles } : null;
+    }).filter(Boolean)
+  ).catch(() => []);
+  return { title, url: page.url(), snapshot: snapshot.slice(0, 18_000), navigationTargets, domSignals, gameCandidates };
 }
 
 async function main() {
