@@ -66,11 +66,11 @@ export function domainReviewFlags(rawUrl: string): string[] {
 export function candidateReviewFlags(title: string, description: string): string[] {
   const text = [title, description].join(" ");
   const flags: string[] = [];
-  if (/\\b(kyc|know your customer|identity verification|government[- ]issued id|proof of identity)\\b/i.test(text)) flags.push("identity_verification_mentioned");
-  if (/\\b(not available|restricted|excluded|ineligible|prohibited)\\b.{0,50}\\b(country|region|jurisdiction|territor(?:y|ies))\\b|\\b(country|region|jurisdiction)\\b.{0,50}\\b(not available|restricted|excluded|ineligible|prohibited)\\b/i.test(text)) flags.push("geographic_restrictions_mentioned_review_country_rules");
-  if (!/\\b(minimum withdrawal|minimum payout|minimum cash.?out|withdrawal threshold|cash.?out threshold)\\b/i.test(text)) flags.push("minimum_withdrawal_not_found");
-  if (!/\\b(paypal|skrill|neteller|payeer|payoneer|webmoney|bank transfer|bank account|bank card|debit card|credit card|bitcoin|\\bbtc\\b|\\busdt\\b|\\busdc\\b|ethereum|\\beth\\b)\\b/i.test(text)) flags.push("specific_payout_method_not_found");
-  if (!/\\b(withdrawal fee|payout fee|cash.?out fee|no fees|free withdrawal|fee-free)\\b/i.test(text)) flags.push("withdrawal_fees_not_found");
+  if (/\b(kyc|know your customer|identity verification|government[- ]issued id|proof of identity)\b/i.test(text)) flags.push("identity_verification_mentioned");
+  if (/\b(not available|restricted|excluded|ineligible|prohibited)\b.{0,50}\b(country|region|jurisdiction|territor(?:y|ies))\b|\b(country|region|jurisdiction)\b.{0,50}\b(not available|restricted|excluded|ineligible|prohibited)\b/i.test(text)) flags.push("geographic_restrictions_mentioned_review_country_rules");
+  if (!/\b(minimum withdrawal|minimum payout|minimum cash.?out|withdrawal threshold|cash.?out threshold)\b/i.test(text)) flags.push("minimum_withdrawal_not_found");
+  if (!/\b(paypal|skrill|neteller|payeer|payoneer|webmoney|bank transfer|bank account|bank card|debit card|credit card|bitcoin|\bbtc\b|\busdt\b|\busdc\b|ethereum|\beth\b)\b/i.test(text)) flags.push("specific_payout_method_not_found");
+  if (!/\b(withdrawal fee|payout fee|cash.?out fee|no fees|free withdrawal|fee-free)\b/i.test(text)) flags.push("withdrawal_fees_not_found");
   return flags;
 }
 
