@@ -3,7 +3,7 @@ const LOSS = new Set(["loss", "lost", "defeat", "failed", "failure", "game_over"
 const ACTIVE = new Set(["playing", "active", "in_progress", "in-progress", "running"]);
 
 function normalize(value) {
-  return String(value || "").trim().toLowerCase().replace(/\\s+/g, "_");
+  return String(value || "").trim().toLowerCase().replace(/\s+/g, "_");
 }
 
 export function normalizeGameOutcome(value) {
@@ -21,10 +21,10 @@ export function detectGameOutcome({ outcomeAttribute = "", statusAttribute = "",
     if (normalized !== "unknown") return { outcome: normalized, source: "dom-attribute" };
   }
   const text = String(bodyText || "");
-  if (/\\b(you win|you won|victory|level completed|puzzle completed)\\b|برنده شدی|پیروز شدی|مرحله را بردی/i.test(text)) {
+  if (/\b(you win|you won|victory|level completed|puzzle completed)\b|برنده شدی|پیروز شدی|مرحله را بردی/i.test(text)) {
     return { outcome: "won", source: "visible-text" };
   }
-  if (/\\b(you lose|you lost|defeat|game over|you failed)\\b|باختی|شکست خوردی|بازی تمام شد/i.test(text)) {
+  if (/\b(you lose|you lost|defeat|game over|you failed)\b|باختی|شکست خوردی|بازی تمام شد/i.test(text)) {
     return { outcome: "lost", source: "visible-text" };
   }
   return { outcome: "unknown", source: "none" };
