@@ -111,3 +111,12 @@ test("does not mistake the explanatory clean-flags sentence for an alert", () =>
     "no missing details detected by text heuristics",
   );
 });
+
+test("formats merged opportunity categories with readable labels", () => {
+  const labels = { game: "Game", contest: "Contest", puzzle: "Puzzle" };
+  assert.equal(
+    globalThis.AutoEarnDueDiligence.formatCategoryLabels("game, contest, puzzle", labels),
+    "Game, Contest, Puzzle",
+  );
+  assert.equal(globalThis.AutoEarnDueDiligence.formatCategoryLabels("", labels), "Other");
+});
