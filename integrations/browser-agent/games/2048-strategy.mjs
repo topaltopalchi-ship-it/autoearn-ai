@@ -92,7 +92,7 @@ function snakePositionScore(board) {
   return best;
 }
 
-export function evaluate2048Board(board) {
+export function evaluate2048Board(board, { snakeWeight = 1 } = {}) {
   validateBoard(board);
   const empty = board.flat().filter(value => value === 0).length;
   const values = board.map(row => row.map(logTile));
@@ -121,7 +121,7 @@ export function evaluate2048Board(board) {
   const maximum = Math.max(...board.flat());
   const corners = [board[0][0], board[0][3], board[3][0], board[3][3]];
   const cornerBonus = corners.includes(maximum) ? logTile(maximum) * 18 : 0;
-  const snakeBonus = snakePositionScore(board) * 1;
+  const snakeBonus = snakePositionScore(board) * snakeWeight;
   return empty * 270 + smoothness * 11 + monotonicity * 45 + cornerBonus + snakeBonus;
 }
 
@@ -139,56 +139,56 @@ function consumeSearchNode(budget) {
   return true;
 }
 
-function expectimaxMax(board, depth, cache, budget) {
-  if (depth <= 0) return evaluate2048Board(board);
+function expectimaxMax(board, depth, cache, budget, evaluationOptions) {
+  if (depth <= 0) return evaluate2048Board(board, evaluationOptions);
   const key = `M${depth}:${board.flat().join(",")}`;
   if (cache.has(key)) {
     budget.cacheHits++;
     return cache.get(key);
   }
-  if (!consumeSearchNode(budget)) return evaluate2048Board(board);
+  if (!consumeSearchNode(budget)) return evaluate2048Board(board, evaluationOptions);
   const moves = legalMoves(board);
-  if (!moves.length) return evaluate2048Board(board);
+  if (!moves.length) return evaluate2048Board(board, evaluationOptions);
   let best = -Infinity;
   for (const move of moves) {
     const score = move.result.gained * 0.08 +
-      expectimaxChance(move.result.board, depth - 1, cache, budget);
+      expectimaxChance(move.result.board, depth - 1, cache, budget, evaluationOptions);
     if (score > best) best = score;
   }
   cache.set(key, best);
   return best;
 }
 
-function expectimaxChance(board, depth, cache, budget) {
-  if (depth <= 0) return evaluate2048Board(board);
+function expectimaxChance(board, depth, cache, budget, evaluationOptions) {
+  if (depth <= 0) return evaluate2048Board(board, evaluationOptions);
   const key = `C${depth}:${board.flat().join(",")}`;
   if (cache.has(key)) {
     budget.cacheHits++;
     return cache.get(key);
   }
-  if (!consumeSearchNode(budget)) return evaluate2048Board(board);
+  if (!consumeSearchNode(budget)) return evaluate2048Board(board, evaluationOptions);
   const empty = [];
   for (let y = 0; y < SIZE; y++) {
     for (let x = 0; x < SIZE; x++) {
       if (board[y][x] === 0) empty.push([y, x]);
     }
   }
-  if (!empty.length) return expectimaxMax(board, depth, cache, budget);
+  if (!empty.length) return expectimaxMax(board, depth, cache, budget, evaluationOptions);
   let expected = 0;
   for (const [y, x] of empty) {
     const withTwo = board.map(row => [...row]);
     withTwo[y][x] = 2;
     const withFour = board.map(row => [...row]);
     withFour[y][x] = 4;
-    expected += 0.9 * expectimaxMax(withTwo, depth, cache, budget) +
-      0.1 * expectimaxMax(withFour, depth, cache, budget);
+    expected += 0.9 * expectimaxMax(withTwo, depth, cache, budget, evaluationOptions) +
+      0.1 * expectimaxMax(withFour, depth, cache, budget, evaluationOptions);
   }
   const score = expected / empty.length;
   cache.set(key, score);
   return score;
 }
 
-export function choose2048Move(board, { depth = 3, maxNodes = 25000 } = {}) {
+export function choose2048Move(board, { depth = 3, maxNodes = 25000, evaluationOptions = {} } = {}) {
   validateBoard(board);
   if (!Number.isInteger(depth) || depth < 1 || depth > 4) {
     throw new RangeError("2048 search depth must be an integer from 1 to 4.");
@@ -213,7 +213,7 @@ export function choose2048Move(board, { depth = 3, maxNodes = 25000 } = {}) {
       budgetExhausted: false
     };
     const score = move.result.gained * 0.08 +
-      expectimaxChance(move.result.board, depth - 1, cache, budget);
+      expectimaxChance(move.result.board, depth - 1, cache, budget, evaluationOptions);
     aggregateStats.nodesVisited += budget.nodesVisited;
     aggregateStats.cacheHits += budget.cacheHits;
     aggregateStats.budgetExhausted ||= budget.budgetExhausted;
