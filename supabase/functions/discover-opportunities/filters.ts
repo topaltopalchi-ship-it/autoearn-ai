@@ -9,6 +9,8 @@ const NO_REAL_REWARD_RE = /\b(no cash prize|no real[- ]money prize|no monetary r
 const FREE_ENTRY_RE = /\b(no purchase necessary|no purchase required|free chips|free entry|free to enter|free to play|free draw|free spin|daily free spin|without paying|no entry fee|free participation|free route|no deposit required|without deposit|no wager(?: or deposit)? (?:is )?required|no stake required)\b/i;
 const PAID_ENTRY_RE = /\b(pay to enter|paid entry|(?<!no )purchase required|buy (a )?(ticket|entry|credit|token)|(?<!no )entry fee|ticket price|deposit to enter|deposit.{0,24}(unlock|spin|enter|participate|play)|(?:unlock|spin|enter|participate|play).{0,24}deposit|place (a )?wager|wager required|stake required)\b/i;
 const PAYOUT_CONTEXT_RE = /\b(payout|withdraw|withdrawal|cash.?out|paid to|paid by|payment method|payment processor|prize paid|winnings paid|bank transfer|bank account|bank card|debit card|credit card|via (paypal|skrill|neteller|payeer|payoneer|webmoney)|through (paypal|skrill|neteller|payeer|payoneer|webmoney)|using (paypal|skrill|neteller|payeer|payoneer|webmoney)|bitcoin|btc|usdt|crypto)\b/i;
+const MONETARY_REWARD_RE = /\b(cash prize|prize money|cash reward|cash winnings|paid in (?:cash|usd|eur|gbp|usdt|usdc|bitcoin)|(?:US\$|USD\s?\$?|[$€£])\s?\d[\d,.]*|\d[\d,.]*\s?(?:USD|EUR|GBP|USDT|USDC|BTC)\b|bitcoin prize|btc prize|usdt prize|usdc prize)\b/i;
+const SPECIFIC_PAYOUT_METHOD_RE = /\b(paypal|skrill|neteller|payeer|payoneer|webmoney|bank transfer|wire transfer|swift|bank account|bank card|debit card|credit card|visa|mastercard|bitcoin|\bbtc\b|\busdt\b|\busdc\b|ethereum|\beth\b)\b/i;
 
 export function normalizePublicHttpsUrl(rawUrl: string): string | null {
   let parsed: URL;
@@ -182,8 +184,8 @@ export function evaluateCandidate(rawUrl: string, title: string, description: st
   if (!FREE_ENTRY_RE.test(text)) return { accepted: false, reason: "missing_free_entry_evidence" };
   // Reject misleading promotional language even when payout keywords appear elsewhere.
   if (NO_REAL_REWARD_RE.test(text)) return { accepted: false, reason: "missing_reward_evidence" };
-  if (!REWARD_EVIDENCE_RE.test(text)) return { accepted: false, reason: "missing_reward_evidence" };
-  if (!PAYOUT_CONTEXT_RE.test(text)) return { accepted: false, reason: "missing_payout_evidence" };
+  if (!REWARD_EVIDENCE_RE.test(text) || !MONETARY_REWARD_RE.test(text)) return { accepted: false, reason: "missing_reward_evidence" };
+  if (!PAYOUT_CONTEXT_RE.test(text) || !SPECIFIC_PAYOUT_METHOD_RE.test(text)) return { accepted: false, reason: "missing_payout_evidence" };
 
   const lower = text.toLowerCase();
   const payoutMethods = [
