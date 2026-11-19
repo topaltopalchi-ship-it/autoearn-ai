@@ -99,6 +99,14 @@ function render(){
 function renderOpportunities(){
   const q=$("search").value.toLowerCase(),status=$("filter").value;
   const rows=opportunities.filter(o=>(!status||o.status===status)&&[o.title,o.platform,o.category].some(x=>(x||"").toLowerCase().includes(q)));
+  const sortMode=$("opportunity-sort")?.value||"evidence";
+  const evidenceScore=o=>window.AutoEarnDueDiligence.calculateEvidenceCompleteness(o.notes,o.terms_url)?.score??-1;
+  rows.sort((a,b)=>{
+    if(sortMode==="newest")return String(b.created_at||"").localeCompare(String(a.created_at||""));
+    const delta=evidenceScore(b)-evidenceScore(a);
+    if(delta!==0)return sortMode==="evidence-low"?-delta:delta;
+    return String(b.created_at||"").localeCompare(String(a.created_at||""));
+  });
   $("opportunity-list").innerHTML=rows.length?rows.map(o=>`<div class="item"><div><h3>${esc(o.title)} <span class="pill">${esc(o.status==="eligible"?"Owner-cleared · not independently verified":o.status)}</span></h3><p>${esc(o.platform)} · ${esc(categoryLabel(o.category))} · Review score ${o.score}/60<br><a href="${esc(o.url)}" target="_blank" rel="noopener noreferrer">Open platform ↗</a> ${o.terms_url?'· <a href="'+esc(o.terms_url)+'" target="_blank" rel="noopener noreferrer">Terms ↗</a>':''}<br>${esc(o.reward_description||"No reward details entered")}${discoveryProvenanceHtml(o)}<br><strong>Eligibility review:</strong> ${eligibilityReviewHtml(o)}</p></div><div class="item-actions">${'<button class="secondary" data-review="'+o.id+'">Review eligibility</button>'}<button class="primary" data-start="${o.id}" ${["ineligible","archived"].includes(o.status)?"disabled":""}>Open manually</button><button class="secondary" data-status="${o.id}" data-next="reviewing">Mark reviewing</button></div></div>`).join(""):'<div class="empty">No matching opportunities.</div>';
   $("opportunity-list").querySelectorAll("[data-review]").forEach(b=>b.onclick=()=>verifyEligibility(Number(b.dataset.review)));
   $("opportunity-list").querySelectorAll("[data-start]").forEach(b=>b.onclick=()=>createTask(Number(b.dataset.start)));
@@ -228,7 +236,7 @@ function bindWorkspace(){
     const {error}=await supabase.from("rewards").insert(data);
     if(error)return fail(error);e.target.closest("dialog").close();e.target.reset();toast("Reward recorded");await loadData();
   };
-  $("search").oninput=renderOpportunities;$("filter").onchange=renderOpportunities;
+  $("search").oninput=renderOpportunities;$("filter").onchange=renderOpportunities;$("opportunity-sort").onchange=renderOpportunities;
   $("sign-out").onclick=async()=>{const {error}=await supabase.auth.signOut();if(error)return fail(error);currentUser=null;showAuth("You have signed out.")};
 }
 async function boot(){
