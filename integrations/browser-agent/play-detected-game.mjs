@@ -6,6 +6,7 @@ import { create2048Decision } from "./games/2048-strategy.mjs";
 import { decideKnownGame } from "./games/game-strategy-registry.mjs";
 import { detectKnownGame } from "./game-detector.mjs";
 import { resolveDetectedGame } from "./game-runner-config.mjs";
+import { discoverSupportedGame } from "./game-site-discovery.mjs";
 
 const gameUrl = process.env.AUTOEARN_GAME_URL;
 const allowedOrigins = new Set(String(process.env.AUTOEARN_ALLOWED_ORIGINS || "")
@@ -100,7 +101,18 @@ async function main() {
       throw new Error("Verification gate detected; human action is required. No bypass was attempted.");
     }
 
-    const detected = await inspectGame(page);
+    const discovery = await discoverSupportedGame(page, {
+      startUrl: target.href,
+      maxPages: 8,
+      maxDepth: 2,
+      maxDurationMs: 30_000
+    });
+    if (!discovery.selected) {
+      throw new Error(discovery.ambiguous
+        ? "More than one supported game was found in the site's folders; refusing to guess which one to play."
+        : "No supported game board was found in the starting page or its clearly-labelled same-origin game folders.");
+    }
+    const detected = discovery.selected.detection;
     const plan = resolveDetectedGame(detected, tttPlayer);
     if (!plan.ok) {
       throw new Error("Game runner refused to start: " + plan.reason);
