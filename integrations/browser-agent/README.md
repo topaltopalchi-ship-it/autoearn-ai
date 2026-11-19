@@ -243,3 +243,13 @@ The generic game loop can now accept a compact semantic state key from a site ad
 
 The local decision prompt also receives the last six sanitized actions from the current run (keyboard key, bounded cell index, or coarse canvas bucket). It can use this short sequence to avoid repeating moves without considering their effects. A successful verification means the board changed; it does not mean the move was strategically good. The action history is in-memory for the current run and is not added to the persistent experience ledger.
 \n\n### Paired 2048 strategy evaluation\n\n`simulate2048Episodes()` now evaluates every configured search depth on the exact same deterministic episode seeds and reports paired score wins/ties/losses, average and median paired score deltas, and the paired average maximum-tile delta against the first configured depth. It also reports a deterministic 1,000-resample percentile bootstrap interval for the mean paired score difference. The interval is descriptive and can be very wide or unstable with a small episode count; use more seeds/episodes before drawing conclusions. This remains a synthetic local simulator, not a live-site win-rate estimate or evidence of earnings.\n
+
+## Reproducible 2048 heuristic-weight experiment
+
+Run the paired local comparison with 20 episodes per variant by default (40 simulated games total), using the same deterministic seed list and search depth for the classic heuristic and the snake-weight candidate:
+
+```sh
+node games/run-2048-heuristic-comparison.mjs
+```
+
+Optional bounded settings are `AUTOEARN_2048_SEED` (0..4294967295, default 2048), `AUTOEARN_2048_EPISODES` (2..20, default 20), `AUTOEARN_2048_DEPTH` (1..3, default 2), and `AUTOEARN_2048_MAX_MOVES` (1..1000, default 500). The JSON report includes paired score and maximum-tile outcomes, 2048 completions, move-limit stops, and a deterministic bootstrap interval. This is a local synthetic benchmark only; it does not establish real-site win rates, reward eligibility, or earnings.
