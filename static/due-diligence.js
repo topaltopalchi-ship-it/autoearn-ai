@@ -69,6 +69,23 @@
     return values.map((value) => labels[value] || value).join(", ") || "Other";
   }
 
+  function hasKnownReviewValue(value) {
+    const normalized = String(value ?? "").trim().toLowerCase().replace(/\\s+/g, " ");
+    if (!normalized) return false;
+    return !new Set([
+      "not stated",
+      "unknown",
+      "n/a",
+      "na",
+      "not available",
+      "unspecified",
+      "to be confirmed",
+      "tbd",
+      "-",
+      "—",
+    ]).has(normalized);
+  }
+
   function replaceOwnerEligibilityReview(notes, report) {
     const marker = "[OWNER OFFICIAL ELIGIBILITY REVIEW]";
     const source = String(notes || "");
@@ -106,5 +123,6 @@
     formatCategoryLabels,
     safePublicHttpsUrl,
     replaceOwnerEligibilityReview,
+    hasKnownReviewValue,
   });
 })(globalThis);
