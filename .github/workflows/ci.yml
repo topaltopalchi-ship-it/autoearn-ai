@@ -18,7 +18,7 @@ jobs:
       - run: node --check static/app.js && node --check static/puzzle.js && node --check static/game-agent.js && node --check static/reward-ledger.js && node --test tests/reward-ledger.test.js tests/game-agent.test.js
       - name: Test browser-agent navigation and page classification
         working-directory: integrations/browser-agent
-        run: npm install --ignore-scripts --no-audit --no-fund && node --check play-local-ai.mjs && node --check play-tic-tac-toe.mjs && node --check play-detected-game.mjs && node --check ollama-decision-provider.mjs && node --check ollama-game-perception.mjs && node --check game-rule-extractor.mjs && node --check game-experience-memory.mjs && node --check experience-verification.mjs && node --check rate-game-experience.mjs && npm test
+        run: npm install --ignore-scripts --no-audit --no-fund && node --check play-local-ai.mjs && node --check play-tic-tac-toe.mjs && node --check play-detected-game.mjs && node --check ollama-decision-provider.mjs && node --check ollama-game-perception.mjs && node --check game-rule-extractor.mjs && node --check game-instruction-discovery.mjs && node --check game-experience-memory.mjs && node --check experience-verification.mjs && node --check rate-game-experience.mjs && npm test
       - run: deno check --node-modules-dir=auto supabase/functions/discover-opportunities/index.ts
       - run: deno test --node-modules-dir=auto supabase/functions/discover-opportunities/filters_test.ts
       - uses: actions/setup-python@v5
