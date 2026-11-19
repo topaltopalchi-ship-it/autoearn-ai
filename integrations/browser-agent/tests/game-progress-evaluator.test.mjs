@@ -62,3 +62,35 @@ test("returns neutral when evidence is missing or confidence is low", () => {
   assert.equal(result.feedback, "neutral");
   assert.equal(result.confidence, 0);
 });
+
+test("uses only DOM-sourced score, level, lives and mistake metrics", () => {
+  const before = { gameState: {
+    metricsSource: "dom-attribute",
+    metrics: { score: 10, level: 1, lives: 3, mistakes: 2 }
+  }};
+  const after = { gameState: {
+    metricsSource: "dom-attribute",
+    metrics: { score: 20, level: 2, lives: 2, mistakes: 1 }
+  }};
+  const result = evaluateGameProgress(before, after);
+  assert.equal(result.reward, 2);
+  assert.equal(result.feedback, "good");
+  assert.deepEqual(result.signals, ["score-increased", "level-increased", "lives-decreased", "mistakes-decreased"]);
+});
+
+test("ignores numeric metrics without explicit DOM provenance", () => {
+  const before = { gameState: { metrics: { score: 10 } } };
+  const after = { gameState: { metrics: { score: 999 } } };
+  const result = evaluateGameProgress(before, after);
+  assert.equal(result.reward, 0);
+  assert.equal(result.confidence, 0);
+  assert.deepEqual(result.signals, []);
+});
+
+test("ignores missing and non-numeric metric values", () => {
+  const before = { gameState: { metricsSource: "dom-attribute", metrics: { score: 10, level: 1 } } };
+  const after = { gameState: { metricsSource: "dom-attribute", metrics: { score: "999", level: 1 } } };
+  const result = evaluateGameProgress(before, after);
+  assert.equal(result.reward, 0);
+  assert.deepEqual(result.signals, []);
+});
