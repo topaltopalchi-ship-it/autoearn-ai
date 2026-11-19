@@ -76,7 +76,7 @@ Ollama inference is local and has no per-request API fee, but downloading model 
 
 - **Implemented:** isolated Chromium context; exact HTTPS origin allowlist; bounded same-origin page traversal; duplicate/loop avoidance; visible link/button discovery; limited in-page expansion of folder-like controls; same-origin iframe inspection; heuristic folder/game/help/login/verification classification; limited safe button/link and keyboard adapter actions; and page/depth/time/interaction budgets.
 - **Implemented for one wired game:** bounded expectimax 2048 strategy, a defensive configurable DOM-to-board adapter, and a separate guarded runner that can execute and verify arrow-key moves when the site's board selectors are configured. The 2048 runner has not yet been tested against a live third-party game site.\n- **Implemented as a tested strategy module:** exact minimax for tic-tac-toe, plus a strategy registry that accepts normalized game state. It is not yet connected to screenshot/DOM recognition or a browser click adapter, so it does not autonomously play tic-tac-toe on websites yet.
-- **Implemented and wired into the experimental local AI runner:** local Ollama visual perception that converts screenshots into a bounded structured game observation, followed by a separate local decision call. Both providers reject remote endpoints, validate responses, enforce timeouts and call budgets, and use no paid AI API or API key.
+- **Implemented and wired into the experimental local AI runner:** local Ollama visual perception, a separate local decision call, and a private feedback memory that uses only owner-rated actions from matching hashed states. Both providers reject remote endpoints, validate responses, enforce timeouts and call budgets, and use no paid AI API or API key.
 - **Not yet implemented:** reliable classification across arbitrary sites, automatic site-specific selector discovery, more game strategies, and robust end-to-end prize/win verification.
 - Only use game sites whose official rules explicitly permit automated play.
 - CAPTCHA, anti-bot, anti-fraud, access-control, geolocation and payment safeguards are never bypassed. Detection pauses the run for a human.
@@ -135,3 +135,19 @@ The experimental `play:local-ai` runner now performs two local model stages for 
 2. **Decision:** `ollama-decision-provider.mjs` receives the structured observation and screenshot, then returns one allowlisted keyboard action or stop.
 
 The runner refuses to continue when perception identifies a verification page, cannot confidently identify a playable game, or reports confidence below 0.65. This makes the agent more cautious and gives the decision model a structured state description, but the model can still hallucinate; the confidence value is self-reported, not independently calibrated. There is no guarantee of winning or earning rewards. All inference stays on the same machine through the loopback Ollama endpoint; no paid hosted API is called.
+
+
+## Private local experience memory and feedback
+
+The experimental local AI runner keeps a small local-only experience ledger at `.autoearn/experience-memory.json` (ignored by Git). It stores only a random experience ID, game type, a SHA-256 hash of the short perceived state summary/objective, an allowlisted keyboard key, and whether the owner later rated the move good or bad. It does **not** save screenshots, raw page text, URLs, cookies, account data, or credentials.
+
+After a verified move, the runner prints pending experience IDs in its final report. A verified page change is not treated as a win or as a good move. To teach the agent, rate an experience explicitly:
+
+```sh
+npm run feedback -- <experience-id> good
+npm run feedback -- <experience-id> bad
+```
+
+The next time the same game type and same normalized state summary appear, the local decision prompt receives a short list of owner-rated actions for that exact state. These hints are advisory, not guaranteed strategies; the model still evaluates the current screenshot. Unrated experiences are never used as positive or negative examples. The memory is local to the computer running the agent and can be removed by deleting `.autoearn/experience-memory.json`.
+
+Set `AUTOEARN_MEMORY_FILE` to choose a different local file path. Do not place this file in a public repository or shared folder.
