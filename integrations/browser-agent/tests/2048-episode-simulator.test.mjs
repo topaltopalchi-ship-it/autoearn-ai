@@ -66,3 +66,18 @@ test("requires enough paired games for heuristic comparison", async () => {
   const { compare2048HeuristicWeights } = await import("../games/2048-episode-simulator.mjs");
   assert.throws(() => compare2048HeuristicWeights({ episodes: 1 }), /episodes/);
 });
+
+test("supports the full 20-episode paired batch with bounded one-move games", async () => {
+  const { compare2048HeuristicWeights } = await import("../games/2048-episode-simulator.mjs");
+  const report = compare2048HeuristicWeights({ seed: 2048, episodes: 20, depth: 1, maxMoves: 1 });
+  assert.equal(report.episodes, 20);
+  assert.equal(report.pairedSeeds.length, 20);
+  assert.equal(report.variants.length, 2);
+  for (const variant of report.variants) {
+    assert.equal(variant.reached2048 + variant.gameOvers + variant.moveLimitStops, 20);
+    assert.ok(variant.moveLimitStops <= 20);
+    assert.ok(variant.averageMoves <= 1);
+  }
+  assert.equal(report.paired.scoreWins + report.paired.scoreTies + report.paired.scoreLosses, 20);
+  assert.equal(report.paired.maxTileWins + report.paired.maxTileTies + report.paired.maxTileLosses, 20);
+});
