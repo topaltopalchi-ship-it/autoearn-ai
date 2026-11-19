@@ -54,6 +54,10 @@ test("recognizes 2048 only from valid coordinate and power-of-two tile metadata"
   const tiles = [{ x: 0, y: 0, value: 2 }, { x: 2, y: 1, value: 4 }, { x: 3, y: 3, value: 8 }];
   const result = detectKnownGame({ gameCandidates: [{ kind: "2048", boardKey: "board-b", tiles }] });
   assert.equal(result.gameType, "2048");
+  const unsafeLarge = [{ x: 0, y: 0, value: 4294967297 }, { x: 1, y: 1, value: 4 }];
+  assert.equal(detectKnownGame({ gameCandidates: [{ kind: "2048", tiles: unsafeLarge }] }).gameType, null);
+  const validLargePower = [{ x: 0, y: 0, value: 4294967296 }, { x: 1, y: 1, value: 4 }];
+  assert.equal(detectKnownGame({ gameCandidates: [{ kind: "2048", tiles: validLargePower }] }).gameType, "2048");
 });
 
 test("refuses malformed and ambiguous game candidates", () => {
