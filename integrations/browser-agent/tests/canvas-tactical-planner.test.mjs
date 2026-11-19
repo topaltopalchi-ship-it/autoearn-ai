@@ -49,3 +49,12 @@ test("ignores low-confidence hazard detections and validates step size", () => {
   assert.equal(result.mode, "pursue");
   assert.throws(() => planCanvasTactics({ stepSize: 0.5 }), /stepSize/);
 });
+
+
+test("does not recommend a no-op direction when the player is at a canvas edge", () => {
+  const edgePlayer = { ...player, x: 0.95, y: 0.45 };
+  const edgeTarget = { ...target, x: 0.1, y: 0.45 };
+  const result = planCanvasTactics({ objects: [edgePlayer, edgeTarget], motion: { predictedHazards: [] } });
+  assert.notEqual(result.suggestedKey, "ArrowRight");
+  assert.equal(result.suggestedKey, "ArrowLeft");
+});
