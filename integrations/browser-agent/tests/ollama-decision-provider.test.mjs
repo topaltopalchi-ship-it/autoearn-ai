@@ -208,3 +208,26 @@ test("explains that Canvas click JSON must include confidence", async () => {
   assert.match(prompt, /"confidence":0\.9/);
   assert.match(prompt, /at least 0\.8/);
 });
+
+
+test("includes bounded Canvas object detections as visual planning context", async () => {
+  let prompt;
+  const decide = createOllamaGameDecision({
+    model: "local-model",
+    fetchImpl: async (_url, options) => {
+      prompt = JSON.parse(options.body).messages[0].content;
+      return { ok: true, status: 200, json: async () => ({
+        message: { content: '{"type":"press","key":"ArrowRight"}' }
+      }) };
+    }
+  });
+  await decide({
+    canvasObjects: [
+      { role: "player", x: 0.1, y: 0.2, width: 0.1, height: 0.1, confidence: 0.95 },
+      { role: "hazard", x: 0.7, y: 0.8, width: 0.2, height: 0.1, confidence: 0.91 }
+    ]
+  });
+  assert.match(prompt, /Visual object detections are estimates/);
+  assert.match(prompt, /"role":"hazard"/);
+  assert.match(prompt, /"role":"player"/);
+});
