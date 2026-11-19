@@ -1,5 +1,6 @@
 import { create2048Decision } from "./2048-strategy.mjs";
 import { chooseTicTacToeMove, getTicTacToeOutcome } from "./tic-tac-toe-strategy.mjs";
+import { chooseConnectFourMove, getConnectFourOutcome } from "./connect-four-strategy.mjs";
 
 const strategies = new Map();
 
@@ -36,4 +37,12 @@ registerGameStrategy("tic-tac-toe", async state => {
   if (outcome !== "playing") return null;
   const move = chooseTicTacToeMove(state.board, { player: state.player });
   return move ? { type: "select-cell", index: move.index, mark: move.mark } : null;
+});
+
+registerGameStrategy("connect-four", async state => {
+  if (!Array.isArray(state.board)) return null;
+  if (state.agentPlayer && state.currentPlayer !== state.agentPlayer) return { type: "wait-for-turn" };
+  if (getConnectFourOutcome(state.board) !== "playing") return null;
+  const move = chooseConnectFourMove(state.board, { player: state.player, depth: 4 });
+  return move ? { type: "click-cell", index: move.index, column: move.column } : null;
 });
