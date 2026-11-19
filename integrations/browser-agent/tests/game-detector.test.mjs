@@ -11,7 +11,15 @@ test("recognizes a uniquely indexed nine-cell tic-tac-toe board", () => {
   assert.equal(result.confidence, 0.99);
 });
 
-test("recognizes Connect Four only from exactly 42 uniquely indexed X/O/empty cells", () => {\n  const cells = Array.from({ length: 42 }, (_, index) => ({ index, mark: index === 41 ? "X" : "" }));\n  const result = detectKnownGame({ gameCandidates: [{ kind: "connect-four", boardKey: "board-c", cells }] });\n  assert.equal(result.gameType, "connect-four");\n  assert.equal(isSupportedGameType("connect-four"), true);\n  assert.equal(detectKnownGame({ gameCandidates: [{ kind: "connect-four", cells: cells.slice(1) }] }).gameType, null);\n});\n\ntest("recognizes 2048 only from valid coordinate and power-of-two tile metadata", () => {
+test("recognizes Connect Four only from exactly 42 uniquely indexed X/O/empty cells", () => {
+  const cells = Array.from({ length: 42 }, (_, index) => ({ index, mark: index === 41 ? "X" : "" }));
+  const result = detectKnownGame({ gameCandidates: [{ kind: "connect-four", boardKey: "board-c", cells }] });
+  assert.equal(result.gameType, "connect-four");
+  assert.equal(isSupportedGameType("connect-four"), true);
+  assert.equal(detectKnownGame({ gameCandidates: [{ kind: "connect-four", cells: cells.slice(1) }] }).gameType, null);
+});
+
+test("recognizes 2048 only from valid coordinate and power-of-two tile metadata", () => {
   const tiles = [{ x: 0, y: 0, value: 2 }, { x: 2, y: 1, value: 4 }, { x: 3, y: 3, value: 8 }];
   const result = detectKnownGame({ gameCandidates: [{ kind: "2048", boardKey: "board-b", tiles }] });
   assert.equal(result.gameType, "2048");
