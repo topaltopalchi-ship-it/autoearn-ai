@@ -9,15 +9,25 @@ function makePage(board, { clickChangesBoard = true } = {}) {
     count: async () => 1,
     locator(selector) {
       if (selector.startsWith("[data-game-cell]")) return {
-        evaluateAll: async () => state.map((mark, index) => ({
-          index: String(index), mark: mark || ""
-        }))
+        evaluateAll: async callback => callback(state.map((mark, index) => ({
+          getAttribute(name) {
+            if (name === "data-game-cell-index") return String(index);
+            if (name === "data-mark") return mark || "";
+            return null;
+          },
+          textContent: mark || ""
+        })))
       };
       const match = selector.match(/data-game-column-index="(\d+)"/);
       const column = match ? Number(match[1]) : -1;
       return {
         count: async () => column >= 0 && column < 7 ? 1 : 0,
-        evaluate: async () => ({ }),
+        evaluate: async callback => callback({
+          hasAttribute: () => false,
+          getAttribute: () => null,
+          getBoundingClientRect: () => ({ width: 30, height: 30 }),
+          style: { display: "block", visibility: "visible" }
+        }),
         click: async () => {
           clicked = column;
           if (clickChangesBoard) {
@@ -49,11 +59,12 @@ test("observes a valid 6x7 board and clicks only an explicitly marked column", a
   assert.equal(await adapter.verify({ before, after, action: { type: "click-column", column: 3 }, result: {} }), true);
 });
 
-test("waits when it is the opponent's turn and refuses invalid columns", async () => {
+test("refuses a move when it is not the agent's turn and rejects invalid columns", async () => {
   const board = empty();
   board[5][0] = "X";
   const page = makePage(board);
   const adapter = createConnectFourBrowserAdapter(page, { player: "X" });
+  await assert.rejects(() => adapter.execute({ type: "click-column", column: 0 }), /not the agent's turn/);
   await assert.rejects(() => adapter.execute({ type: "click-column", column: 7 }), /explicitly indexed/);
   assert.equal(page.clicked, null);
 });
