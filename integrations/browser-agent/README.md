@@ -253,3 +253,7 @@ node games/run-2048-heuristic-comparison.mjs
 ```
 
 Optional bounded settings are `AUTOEARN_2048_SEED` (0..4294967295, default 2048), `AUTOEARN_2048_EPISODES` (2..20, default 20), `AUTOEARN_2048_DEPTH` (1..3, default 2), `AUTOEARN_2048_MAX_MOVES` (1..1000, default 500), and `AUTOEARN_2048_SNAKE_WEIGHT` (0..2, default 1). The JSON report includes paired score and maximum-tile outcomes, 2048 completions, move-limit stops, and a deterministic bootstrap interval. This is a local synthetic benchmark only; it does not establish real-site win rates, reward eligibility, or earnings.
+
+### Current 2048 heuristic tuning result
+
+A seeded paired CI experiment (20 episodes per variant, depth 2, up to 500 moves, seed 2048) compared the no-snake baseline against snake weights 0.25, 0.5, and 1. The baseline averaged 7,910 points. Candidate averages were 7,648.8, 7,677.4, and 7,591.4 respectively; none reached 2048 within the move limit. The 0.25 candidate's bootstrap 95% interval for score delta was entirely below zero (-565.645 to -16.73), while intervals for 0.5 and 1 crossed zero. Accordingly, the default snake bonus is disabled; the experimental feature remains available through an explicit weight. These small synthetic episodes are tuning evidence only, not proof of real-site performance or earnings.
