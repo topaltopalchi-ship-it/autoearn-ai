@@ -86,6 +86,15 @@
     ]).has(normalized);
   }
 
+  function getEligibilityReviewStatus(review = {}) {
+    if (
+      review.payment_confirmed === "no" ||
+      review.country_eligible === "no" ||
+      review.free_entry === "no"
+    ) return "ineligible";
+    return "reviewing";
+  }
+
   function replaceOwnerEligibilityReview(notes, report) {
     const marker = "[OWNER OFFICIAL ELIGIBILITY REVIEW]";
     const source = String(notes || "");
@@ -124,5 +133,6 @@
     safePublicHttpsUrl,
     replaceOwnerEligibilityReview,
     hasKnownReviewValue,
+    getEligibilityReviewStatus,
   });
 })(globalThis);
