@@ -13,7 +13,19 @@ function normalizeBoard(board) {
   if (!rows || rows.some(row => row.some(value => !["", "-", "EMPTY", "X", "O"].includes(value)))) {
     throw new TypeError("Connect Four board must contain 42 valid X/O/empty cells.");
   }
-  return rows.map(row => row.map(value => ["", "-", "EMPTY"].includes(value) ? EMPTY : value));
+  const normalized = rows.map(row => row.map(value => ["", "-", "EMPTY"].includes(value) ? EMPTY : value));
+  // A gravity-based board cannot contain a piece above an empty cell.
+  for (let col = 0; col < COLS; col++) {
+    let foundGap = false;
+    for (let row = ROWS - 1; row >= 0; row--) {
+      if (!normalized[row][col]) foundGap = true;
+      else if (foundGap) throw new TypeError("Connect Four board violates gravity.");
+    }
+  }
+  if (hasFour(normalized, "X") && hasFour(normalized, "O")) {
+    throw new TypeError("Connect Four board cannot contain wins for both players.");
+  }
+  return normalized;
 }
 
 function landingRow(board, col) {
