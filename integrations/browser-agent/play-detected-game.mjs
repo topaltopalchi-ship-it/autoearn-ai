@@ -26,6 +26,22 @@ function validateTarget() {
   return target;
 }
 
+async function assertSafePage(page, target, blocked) {
+  if (blocked() || page.isClosed()) throw new Error("Browser safety guard stopped the game agent.");
+  let currentOrigin;
+  try {
+    currentOrigin = new URL(page.url()).origin;
+  } catch {
+    throw new Error("Current page URL is invalid; stopping.");
+  }
+  if (currentOrigin !== target.origin) throw new Error("Page left the explicitly approved origin.");
+  const text = ((await page.title().catch(() => "")) + "\\n" +
+    (await page.locator("body").innerText().catch(() => ""))).toLowerCase();
+  if (/captcha|verify you are human|robot check|security challenge|turnstile|hcaptcha|recaptcha/.test(text)) {
+    throw new Error("Verification gate detected during play; stopping for human action.");
+  }
+}
+
 async function inspectGame(page) {
   const candidates = await page.locator("body").evaluate(body =>
     Array.from(body.querySelectorAll("[data-game-board]")).slice(0, 10).map((board, index) => {
@@ -107,9 +123,23 @@ async function main() {
       decide = decideKnownGame;
     }
 
-    const initial = await adapter.observe();
+    const guardedAdapter = {
+      async observe() {
+        await assertSafePage(page, target, () => blocked);
+        return adapter.observe();
+      },
+      async execute(action) {
+        await assertSafePage(page, target, () => blocked);
+        const result = await adapter.execute(action);
+        await assertSafePage(page, target, () => blocked);
+        return result;
+      },
+      ...(adapter.verify ? { verify: args => adapter.verify(args) } : {}),
+      ...(adapter.isTerminal ? { isTerminal: observation => adapter.isTerminal(observation) } : {})
+    };
+    const initial = await guardedAdapter.observe();
     const agent = globalThis.AutoEarnGameAgent.createAgent({
-      adapter,
+      adapter: guardedAdapter,
       decide,
       limits: { maxSteps, maxDurationMs, allowedActions: plan.allowedActions },
       onEvent: event => {
@@ -125,7 +155,7 @@ async function main() {
       detection: detected, initial: initial.gameState || initial.board
     }));
     const result = await agent.run();
-    const finalState = await adapter.observe().catch(() => null);
+    const finalState = await guardedAdapter.observe().catch(() => null);
     console.log(JSON.stringify({
       result, final: finalState?.gameState || finalState?.board || null,
       outcome: finalState?.gameState?.outcome || finalState?.outcome || "unknown"
