@@ -65,11 +65,16 @@ export function createOllamaGameDecision({
       canvasAvailable: observation.canvasAvailable === true
     };
     const images = [];
-    const decisionImage = typeof observation.decisionScreenshot === "string"
-      ? observation.decisionScreenshot : observation.screenshot;
-    if (typeof decisionImage === "string") {
-      const match = decisionImage.match(/^data:image\/(?:png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/);
-      if (match && match[1].length <= 3_000_000) images.push(match[1]);
+    const imageCandidates = [
+      observation.decisionScreenshot,
+      observation.screenshot
+    ].filter((value, index, values) => typeof value === "string" && values.indexOf(value) === index);
+    for (const candidate of imageCandidates) {
+      const match = candidate.match(/^data:image\/(?:png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/);
+      if (match && match[1].length <= 3_000_000) {
+        images.push(match[1]);
+        break;
+      }
     }
     const memoryHints = experienceMemory?.getHints
       ? await experienceMemory.getHints({
