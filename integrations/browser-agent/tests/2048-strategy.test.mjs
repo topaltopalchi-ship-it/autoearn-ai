@@ -157,3 +157,18 @@ test("rejects an invalid expectimax node budget", () => {
   assert.throws(() => choose2048Move(board, { maxNodes: 0 }), /maxNodes/);
   assert.throws(() => choose2048Move(board, { maxNodes: 200001 }), /maxNodes/);
 });
+
+
+test("adaptive strategy forwards a caller's bounded node budget", async () => {
+  const { choose2048MoveAdaptive } = await import("../games/2048-strategy.mjs");
+  const board = [
+    [2, 4, 8, 16],
+    [4, 8, 16, 32],
+    [8, 16, 32, 64],
+    [16, 32, 64, 0]
+  ];
+  const move = choose2048MoveAdaptive(board, { maxNodes: 1 });
+  assert.ok(move);
+  assert.equal(move.searchStats.maxNodes, 1);
+  assert.equal(move.searchStats.budgetExhausted, true);
+});
