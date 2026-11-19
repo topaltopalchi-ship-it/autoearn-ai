@@ -26,7 +26,8 @@ test("records the exact allowlisted action only after a meaningful state change"
   }]);
   assert.deepEqual(pending, [{
     id: "exp-1", gameType: "puzzle", actionKey: "ArrowRight",
-    progress: { reward: 0, feedback: "neutral", confidence: 0, signals: [] }
+    progress: { reward: 0, feedback: "neutral", confidence: 0, signals: [] },
+    feedbackStatus: "needs-review"
   }]);
 });
 
@@ -73,7 +74,8 @@ test("records a verified indexed game-cell click for owner feedback", async () =
   assert.deepEqual(calls, [{ gameType: "memory", stateSummary: "two covered cards", objective: "", action: { type: "click-cell", index: 4 } }]);
   assert.deepEqual(pending, [{
     id: "cell-exp-1", gameType: "memory", actionKey: "click-cell:4",
-    progress: { reward: 0, feedback: "neutral", confidence: 0, signals: [] }
+    progress: { reward: 0, feedback: "neutral", confidence: 0, signals: [] },
+    feedbackStatus: "needs-review"
   }]);
 });
 
@@ -91,7 +93,8 @@ test("records a confident canvas click only after a meaningful game-state change
   }]);
   assert.deepEqual(pending, [{
     id: "canvas-exp-1", gameType: "canvas-puzzle", actionKey: "click-canvas:1:2",
-    progress: { reward: 0, feedback: "neutral", confidence: 0, signals: [] }
+    progress: { reward: 0, feedback: "neutral", confidence: 0, signals: [] },
+    feedbackStatus: "needs-review"
   }]);
 });
 
@@ -103,4 +106,21 @@ test("does not remember low-confidence canvas clicks", async () => {
     before, after, action: { type: "click-canvas", x: 0.4, y: 0.6, confidence: 0.79 }
   }), true);
   assert.equal(saved, false);
+});
+
+
+test("automatically rates only explicit terminal win or loss outcomes", async () => {
+  const rated = [];
+  const memory = {
+    async recordPending() { return "terminal-exp"; },
+    async rate(id, feedback) { rated.push({ id, feedback }); }
+  };
+  const pending = [];
+  const before = { snapshot: "playing", gameState: { gameType: "puzzle", outcome: "playing" } };
+  const after = { snapshot: "finished", gameState: { gameType: "puzzle", outcome: "won" } };
+  await recordVerifiedExperience(memory, pending, {
+    before, after, action: { type: "press", key: "ArrowRight" }
+  });
+  assert.deepEqual(rated, [{ id: "terminal-exp", feedback: "good" }]);
+  assert.equal(pending[0].feedbackStatus, "auto-rated-explicit-outcome");
 });
