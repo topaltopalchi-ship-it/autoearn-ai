@@ -30,4 +30,4 @@ def test_legacy_unauthenticated_sqlite_api_is_not_exposed():
         get_response = client.get("/api/opportunities")
         post_response = client.post("/api/opportunities", json={"title": "Test"})
     assert get_response.status_code == 404
-    assert post_response.status_code == 404
+    assert post_response.status_code in (404, 405)  # StaticFiles rejects writes; no CRUD endpoint exists.
