@@ -9,7 +9,7 @@ const provenance = globalThis.AutoEarnDiscoveryProvenance;
 const diligence = globalThis.AutoEarnDueDiligence;
 const ledger = globalThis.AutoEarnRewardLedger;
 
-test("discovery evidence flows into review without becoming independent verification", () => {
+test("discovery evidence remains informational after automatic approval", () => {
   const notes = [
     "Due-diligence flags: official_source_not_verified, official_terms_source_not_verified.",
     "[DISCOVERY PROVENANCE]",
@@ -31,31 +31,15 @@ test("discovery evidence flows into review without becoming independent verifica
   assert.equal(evidence.organizerIdentityVerified, false);
 });
 
-test("owner checklist and public URLs cannot open the guided-session gate", () => {
-  const report = {
-    reviewed_at: "2026-11-20T08:00:00.000Z",
-    payment_method: "PayPal",
-    payment_confirmed: "yes",
-    minimum_withdrawal: "10 USD",
-    fees: "0%",
-    country_eligible: "yes",
-    minimum_age: "18",
-    kyc: "not-required",
-    free_entry: "yes",
-    automation_explicitly_allowed: "yes",
-    payout_source: "https://publisher.example.org/payout",
-    automation_source: "https://publisher.example.org/automation"
-  };
-  const notes = diligence.replaceOwnerEligibilityReview("Owner-entered candidate", report);
+test("auto-approved opportunities open manually without an eligibility checklist", () => {
   const opportunity = {
     status: "eligible",
     url: "https://publisher.example.org/",
-    terms_url: "https://publisher.example.org/rules",
-    notes
+    terms_url: "",
+    notes: "Search result; payout and official terms are unverified."
   };
-  assert.equal(diligence.getEligibilityReviewStatus(report), "reviewing");
-  assert.equal(diligence.safePublicHttpsUrl(opportunity.terms_url), opportunity.terms_url);
-  assert.equal(diligence.canStartGuidedSession(opportunity), false);
+  assert.equal(diligence.canStartGuidedSession(opportunity), true);
+  assert.equal(diligence.canStartGuidedSession({ ...opportunity, url: "javascript:alert(1)" }), false);
 });
 
 test("reward ledger distinguishes pending, confirmed and evidenced paid amounts", () => {
@@ -74,7 +58,7 @@ test("reward ledger distinguishes pending, confirmed and evidenced paid amounts"
 });
 
 
-test("end-to-end review keeps discovered leads unverified while economics and reward records stay separate", () => {
+test("end-to-end auto-approval keeps economics and reward records separate", () => {
   const economics = globalThis.AutoEarnOpportunityEconomics;
   const discoveredNotes = [
     "Due-diligence flags: official_source_not_verified, official_terms_source_not_verified.",
@@ -87,42 +71,19 @@ test("end-to-end review keeps discovered leads unverified while economics and re
     })
   ].join("\n");
 
-  const report = {
-    reviewed_at: "2026-11-20T08:30:00.000Z",
-    payment_method: "PayPal",
-    payment_confirmed: "yes",
-    minimum_withdrawal: "10 USD",
-    fees: "0%",
-    country_eligible: "yes",
-    minimum_age: "18",
-    kyc: "not-required",
-    free_entry: "yes",
-    automation_explicitly_allowed: "yes",
-    payout_source: "https://publisher.example.org/payout",
-    automation_source: "https://publisher.example.org/automation",
-    estimated_economics: {
-      reward_amount: 20,
-      currency: "USD",
-      success_probability: 0.7,
-      time_hours: 2,
-      direct_costs: 3
-    }
-  };
-  const reviewedNotes = diligence.replaceOwnerEligibilityReview(discoveredNotes, report);
   const opportunity = {
     id: "candidate-1",
     status: "eligible",
     url: "https://publisher.example.org/",
     terms_url: "https://publisher.example.org/rules",
-    notes: reviewedNotes,
+    notes: discoveredNotes,
     created_at: "2026-11-20T08:00:00.000Z"
   };
 
   const evidence = diligence.calculateEvidenceCompleteness(opportunity.notes, opportunity.terms_url);
   assert.equal(evidence.officialTermsVerified, false);
   assert.equal(evidence.organizerIdentityVerified, false);
-  assert.equal(diligence.getEligibilityReviewStatus(report), "reviewing");
-  assert.equal(diligence.canStartGuidedSession(opportunity), false);
+  assert.equal(diligence.canStartGuidedSession(opportunity), true);
 
   const estimate = economics.extractOwnerEstimate(opportunity.notes);
   assert.equal(estimate.expectedNet, 11);
