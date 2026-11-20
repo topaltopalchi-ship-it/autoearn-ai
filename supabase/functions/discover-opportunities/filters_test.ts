@@ -407,3 +407,37 @@ Deno.test("rejects malformed bounded search JSON", () => {
   try { parseBoundedSearchResponse("{not-json}"); } catch { rejected = true; }
   assertEquals(rejected, true);
 });
+
+
+Deno.test("duplicate discovery candidates retain merged provenance without implying official verification", () => {
+  const provenance = (query: string, excerpt: string) =>
+    "[DISCOVERY PROVENANCE]\n" + JSON.stringify({
+      source: "Mwmbl search",
+      search_query: query,
+      discovered_at: "2026-11-20T08:00:00.000Z",
+      excerpt,
+    });
+  const merged = mergeDuplicateCandidates([
+    {
+      url: "https://example.com/contest?utm_source=one#top",
+      title: "Free puzzle cash prize",
+      reward_description: "Cash prize paid by Skrill",
+      notes: "Due-diligence flags: official_source_not_verified.\n" + provenance("free puzzle prize", "Search result A"),
+    },
+    {
+      url: "https://example.com/contest?utm_campaign=two",
+      title: "Puzzle contest with cash reward",
+      reward_description: "Winners receive payout by Skrill",
+      notes: "Due-diligence flags: official_terms_source_not_verified.\n" + provenance("cash reward puzzle", "Search result B"),
+    },
+  ]);
+  assertEquals(merged.length, 1);
+  assertEquals(merged[0].url, "https://example.com/contest");
+  const mergedNotes = String(merged[0].notes);
+  assertEquals(mergedNotes.includes("free puzzle prize"), true);
+  assertEquals(mergedNotes.includes("cash reward puzzle"), true);
+  assertEquals(mergedNotes.includes("Search result A"), true);
+  assertEquals(mergedNotes.includes("Search result B"), true);
+  assertEquals(mergedNotes.includes("official_source_not_verified"), true);
+  assertEquals(mergedNotes.includes("official_terms_source_not_verified"), true);
+});
