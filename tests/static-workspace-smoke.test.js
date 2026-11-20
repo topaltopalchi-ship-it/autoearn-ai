@@ -6,8 +6,8 @@ const html = readFileSync(new URL("../static/index.html", import.meta.url), "utf
 const app = readFileSync(new URL("../static/app.js", import.meta.url), "utf8");
 
 test("every literal app.js getElementById helper reference exists in the workspace HTML", () => {
-  const ids = new Set([...html.matchAll(/\\bid=["']([^"']+)["']/g)].map((match) => match[1]));
-  const referenced = new Set([...app.matchAll(/\\$\\(["']([^"']+)["']\\)/g)].map((match) => match[1]));
+  const ids = new Set([...html.matchAll(/\bid=["']([^"']+)["']/g)].map((match) => match[1]));
+  const referenced = new Set([...app.matchAll(/\$\(["']([^"']+)["']\)/g)].map((match) => match[1]));
   const missing = [...referenced].filter((id) => !ids.has(id));
   assert.deepEqual(missing, [], `Missing workspace element IDs: ${missing.join(", ")}`);
 });
