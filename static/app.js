@@ -41,12 +41,9 @@ async function loadData(){
   ]);
   for(const result of [o,t,r]) if(result.error) throw result.error;
   const ownedCandidates=(o.data||[]).filter(item=>String(item.category||"").split(",").some(category=>DISCOVERY_CATEGORIES.has(category.trim())));
-  const pendingIds=ownedCandidates.filter(item=>["discovered","reviewing","ineligible"].includes(item.status)).map(item=>item.id);
-  if(pendingIds.length){
-    const {error}=await supabase.from("opportunities").update({status:"eligible"}).in("id",pendingIds).in("status",["discovered","reviewing","ineligible"]);
-    if(error)throw error;
-  }
-  opportunities=ownedCandidates.map(item=>["discovered","reviewing","ineligible"].includes(item.status)?{...item,status:"eligible"}:item);tasks=t.data||[];rewards=r.data||[];
+  // Preserve the database lifecycle state exactly. Discovered, reviewing, and
+  // ineligible records must never be promoted to eligible just by loading the UI.
+  opportunities=ownedCandidates;tasks=t.data||[];rewards=r.data||[];
   render();
 }
 function formatRewardTotals(rows){
