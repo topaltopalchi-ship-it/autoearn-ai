@@ -1,5 +1,5 @@
 import { withSupabase } from "npm:@supabase/server@^1";
-import { candidateReviewFlags, canonicalOpportunityUrl, domainReviewFlags, evaluateCandidate, mergeDuplicateCandidates } from "./filters.ts";
+import { candidateReviewFlags, canonicalOpportunityUrl, domainReviewFlags, evaluateCandidate, mergeDuplicateCandidates, readBoundedSearchResponse, parseBoundedSearchResponse } from "./filters.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -90,7 +90,19 @@ Deno.serve((req: Request) => {
           continue;
         }
 
-        const payload = await response.json();
+        const declaredLength = Number(response.headers.get("content-length") || 0);
+        if (Number.isFinite(declaredLength) && declaredLength > 1_000_000) {
+          errors.push(search.category + ": search response exceeded the 1 MB limit.");
+          continue;
+        }
+        let payload: unknown;
+        try {
+          const responseText = await readBoundedSearchResponse(response);
+          payload = parseBoundedSearchResponse(responseText);
+        } catch (error) {
+          errors.push(search.category + ": " + String(error).slice(0, 160));
+          continue;
+        }
         const results = Array.isArray(payload) ? payload.slice(0, maxResultsPerQuery) : [];
         searchStats.push({ category: search.category, query: search.query, results: results.length, status: response.status });
         if (Array.isArray(payload) && payload.length > maxResultsPerQuery) {
