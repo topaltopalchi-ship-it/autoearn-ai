@@ -2,18 +2,18 @@
 
 Checked: 2026-11-20 (UTC)
 Branch: `develop`
-Validated commit: `f62a9fd3bd95bbeda64c72b7a0d5b8cde7623de7`
+Validated commit: `08242d58a2f07fc0d864f904bf6f4f6844084e3c`
 
 ## Automated validation
 
-- GitHub Actions CI: passed on `f62a9fd3bd95bbeda64c72b7a0d5b8cde7623de7`, including JavaScript, browser-agent, Deno, Python, PostgreSQL lifecycle integration (including second-account isolation), and the pinned Zoa Docker build. Run: https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44704487498
-- Python tests workflow: passed on the same commit. Run: https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44704487470
+- GitHub Actions CI: passed on `08242d58a2f07fc0d864f904bf6f4f6844084e3c`, including JavaScript, browser-agent, Deno, Python, PostgreSQL lifecycle integration (including second-account isolation), and the pinned Zoa Docker build. Run: https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44704729223
+- Python tests workflow: passed on the same commit. Run: https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44704729254
 - Static workspace smoke tests include element-ID, owner-only sign-in surface, script ordering, security-header, and manual-deploy checks.
 
 ## Supabase production project
 
 - Project status: `ACTIVE_HEALTHY`; PostgreSQL 17.
-- Product mode: one private owner account only. The static app exposes password sign-in and sign-out, not public sign-up. The prepared `20261120120000_lock_workspace_to_single_owner` migration records the sole existing Auth user and adds restrictive RLS policies so any other authenticated account is blocked. It aborts unless exactly one Auth user exists at application time. Confirm public sign-ups remain disabled before release.
+- Product mode: one private owner account only. The static app exposes password sign-in and sign-out, not public sign-up. The prepared `20261120120000_lock_workspace_to_single_owner` migration records the sole existing Auth user in an isolated `autoearn_private` schema and adds restrictive RLS policies so any other authenticated account is blocked. It aborts unless exactly one Auth user exists at application time. Confirm public sign-ups remain disabled before release.
 - Applied migration history currently contains only `20261118134402_create_autoearn_core_tables_with_owner_rls`.
 - These migrations exist in `develop` but are not recorded as applied in production:
   - `20261120080000_enforce_owner_state_transitions`
