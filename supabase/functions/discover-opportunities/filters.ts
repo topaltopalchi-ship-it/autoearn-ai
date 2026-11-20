@@ -1,3 +1,36 @@
+export const MAX_SEARCH_RESPONSE_BYTES = 1_000_000;
+
+export async function readBoundedSearchResponse(response: Response): Promise<string> {
+  const reader = response.body?.getReader();
+  if (!reader) return "";
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_SEARCH_RESPONSE_BYTES) {
+        await reader.cancel();
+        throw new Error("Search response exceeded the 1 MB processing limit.");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  return new TextDecoder().decode(bytes);
+}
+
+export function parseBoundedSearchResponse(raw: string): unknown {
+  if (new TextEncoder().encode(raw).byteLength > MAX_SEARCH_RESPONSE_BYTES) {
+    throw new Error("Search response exceeded the 1 MB processing limit.");
+  }
+  return JSON.parse(raw);
+}
 export type CandidateDecision =
   | { accepted: true; url: string; payoutMethods: string[] }
   | { accepted: false; reason: "invalid_url" | "excluded_category" | "missing_free_entry_evidence" | "missing_reward_evidence" | "missing_payout_evidence" };
