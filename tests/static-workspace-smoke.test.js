@@ -24,6 +24,15 @@ test("owner-only access and manual task controls remain visible in the HTML cont
   assert.doesNotMatch(html, /service_role|SUPABASE_SERVICE_ROLE_KEY/i);
 });
 
+test("single-owner workspace exposes password sign-in only, never public sign-up", () => {
+  assert.match(html, /OWNER ACCESS ONLY/);
+  assert.match(html, /Sign in with the owner account created in Supabase/);
+  assert.match(app, /supabase\.auth\.signInWithPassword/);
+  assert.match(app, /supabase\.auth\.signOut/);
+  assert.doesNotMatch(app, /supabase\.auth\.(?:signUp|signInWithOtp|signInWithOAuth)\s*\(/);
+  assert.doesNotMatch(html, /name=["'](?:register|signup)["']|id=["'][^"']*(?:register|signup)[^"']*["']/i);
+});
+
 test("metadata and local helper scripts load before the application controller", () => {
   const ordered = [
     'src="./config.js"',
