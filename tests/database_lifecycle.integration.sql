@@ -16,12 +16,16 @@ grant usage on schema auth to anon, authenticated;
 grant execute on function auth.uid() to anon, authenticated;
 
 insert into auth.users (id) values
-  ('11111111-1111-4111-8111-111111111111'),
-  ('22222222-2222-4222-8222-222222222222');
+  ('11111111-1111-4111-8111-111111111111');
 
 \ir ../supabase/migrations/20261118134402_create_autoearn_core_tables_with_owner_rls.sql
 \ir ../supabase/migrations/20261120080000_enforce_owner_state_transitions.sql
 \ir ../supabase/migrations/20261120100000_add_country_payout_metadata.sql
+\ir ../supabase/migrations/20261120120000_lock_workspace_to_single_owner.sql
+
+-- A second authenticated identity is created only after the owner is locked.
+insert into auth.users (id) values
+  ('22222222-2222-4222-8222-222222222222');
 
 set role authenticated;
 set request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
@@ -166,14 +170,24 @@ begin
 end;
 $$;
 
--- Verify that another authenticated owner cannot read the first owner's ledger.
+-- Verify that a second authenticated account cannot read or create workspace data.
 set request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
-do $$
+do $
 begin
-  if (select count(*) from public.rewards) <> 0 then
-    raise exception 'RLS exposed another user reward rows.';
+  if (select count(*) from public.rewards) <> 0
+     or (select count(*) from public.opportunities) <> 0
+     or (select count(*) from public.tasks) <> 0 then
+    raise exception 'Single-owner RLS exposed workspace rows to a second account.';
   end if;
+
+  begin
+    insert into public.opportunities (owner_id, title, platform, url, status)
+    values (auth.uid(), 'Unauthorized second owner', 'CI', 'https://ci.example.org/second-owner', 'eligible');
+    raise exception 'Expected second authenticated account insert to be blocked.';
+  exception when insufficient_privilege then
+    null;
+  end;
 end;
-$$;
+$;
 
 reset role;
