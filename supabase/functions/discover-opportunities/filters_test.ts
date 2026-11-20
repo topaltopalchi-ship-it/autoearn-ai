@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert";
-import { candidateReviewFlags, canonicalOpportunityUrl, domainReviewFlags, evaluateCandidate, mergeDuplicateCandidates, normalizePublicHttpsUrl } from "./filters.ts";
+import { candidateReviewFlags, canonicalOpportunityUrl, domainReviewFlags, evaluateCandidate, mergeDuplicateCandidates, normalizePublicHttpsUrl, MAX_SEARCH_RESPONSE_BYTES, readBoundedSearchResponse, parseBoundedSearchResponse } from "./filters.ts";
 
 function assertRejected(url: string, title: string, description: string, reason: string) {
   const result = evaluateCandidate(url, title, description);
@@ -390,4 +390,20 @@ Deno.test("does not merge candidates with different functional URL parameters", 
     { url: "https://example.com/game?level=2", title: "Level two" },
   ]);
   assertEquals(merged.length, 2);
+});
+
+Deno.test("bounds untrusted search response streams before JSON parsing", async () => {
+  const valid = await readBoundedSearchResponse(new Response('{"ok":true}'));
+  assertEquals(parseBoundedSearchResponse(valid), { ok: true });
+  const oversized = new Response(new Uint8Array(MAX_SEARCH_RESPONSE_BYTES + 1));
+  let rejected = false;
+  try { await readBoundedSearchResponse(oversized); }
+  catch (error) { rejected = String(error).includes("1 MB processing limit"); }
+  assertEquals(rejected, true);
+});
+
+Deno.test("rejects malformed bounded search JSON", () => {
+  let rejected = false;
+  try { parseBoundedSearchResponse("{not-json}"); } catch { rejected = true; }
+  assertEquals(rejected, true);
 });
