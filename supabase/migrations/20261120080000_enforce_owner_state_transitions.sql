@@ -140,7 +140,7 @@ begin
 
   if (old.status = 'pending' and new.status in ('confirmed', 'rejected'))
      or (old.status = 'confirmed' and new.status in ('paid', 'rejected')) then
-    if new.status = 'paid' and pg_catalog.btrim(new.reference) = '' then
+    if new.status = 'paid' and (new.reference is null or pg_catalog.btrim(new.reference) = '') then
       raise exception 'A paid reward requires a payment reference.'
         using errcode = '23514';
     end if;
