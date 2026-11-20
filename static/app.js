@@ -137,6 +137,20 @@ function renderTasks(){
   $("task-list").querySelectorAll("[data-complete]").forEach(b=>b.onclick=async()=>{await transitionTask(b.dataset.complete,"approved","completed","completed_at")});
   $("task-list").querySelectorAll("[data-reward-opportunity]").forEach(b=>b.onclick=()=>openRewardForOpportunity(Number(b.dataset.rewardOpportunity)));
 }
+async function transitionReward(id,expectedStatus,nextStatus,reference=""){
+  if(!AutoEarnRewardLedger.canTransition(expectedStatus,nextStatus))return toast("Invalid reward status transition.");
+  const update={status:nextStatus};
+  if(nextStatus==="paid"){
+    const paymentReference=String(reference||"").trim();
+    if(!paymentReference)return toast("A transaction reference is required before marking a reward paid.");
+    update.reference=paymentReference;
+  }
+  const {data,error}=await supabase.from("rewards").update(update).eq("id",id).eq("status",expectedStatus).select("id").maybeSingle();
+  if(error)return fail(error);
+  if(!data)return toast("Reward status changed elsewhere. Refresh and try again.");
+  toast("Reward record updated. This is not bank verification.");
+  await loadData();
+}
 function renderRewards(){
   const ledger=window.AutoEarnRewardLedger;
   const summary=ledger?.summarize(rewards)||{paid:[],pending:[],confirmed:[]};
@@ -151,7 +165,30 @@ function renderRewards(){
     const detail=Object.entries(group.currencies).map(([currency,total])=>`${esc(currency)} · Paid ${money(total.paid,currency)} · Confirmed ${money(total.confirmed,currency)} · Pending ${money(total.pending,currency)}`).join("<br>");
     return `<div class="item"><div><strong>${esc(label)}</strong><p>${detail}</p></div></div>`;
   }).join(""):'<p class="translator-privacy">Monthly totals will appear after rewards with valid dates are recorded.</p>';
-  $("reward-list").innerHTML=rewards.length?rewards.map(r=>{const recordedPaid=r.status==="paid"&&(r.reference||"").trim();const label=recordedPaid?"Paid (reference recorded)":r.status==="paid"?"Paid status missing reference":r.status;return `<div class="item"><div><h3>${money(r.amount,r.currency)} <span class="pill">${esc(label)}</span></h3><p>${esc(r.opportunities?.title||"Unlinked reward")} · ${esc(r.reference||"No transaction reference recorded")}</p></div></div>`}).join(""):'<div class="empty">No rewards recorded.</div>';
+  $("reward-list").innerHTML=rewards.length?rewards.map(r=>{
+    const recordedPaid=r.status==="paid"&&(r.reference||"").trim();
+    const label=recordedPaid?"Paid (reference recorded)":r.status==="paid"?"Paid status missing reference":r.status;
+    const actions=r.status==="pending"
+      ? '<button class="secondary" data-reward-confirm="'+esc(r.id)+'">Confirm received</button><button class="secondary" data-reward-reject="'+esc(r.id)+'">Reject record</button>'
+      : r.status==="confirmed"
+        ? '<button class="primary" data-reward-paid="'+esc(r.id)+'">Mark paid</button><button class="secondary" data-reward-reject="'+esc(r.id)+'">Reject record</button>'
+        : "";
+    return `<div class="item"><div><h3>${money(r.amount,r.currency)} <span class="pill">${esc(label)}</span></h3><p>${esc(r.opportunities?.title||"Unlinked reward")} · ${esc(r.reference||"No transaction reference recorded")}</p></div><div class="item-actions">${actions}</div></div>`;
+  }).join(""):'<div class="empty">No rewards recorded.</div>';
+  $("reward-list").querySelectorAll("[data-reward-confirm]").forEach(b=>b.onclick=async()=>{
+    if(!confirm("Confirm that this reward was actually received? This remains a manual record."))return;
+    await transitionReward(Number(b.dataset.rewardConfirm),"pending","confirmed");
+  });
+  $("reward-list").querySelectorAll("[data-reward-reject]").forEach(b=>b.onclick=async()=>{
+    if(!confirm("Reject this reward record?"))return;
+    const reward=rewards.find(item=>Number(item.id)===Number(b.dataset.rewardReject));
+    if(reward)await transitionReward(Number(reward.id),reward.status,"rejected");
+  });
+  $("reward-list").querySelectorAll("[data-reward-paid]").forEach(b=>b.onclick=async()=>{
+    const reference=prompt("Enter the transaction reference or payment evidence. Do not enter card or bank account numbers.");
+    if(reference===null)return;
+    await transitionReward(Number(b.dataset.rewardPaid),"confirmed","paid",reference);
+  });
 }
 function fillRewardOptions(){$("reward-opportunity").innerHTML='<option value="">Not linked</option>'+opportunities.map(o=>'<option value="'+esc(o.id)+'">'+esc(o.title)+'</option>').join("")}
 function bindTranslator(){
