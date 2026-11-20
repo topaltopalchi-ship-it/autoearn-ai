@@ -201,7 +201,8 @@ test("keeps unknown eligibility under review and disqualifies only explicit bloc
   const status = globalThis.AutoEarnDueDiligence.getEligibilityReviewStatus;
   assert.equal(status({ payment_confirmed: "unknown", country_eligible: "unknown", free_entry: "unknown" }), "reviewing");
   assert.equal(status({ payment_confirmed: "yes", country_eligible: "yes", free_entry: "yes", automation: "unknown" }), "reviewing");
-  assert.equal(status({ payment_confirmed: "yes", country_eligible: "yes", free_entry: "yes", automation: "no" }), "reviewing");
+  assert.equal(status({ payment_confirmed: "yes", country_eligible: "yes", free_entry: "yes", automation_explicitly_allowed: "no" }), "ineligible");
+  assert.equal(status({ payment_confirmed: "yes", country_eligible: "yes", free_entry: "yes", automation_explicitly_allowed: "unknown" }), "reviewing");
   assert.equal(status({ payment_confirmed: "no", country_eligible: "yes", free_entry: "yes" }), "ineligible");
   assert.equal(status({ payment_confirmed: "yes", country_eligible: "no", free_entry: "yes" }), "ineligible");
   assert.equal(status({ payment_confirmed: "yes", country_eligible: "yes", free_entry: "no" }), "ineligible");
