@@ -31,7 +31,7 @@ class SourceRegistry:
         with self._lock:
             items = list(self._items.values())
         if status is not None:
-            items = [item for item in items if item.status == status]
+            items = [item for item in items if item.to_record()["status"] == status]
         return sorted(items, key=lambda item: (item.name.casefold(), item.canonical_url))
 
     def __len__(self):
