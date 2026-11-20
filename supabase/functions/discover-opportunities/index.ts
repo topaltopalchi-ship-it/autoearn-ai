@@ -140,9 +140,9 @@ Deno.serve((req: Request) => {
             reward_description: description,
             eligibility: `Payout method hints: ${payoutMethods.join(", ") || "not specified"} (unverified). Due-diligence flags: ${reviewFlags.join(", ") || "no missing details detected by text heuristics"}. Country is not used as an AutoEarn discovery filter. Domain flags: ${domainFlags.join(", ") || "none detected by basic heuristics"}; domain ownership is not verified.`,
             terms_url: "",
-            status: "discovered",
+            status: "eligible",
             score: 0,
-            notes: `Payout method hints: ${payoutMethods.join(", ") || "not specified"}. Payment methods are unverified. Due-diligence flags: ${reviewFlags.join(", ") || "no missing details detected by text heuristics"}. Country is not used as an AutoEarn discovery filter. Domain review flags: ${domainFlags.join(", ") || "none detected by basic heuristics"}. A clean flag result does not prove the site is official. Confirm the organizer, official terms, minimum withdrawal, fees, KYC and automation rules. Never deposit or pay to unlock a prize.\n[DISCOVERY PROVENANCE]\n${JSON.stringify({source: "Mwmbl search", search_query: search.query, discovered_at: new Date().toISOString(), excerpt: description})}`,
+            notes: `Payout method hints: ${payoutMethods.join(", ") || "not specified"}. Payment methods are unverified. Due-diligence flags: ${reviewFlags.join(", ") || "no missing details detected by text heuristics"}. Country is not used as an AutoEarn discovery filter. Domain review flags: ${domainFlags.join(", ") || "none detected by basic heuristics"}. A clean flag result does not prove the site is official. Auto-approved for manual access only; organizer, official terms, payout, country eligibility and automation permission remain unverified. Never deposit or pay to unlock a prize.\n[DISCOVERY PROVENANCE]\n${JSON.stringify({source: "Mwmbl search", search_query: search.query, discovered_at: new Date().toISOString(), excerpt: description})}`,
           });
         }
       } catch (error) {
@@ -218,7 +218,7 @@ Deno.serve((req: Request) => {
       already_saved: alreadySaved,
       ...diagnostics,
       categories: [...new Set(SEARCHES.map((item) => item.category))],
-      message: "Candidates saved for your review. They are not verified offers.",
+      message: "Candidates auto-approved for manual access. They are not verified offers; follow official platform rules.",
     });
   })(req);
 });
