@@ -5,7 +5,7 @@ from .discovery import SourceCandidate
 from .opportunities import normalize_url
 
 class SourceRegistry:
-    """Thread-safe registry; new sources always remain pending review."""
+    """Thread-safe registry; new sources are auto-approved for manual access."""
     def __init__(self):
         self._items = {}
         self._lock = RLock()
@@ -26,8 +26,8 @@ class SourceRegistry:
             return self._items.get(normalize_url(url))
 
     def list(self, status=None):
-        if status is not None and status not in ("pending", "approved", "rejected"):
-            raise ValueError("invalid review status")
+        if status is not None and status != "eligible":
+            raise ValueError("the only opportunity status is eligible; archived records are managed separately")
         with self._lock:
             items = list(self._items.values())
         if status is not None:
