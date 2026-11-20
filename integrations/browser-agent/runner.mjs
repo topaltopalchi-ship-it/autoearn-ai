@@ -2,7 +2,7 @@ import { readDomGameMetrics } from "./dom-game-metrics.mjs";
 import { chromium } from "playwright";
 import { collectNavigationTargets } from "./site-navigation.mjs";
 import { crawlSameOriginSite } from "./crawl-site.mjs";
-import { validateApprovedTarget } from "./approved-url.mjs";
+import { validateApprovedTarget, isApprovedRequestUrl } from "./approved-url.mjs";
 
 const gameUrl = process.env.AUTOEARN_GAME_URL;
 const allowedOrigins = new Set(
@@ -60,7 +60,11 @@ async function main() {
   const target = validateTarget(gameUrl);
   const started = Date.now();
   const browser = await chromium.launch({ headless: false });
-  const context = await browser.newContext({ acceptDownloads: false });
+  const context = await browser.newContext({ acceptDownloads: false, serviceWorkers: "block" });
+  await context.route("**/*", route => {
+    if (isApprovedRequestUrl(route.request().url(), target.origin)) return route.continue();
+    return route.abort("blockedbyclient");
+  });
   const page = await context.newPage();
   page.setDefaultTimeout(5_000);
   let navigationBlocked = false;
