@@ -28,3 +28,10 @@ test("rejects duplicate official evidence URLs and non-canonical signature encod
  const e=envelopeFor();e.signature+="=";
  assert.equal((await AutoEarnTrustedAttestation.verifyTrustedAttestation(e,trusted,now)).reason,"invalid_signature_encoding");
 });
+
+test("rejects ambiguous timestamps and non-JSON envelope objects",async()=>{
+ const ambiguous={...payload,issued_at:"November 20, 2026 11:00 UTC"};
+ assert.equal((await AutoEarnTrustedAttestation.verifyTrustedAttestation(envelopeFor(ambiguous),trusted,now)).reason,"invalid_attestation_dates");
+ const cyclic={key_id:"review-key-1",payload:{...payload},signature:"x"};cyclic.payload.loop=cyclic.payload;
+ assert.equal((await AutoEarnTrustedAttestation.verifyTrustedAttestation(cyclic,trusted,now)).reason,"invalid_envelope");
+});
