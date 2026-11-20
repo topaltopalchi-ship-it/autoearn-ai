@@ -18,3 +18,9 @@ test("blocks external, insecure, and sensitive destinations", () => {
 test("allows non-sensitive buttons that may expand folders", () => {
   assert.equal(isSafeNavigationTarget({ role: "button", name: "Arcade games" }, origin), true);
 });
+
+
+test("rejects same-origin links with embedded credentials or unusual ports", () => {
+  assert.equal(isSafeNavigationTarget({ role: "link", name: "Game", href: "https://user:secret@games.example/play" }, origin), false);
+  assert.equal(isSafeNavigationTarget({ role: "link", name: "Game", href: "https://games.example:8443/play" }, origin), false);
+});
