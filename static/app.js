@@ -264,7 +264,18 @@ function bindWorkspace(){
     }
     const hasKnown=AutoEarnDueDiligence.hasKnownReviewValue;
     const passed=data.payment_method&&data.payment_method!=="Other / not specified"&&data.payment_confirmed==="yes"&&hasKnown(data.minimum)&&hasKnown(data.fees)&&data.country_eligible==="yes"&&hasKnown(data.minimum_age)&&data.kyc!=="unknown"&&data.free_entry==="yes"&&data.automation==="yes";
-    const report={reviewed_at:new Date().toISOString(),payment_method:data.payment_method,payment_confirmed:data.payment_confirmed,minimum_withdrawal:data.minimum.trim(),fees:data.fees.trim(),country_eligible:data.country_eligible,minimum_age:data.minimum_age.trim(),kyc:data.kyc,free_entry:data.free_entry,automation_explicitly_allowed:data.automation,payout_source:data.payout_source,automation_source:data.automation_source};
+    const estimateFields=["estimate_reward","estimate_currency","estimate_probability","estimate_hours","estimate_costs"];
+    const estimateProvided=estimateFields.some(key=>String(data[key]||"").trim()!=="");
+    let estimatedEconomics;
+    if(estimateProvided){
+      if(estimateFields.some(key=>String(data[key]||"").trim()===""))return toast("Complete all five optional economics fields or leave all five empty.");
+      try{
+        const probability=Number(data.estimate_probability)/100;
+        const result=AutoEarnOpportunityEconomics.estimateOpportunityEconomics({rewardAmount:Number(data.estimate_reward),currency:data.estimate_currency,successProbability:probability,timeHours:Number(data.estimate_hours),directCosts:Number(data.estimate_costs)});
+        estimatedEconomics={reward_amount:Number(data.estimate_reward),currency:result.currency,success_probability:probability,time_hours:Number(data.estimate_hours),direct_costs:Number(data.estimate_costs)};
+      }catch(error){return toast("Economics estimate is invalid: "+error.message);}
+    }
+    const report={reviewed_at:new Date().toISOString(),payment_method:data.payment_method,payment_confirmed:data.payment_confirmed,minimum_withdrawal:data.minimum.trim(),fees:data.fees.trim(),country_eligible:data.country_eligible,minimum_age:data.minimum_age.trim(),kyc:data.kyc,free_entry:data.free_entry,automation_explicitly_allowed:data.automation,payout_source:data.payout_source,automation_source:data.automation_source,...(estimatedEconomics?{estimated_economics:estimatedEconomics}:{})};
     const notes=AutoEarnDueDiligence.replaceOwnerEligibilityReview(opportunity.notes,report);
     const reviewStatus=AutoEarnDueDiligence.getEligibilityReviewStatus({...data,automation_explicitly_allowed:data.automation});
     const {error}=await supabase.from("opportunities").update({status:reviewStatus,terms_url:data.terms_url,notes}).eq("id",id);
