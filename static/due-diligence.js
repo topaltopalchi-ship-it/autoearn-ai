@@ -52,7 +52,9 @@
     const businessService = /\b(?:payment processor|payment gateway|accept payments|business payments|merchant services|invoice(?:s|ing)? software|accounting software|website builder|e-?commerce platform|online store builder|customer relationship management|crm|marketing automation|advertising platform|business management software|point of sale|pos system|web hosting provider)\b/.test(text);
     const normalizedUrl = String(item?.url || "").toLowerCase().replace(/^https?:\/\//, "");
     const knownServiceDomain = /(?:^|\.)paypal\.com(?:$|\/)|(?:^|\.)stripe\.com(?:$|\/)|(?:^|\.)squareup\.com(?:$|\/)/.test(normalizedUrl);
-    if (businessService || knownServiceDomain) return "irrelevant";
+    const informationalDomain = /(?:^|\.)wikipedia\.org(?:$|\/)|(?:^|\.)wikimedia\.org(?:$|\/)/.test(normalizedUrl);
+    const informationalContent = /\b(?:press release|newsroom|news article|donat(?:e|ion|ing)|charity donation|fundraising campaign|how to play|what is|explained|guide to)\b/.test(text);
+    if (businessService || knownServiceDomain || informationalDomain || informationalContent) return "irrelevant";
     return "review";
   }
 
