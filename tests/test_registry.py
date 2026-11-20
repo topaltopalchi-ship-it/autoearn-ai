@@ -31,7 +31,7 @@ class SourceRegistryTests(unittest.TestCase):
 
     def test_list_filters_status_and_rejects_invalid_filter(self):
         registry = SourceRegistry()
-        registry.add(SourceCandidate("Game A", "https://a.example"))
+        registry.add(SourceCandidate("Game A", "https://a.example.com"))
         self.assertEqual(len(registry.list("pending")), 1)
         self.assertEqual(registry.list("approved"), [])
         with self.assertRaises(ValueError):
