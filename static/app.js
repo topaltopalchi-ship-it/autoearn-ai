@@ -147,12 +147,15 @@ async function transitionTask(id,expectedStatus,nextStatus,timestampField){
   await loadData();
 }
 function renderTasks(){
-  $("task-list").innerHTML=tasks.length?tasks.map(t=>{
+  const visibleTasks=tasks.filter(t=>!t.opportunities||window.AutoEarnDueDiligence.classifyOpportunityType(t.opportunities)!=="irrelevant");
+  const hiddenCount=tasks.length-visibleTasks.length;
+  $("task-list").innerHTML=(visibleTasks.length?visibleTasks.map(t=>{
     const completedAt=t.completed_at?new Date(t.completed_at).toLocaleString():"";
     const dateLine=t.status==="completed"&&completedAt?"<br><strong>Completed:</strong> "+esc(completedAt):"";
     const rewardAction=t.status==="completed"&&t.opportunity_id?'<button class="secondary" data-reward-opportunity="'+esc(t.opportunity_id)+'">Record actual reward</button>':"";
     return `<div class="item"><div><h3>${esc(t.description)}</h3><p>${esc(t.opportunities?.title||"Opportunity")} · ${esc(t.opportunities?.platform||"")} · ${esc(t.status)}${dateLine}</p></div><div class="item-actions">${t.status==="pending_approval"?'<button class="primary" data-approve="'+esc(t.id)+'">Approve task</button>':''}${t.status==="approved"?'<button class="secondary" data-complete="'+esc(t.id)+'">Mark completed</button>':''}${rewardAction}</div></div>`;
-  }).join(""):'<div class="empty">No tasks yet. Create a task from an opportunity.</div>';
+  }).join(""):'<div class="empty">No relevant tasks to show. Create a task from a potential earning opportunity.</div>')+
+  (hiddenCount?`<p class="muted">${hiddenCount} older task(s) linked to informational or business-service pages are hidden from this list. Records are preserved.</p>`:"");
   $("task-list").querySelectorAll("[data-approve]").forEach(b=>b.onclick=async()=>{if(!confirm("Approve this task? You remain responsible for following platform rules."))return;await transitionTask(b.dataset.approve,"pending_approval","approved","approved_at")});
   $("task-list").querySelectorAll("[data-complete]").forEach(b=>b.onclick=async()=>{await transitionTask(b.dataset.complete,"approved","completed","completed_at")});
   $("task-list").querySelectorAll("[data-reward-opportunity]").forEach(b=>b.onclick=()=>openRewardForOpportunity(Number(b.dataset.rewardOpportunity)));
