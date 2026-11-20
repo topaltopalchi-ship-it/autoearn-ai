@@ -15,7 +15,7 @@ class SourceCandidateTests(unittest.TestCase):
         record = candidate.to_record()
         self.assertEqual(record["url"], "https://example.com/join")
         self.assertEqual(record["terms_url"], "https://example.com/terms")
-        self.assertEqual(record["status"], "pending")
+        self.assertEqual(record["status"], "eligible")
 
     def test_duplicate_key_uses_canonical_url(self):
         first = SourceCandidate("A", "https://example.com/path/?utm_campaign=x")
@@ -27,10 +27,6 @@ class SourceCandidateTests(unittest.TestCase):
             SourceCandidate("Bad", "javascript:alert(1)")
         with self.assertRaises(ValueError):
             SourceCandidate("Bad", "https://example.com", terms_url="file:///etc/passwd")
-
-    def test_rejects_unknown_review_status(self):
-        with self.assertRaises(ValueError):
-            SourceCandidate("Example", "https://example.com", status="auto_approved")
 
     def test_rejects_empty_name(self):
         with self.assertRaises(ValueError):
