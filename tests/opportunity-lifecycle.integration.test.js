@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import "../static/discovery-provenance.js";
 import "../static/due-diligence.js";
 import "../static/reward-ledger.js";
+import "../static/opportunity-economics.js";
 
 const provenance = globalThis.AutoEarnDiscoveryProvenance;
 const diligence = globalThis.AutoEarnDueDiligence;
@@ -84,7 +85,7 @@ test("end-to-end review keeps discovered leads unverified while economics and re
       discovered_at: "2026-11-20T08:00:00.000Z",
       excerpt: "A search result mentions a cash reward."
     })
-  ].join("\\n");
+  ].join("\n");
 
   const report = {
     reviewed_at: "2026-11-20T08:30:00.000Z",
