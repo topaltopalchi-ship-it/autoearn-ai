@@ -19,7 +19,7 @@ function spawnTile(board, random) {
   return true;
 }
 
-function playPolicy({ seed, policy, maxMoves }) {
+function playPolicy({ seed, policy, maxMoves, maxNodes }) {
   const random = makeRandom(seed);
   const board = Array.from({ length: 4 }, () => Array(4).fill(0));
   spawnTile(board, random);
@@ -32,8 +32,8 @@ function playPolicy({ seed, policy, maxMoves }) {
 
   while (outcome === "playing" && moves < maxMoves) {
     const decision = policy.kind === "adaptive"
-      ? choose2048MoveAdaptive(board)
-      : choose2048Move(board, { depth: policy.depth });
+      ? choose2048MoveAdaptive(board, { maxNodes })
+      : choose2048Move(board, { depth: policy.depth, maxNodes });
     if (!decision) break;
     if (decision.searchDepth) depthCounts[decision.searchDepth]++;
     else depthCounts[policy.depth]++;
@@ -91,7 +91,7 @@ function summarize(policy, games) {
   };
 }
 
-export function compare2048Policies({ seed = 2048, episodes = 5, maxMoves = 500 } = {}) {
+export function compare2048Policies({ seed = 2048, episodes = 5, maxMoves = 500, maxNodes = 1200 } = {}) {
   if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff) {
     throw new RangeError("Comparison seed must be an unsigned 32-bit integer.");
   }
@@ -100,6 +100,9 @@ export function compare2048Policies({ seed = 2048, episodes = 5, maxMoves = 500 
   }
   if (!Number.isInteger(maxMoves) || maxMoves < 1 || maxMoves > 1000) {
     throw new RangeError("Move limit must be 1..1000.");
+  }
+  if (!Number.isInteger(maxNodes) || maxNodes < 100 || maxNodes > 200000) {
+    throw new RangeError("Search node budget must be 100..200000.");
   }
 
   const policies = [
@@ -111,7 +114,7 @@ export function compare2048Policies({ seed = 2048, episodes = 5, maxMoves = 500 
   const seeds = Array.from({ length: episodes }, (_, index) => (seed + index * 0x9e3779b9) >>> 0);
   const summaries = policies.map(policy => summarize(
     policy.label,
-    seeds.map(gameSeed => playPolicy({ seed: gameSeed, policy, maxMoves }))
+    seeds.map(gameSeed => playPolicy({ seed: gameSeed, policy, maxMoves, maxNodes }))
   ));
   const fixedPolicies = summaries.filter(item => item.policy.startsWith("fixed-depth-"));
   const pairedComparisons = summaries.flatMap(item => fixedPolicies.map(baseline => {
@@ -146,7 +149,7 @@ export function compare2048Policies({ seed = 2048, episodes = 5, maxMoves = 500 
   }));
 
   return {
-    seed, episodes, maxMoves, seeds,
+    seed, episodes, maxMoves, maxNodes, seeds,
     note: "Paired seeded local simulations only. Shared seeds improve reproducibility but do not establish real-site win rates, guarantees, or earnings.",
     summaries, pairedComparisons
   };
