@@ -38,6 +38,10 @@
       }]))};
     });
   }
+  function canTransition(from,to){
+    const allowed={pending:["confirmed","rejected"],confirmed:["paid","rejected"]};
+    return Boolean(allowed[from]?.includes(to));
+  }
   function validateReward(row){
     if(!Number.isFinite(row.amount)||row.amount<=0)return "Enter a valid reward amount greater than zero.";
     if(!currencyCode(row.currency))return "Enter a valid three-letter currency code, such as USD or EUR.";
@@ -45,7 +49,7 @@
     if(row.status==="paid"&&!String(row.reference||"").trim())return "To record a reward as paid, enter a transaction reference or other payment evidence. Do not enter full card or account numbers.";
     return "";
   }
-  const api={sumByCurrency,summarize,summarizeByMonth,validateReward};
+  const api={sumByCurrency,summarize,summarizeByMonth,validateReward,canTransition};
   root.AutoEarnRewardLedger=api;
   if(typeof module!=="undefined"&&module.exports)module.exports=api;
 })(typeof globalThis!=="undefined"?globalThis:this);
