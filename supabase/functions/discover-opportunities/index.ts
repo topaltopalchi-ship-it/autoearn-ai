@@ -174,7 +174,10 @@ Deno.serve((req: Request) => {
       .from("opportunities")
       .select("url")
       .eq("owner_id", ownerId);
-    if (existingError) return json({ error: existingError.message }, 500);
+    if (existingError) {
+      console.error("Discovery duplicate lookup failed:", existingError);
+      return json({ error: "Could not check existing opportunities. Please try again." }, 500);
+    }
 
     const existingKeys = new Set(
       (existingRows || [])
@@ -203,7 +206,10 @@ Deno.serve((req: Request) => {
       .upsert(unseen, { onConflict: "owner_id,url", ignoreDuplicates: true })
       .select("id");
 
-    if (error) return json({ error: error.message }, 500);
+    if (error) {
+      console.error("Discovery opportunity save failed:", error);
+      return json({ error: "Could not save discovered opportunities. Please try again." }, 500);
+    }
     return json({
       saved: data?.length || 0,
       scanned: unique.length,
