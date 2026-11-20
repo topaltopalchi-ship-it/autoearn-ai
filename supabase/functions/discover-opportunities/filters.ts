@@ -37,13 +37,8 @@ export type CandidateDecision =
 
 const EXCLUDED_RESULT_RE = /\b(survey|surveys|questionnaire|microtask|micro-task|micro.?jobs?|crowd.?work|gig work|data entry|app testing|website testing|mystery shopping|paid to click|click.?to.?earn|watch (?:video )?ads|view ads|ad viewing|ad watching|paid to install apps|task marketplace|task platform|earn by completing tasks|freelance job|job opening|career|news|press release|blog post|article|guide|directory|archives?|roundup|review|comparison|cashback|cash back|loyalty program|rewards? program|points redemption|redeem points|affiliate referral|referral bonus|invite friends|sign.?up bonus|registration bonus|paid to register|offerwall|price chart|token price|market cap|cryptocurrency price|payment gateway|accept payments|merchant account|business payments|casino|gambling|betting|sportsbook|bookmaker|betting exchange|poker|roulette|slot machine|slot games|real.?money gaming)\b/i;
 const GAME_ACTIVITY_RE = /\b(game|games|gaming|play|player|puzzle|contest|competition|tournament|sweepstakes|giveaway|raffle|lucky draw|prize draw|free draw|lottery|spin|wheel|daily spin|scratch|instant.?win|quiz|trivia|iq test|brain.?test|predict|prediction|pick.?em|match predictor|score predictor|hackathon|agentic|ai agent|agent tournament|autonomous agent)\b/i;
-const REWARD_EVIDENCE_RE = /\b(cash prize|prize money|win cash|cash reward|win.{0,20}(a |the )?prize|win.{0,20}(gift card|voucher|car|phone|cash)|prize pool|(?:first|second|third) place prize|winner.{0,30}(prize|paid|reward)|paid.{0,30}winner|earn.{0,30}(cash|prize)|withdraw.{0,30}(winnings|prize|reward)|redeem.{0,20}(cash|prize)|(?:US\$|USD\s?\$?)\s?[\d,]+.{0,24}\bto\s+(?:the\s+)?winner|payout|paid in|reward.{0,20}(cash|crypto|token))\b/i;
 const NO_REAL_REWARD_RE = /\b(no cash prize|no real[- ]money prize|no monetary reward|no cash value|not redeemable for cash|cannot be withdrawn|non[- ]withdrawable|points only|virtual points only|for entertainment only|gift cards?|vouchers?|store credit|merchandise|physical prizes?|non[- ]cash prizes?|(?:winner receives|win|prize.{0,20}(?:is|includes)|delivered).{0,40}(?:car|phone|tablet|laptop|computer|console|television|bike|bicycle)|(?:car|phone|tablet|laptop|computer|console|television|bike|bicycle).{0,40}(?:delivered|shipped|courier))\b/i;
-const FREE_ENTRY_RE = /\b(no purchase necessary|no purchase required|free chips|free entry|free to enter|free to play|free draw|free spin|daily free spin|without paying|no entry fee|free participation|free route|no deposit required|without deposit|no wager(?: or deposit)? (?:is )?required|no stake required)\b/i;
 const PAID_ENTRY_RE = /\b(pay to enter|paid entry|(?<!no )purchase required|buy (a )?(ticket|entry|credit|token)|(?<!no )entry fee|ticket price|deposit to enter|deposit.{0,24}(unlock|spin|enter|participate|play)|(?:unlock|spin|enter|participate|play).{0,24}deposit|place (a )?wager|wager required|stake required)\b/i;
-const PAYOUT_CONTEXT_RE = /\b(payout|withdraw|withdrawal|cash.?out|paid to|paid by|payment method|payment processor|prize paid|winnings paid|bank transfer|bank account|bank card|debit card|credit card|via (paypal|skrill|neteller|payeer|payoneer|webmoney)|through (paypal|skrill|neteller|payeer|payoneer|webmoney)|using (paypal|skrill|neteller|payeer|payoneer|webmoney)|bitcoin|btc|usdt|crypto)\b/i;
-const MONETARY_REWARD_RE = /(?:\b(cash prize|prize money|cash reward|cash winnings|paid in (?:cash|usd|eur|gbp|usdt|usdc|bitcoin)|bitcoin prize|btc prize|usdt prize|usdc prize)\b|(?:US\$|USD\s?\$?|[$€£])\s?\d[\d,.]*|\b\d[\d,.]*\s?(?:USD|EUR|GBP|USDT|USDC|BTC)\b)/i;
-const SPECIFIC_PAYOUT_METHOD_RE = /\b(paypal|skrill|neteller|payeer|payoneer|webmoney|bank transfer|wire transfer|swift|bank account|bank card|debit card|credit card|visa|mastercard|bitcoin|\bbtc\b|\busdt\b|\busdc\b|ethereum|\beth\b)\b/i;
 
 export function normalizePublicHttpsUrl(rawUrl: string): string | null {
   let parsed: URL;
@@ -207,7 +202,7 @@ export function evaluateCandidate(rawUrl: string, title: string, description: st
     && /agent season 1/i.test(text)
     && /free chips|agents play free/i.test(text)
     && /\$490|490 usdc/i.test(text);
-  if ((EXCLUDED_RESULT_RE.test(text) && !verifiedZoaAgentSeason) || !GAME_ACTIVITY_RE.test(text)) {
+  if (((EXCLUDED_RESULT_RE.test(text) || NO_REAL_REWARD_RE.test(text)) && !verifiedZoaAgentSeason) || !GAME_ACTIVITY_RE.test(text)) {
     return { accepted: false, reason: "excluded_category" };
   }
 
