@@ -40,7 +40,7 @@ async function loadData(){
     supabase.from("rewards").select("*, opportunities(title)").order("created_at",{ascending:false})
   ]);
   for(const result of [o,t,r]) if(result.error) throw result.error;
-  const ownedCandidates=(o.data||[]).filter(item=>DISCOVERY_CATEGORIES.has(item.category));
+  const ownedCandidates=(o.data||[]).filter(item=>String(item.category||"").split(",").some(category=>DISCOVERY_CATEGORIES.has(category.trim())));
   const pendingIds=ownedCandidates.filter(item=>["discovered","reviewing","ineligible"].includes(item.status)).map(item=>item.id);
   if(pendingIds.length){
     const {error}=await supabase.from("opportunities").update({status:"eligible"}).in("id",pendingIds).in("status",["discovered","reviewing","ineligible"]);
