@@ -2,33 +2,38 @@
 
 ## Product direction
 
-AutoEarn AI is an owner-only workspace for discovering and evaluating legitimate reward-bearing games, connecting accounts through official authorization, and providing game-specific assistance only where platform rules explicitly permit it.
+AutoEarn AI is a private, owner-only workspace for discovering, evaluating, and tracking reward opportunities. It supports manual participation and bounded local game-agent experiments. It does not promise income or perform unattended third-party reward farming.
 
-## MVP 0.1 (this branch)
+## Implemented in develop
 
-- [x] Opportunity registry with auto-approved manual access and informational terms fields
-- [x] Transparent completeness score (not a legitimacy guarantee)
-- [x] Task queue with explicit approval before completion
-- [x] Reward ledger and dashboard
-- [x] Online text translator
-- [x] Opportunity discovery with automatic manual-access approval and safety exclusions
-- [x] API tests and GitHub Actions CI
+- [x] Owner-only Supabase Auth and RLS-backed opportunities, tasks, and rewards.
+- [x] New and manually added opportunities are auto-approved for manual opening; no opportunity approval queue or independent-attestation gate.
+- [x] Discovery pipeline with bounded public search requests, URL validation, duplicate handling, category exclusions, and informational review flags.
+- [x] Evidence-completeness heuristic and opportunity sorting/comparison. Scores are disclosure signals, not legitimacy or payout verification.
+- [x] Country and payout metadata fields, owner-entered evidence URLs, form validation, and UI disclosures. These fields do not gate manual access.
+- [x] Reward ledger with separate currencies, status transitions, payment references, and monthly reporting. Owner-entered paid status is not bank verification.
+- [x] Task queue with explicit human approval before marking a task complete.
+- [x] Local puzzle lab and bounded game-agent loop with action allowlists, budgets, cancellation, and post-action verification.
+- [x] Local Ollama/deterministic decision path; no paid hosted AI API is required.
+- [x] Browser-agent navigation and page classification tests; game-specific adapters remain disabled unless exact official rules permit their actions.
+- [x] Python, JavaScript, Deno, PostgreSQL lifecycle, and Zoa Docker build checks pass in CI.
+- [x] Static Netlify deployment configuration and optional FastAPI health/static host.
 
-## Next milestones
+## Remaining before production release
 
-1. **Discovery quality:** source URL, checked-at timestamp, evidence excerpts, country eligibility, minimum age, payout threshold, and official terms snapshot.
-2. **Informational risk signals:** display missing terms, unclear ownership, payout uncertainty, and country/KYC disclosures as context only; these signals do not block manual opening. Continue excluding explicit paid-entry, gambling, survey, microtask, and non-cash-only offers.
-3. **Account connection:** official OAuth/API integrations only; never collect Gmail/game passwords or browser cookies. See GAME_ACCOUNT_CONNECTION.md.
-4. **Game assistance:** game-specific permitted helpers, strategy hints, accessibility support, and manual play guidance. An adapter stays disabled unless the exact platform rules explicitly permit its actions.
-5. **User approvals:** configurable confirmation for account linking, purchases, personal data, submissions, and reward claims.
-6. **Reward reconciliation:** manual pending/confirmed/paid/rejected transitions, payment references, and exportable history. Paid entries are owner-entered and are not bank-verified.
-7. **Deployment and security:** authentication, encrypted secrets, audit log, rate limits, backups, and hosted database before multi-user operation.
+1. **Owner-controlled setup:** confirm the production Supabase project settings, invite-only account, publishable key, and allowed site URL/redirect configuration.
+2. **Database release:** review and apply the pending migrations to the intended Supabase project only after explicit owner authorization. CI tests use an ephemeral PostgreSQL instance and do not update production.
+3. **Hosting release:** configure the production Netlify site and deploy the approved branch only after explicit owner authorization. No production deploy has been performed by this work.
+4. **Smoke test:** verify sign-in, opportunity discovery, manual add/edit, task transitions, reward ledger, country/payout metadata, and sign-out on the deployed site.
+5. **First external platform:** select one named platform and verify its official OAuth/API documentation, country availability, payout terms, and exact automation permissions before building a connector. Until then, external accounts remain manual-only.
+6. **Operational safeguards:** confirm backups, recovery procedure, rate limits, audit expectations, and owner access before any multi-user expansion.
 
-## Important limitations
+## Safety boundaries
 
-- No earnings are guaranteed.
-- Platform eligibility and terms vary by country and change over time.
-- The current app does not connect third-party game accounts or play third-party games autonomously.
-- Signing into a game with Gmail in another tab does not grant AutoEarn access to that game's session.
-- Do not enter passwords, payment details, identity documents, session cookies, or API secrets into opportunity notes.
-- Never bypass CAPTCHA, anti-cheat, regional restrictions, or platform controls; no unattended reward farming.
+- No automatic account creation, login, personal-data submission, deposits, purchases, prize claims, or gameplay on third-party platforms.
+- Never request or store passwords, OTPs, seed phrases, browser cookies, or session tokens in the app.
+- Never bypass CAPTCHA, anti-bot, anti-cheat, KYC, geographic restrictions, or platform access controls.
+- An opportunity's `eligible` status means only that the owner may manually open its public HTTPS page. It does not prove legitimacy, cash payout, country eligibility, or permission to automate.
+- Task completion requires human approval. Reward status and payment references are owner-entered and are not proof of bank settlement.
+- All economics and evidence scores are estimates or text heuristics, not guarantees.
+- No production migration or deployment is performed without explicit owner authorization.
