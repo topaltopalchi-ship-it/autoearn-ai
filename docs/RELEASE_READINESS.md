@@ -2,11 +2,11 @@
 
 Checked: 2026-11-20 (UTC)
 Branch: `develop`
-Validated commit: `5426d14db61ca32b50befc2374a5432e95acd340`
+Validated commit: `028fee3320fb870271bd8ecf10d125ac2dd56271`
 
 ## Automated validation
 
-- GitHub Actions CI: passed, including JavaScript, browser-agent, Deno, Python, PostgreSQL lifecycle integration, and the pinned Zoa Docker build.
+- GitHub Actions CI: passed on `028fee3320fb870271bd8ecf10d125ac2dd56271`, including JavaScript, browser-agent, Deno, Python, PostgreSQL lifecycle integration, and the pinned Zoa Docker build. Run: https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44702207591
 - Python tests workflow: passed.
 - Static workspace smoke tests include element-ID, owner-only UI, script ordering, security-header, and manual-deploy checks.
 
