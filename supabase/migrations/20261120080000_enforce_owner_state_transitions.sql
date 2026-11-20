@@ -26,7 +26,7 @@ begin
     if (old.status = 'discovered' and new.status in ('reviewing', 'eligible', 'ineligible', 'archived'))
        or (old.status = 'reviewing' and new.status in ('eligible', 'ineligible', 'archived'))
        or (old.status = 'eligible' and new.status in ('ineligible', 'archived'))
-       or (old.status = 'ineligible' and new.status = 'archived') then
+       or (old.status = 'ineligible' and new.status in ('eligible', 'archived')) then
       null;
     else
       raise exception 'Invalid opportunity status transition: % -> %.', old.status, new.status
