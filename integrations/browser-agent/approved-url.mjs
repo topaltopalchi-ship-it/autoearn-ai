@@ -16,3 +16,16 @@ export function validateApprovedTarget(value, allowedOrigins) {
   }
   return url;
 }
+
+export function isApprovedRequestUrl(value, approvedOrigin) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" &&
+      url.origin === approvedOrigin &&
+      !url.username &&
+      !url.password &&
+      (!url.port || url.port === "443");
+  } catch {
+    return false;
+  }
+}
