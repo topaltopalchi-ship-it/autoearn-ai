@@ -139,8 +139,7 @@ async function createTask(id){
     owner_id:currentUser.id,
     opportunity_id:id,
     description,
-    status:"approved",
-    approved_at:new Date().toISOString()
+    status:"pending_approval"
   });
   if(error)return fail(error);
   toast("Guided session recorded. Follow the platform rules manually.");
