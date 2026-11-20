@@ -77,3 +77,9 @@ test("production hosting deploy stays manual and restricted to develop", () => {
   assert.match(deploy, /NETLIFY_SITE_ID/);
   assert.doesNotMatch(deploy, /on:\s*\n\s*push:/);
 });
+
+test("loading opportunities never promotes discovered, reviewing, or ineligible records", () => {
+  assert.match(app, /opportunities=ownedCandidates;tasks=t\.data\|\|\[\];rewards=r\.data\|\|\[\];/);
+  assert.doesNotMatch(app, /\.from\(["']opportunities["']\)\.update\(\{status:["']eligible["']\}\)/);
+  assert.doesNotMatch(app, /ownedCandidates\.map\(item=>\["discovered","reviewing","ineligible"\]/);
+});
