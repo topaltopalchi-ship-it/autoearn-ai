@@ -91,7 +91,7 @@ function summarize(policy, games) {
   };
 }
 
-export function compare2048Policies({ seed = 2048, episodes = 5, maxMoves = 500, maxNodes = 1200 } = {}) {
+export function compare2048Policies({ seed = 2048, episodes = 5, maxMoves = 500, maxNodes = 250 } = {}) {
   if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff) {
     throw new RangeError("Comparison seed must be an unsigned 32-bit integer.");
   }
