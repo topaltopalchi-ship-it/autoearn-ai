@@ -35,3 +35,16 @@ test("rejects ambiguous timestamps and non-JSON envelope objects",async()=>{
  const cyclic={key_id:"review-key-1",payload:{...payload},signature:"x"};cyclic.payload.loop=cyclic.payload;
  assert.equal((await AutoEarnTrustedAttestation.verifyTrustedAttestation(cyclic,trusted,now)).reason,"invalid_envelope");
 });
+
+test("rejects ambiguous and inverted trusted-key validity windows",async()=>{
+ const base=trusted["review-key-1"];
+ for(const entry of [
+  {...base,not_before:"November 1, 2026"},
+  {...base,not_after:"2026-11-20"},
+  {...base,not_before:"2026-11-25T00:00:00Z",not_after:"2026-11-24T00:00:00Z"}
+ ]){
+  const result=await AutoEarnTrustedAttestation.verifyTrustedAttestation(envelopeFor(),{"review-key-1":entry},now);
+  assert.equal(result.verified,false);
+  assert.equal(result.reason,"invalid_trusted_key_dates");
+ }
+});
