@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { webcrypto, generateKeyPairSync, sign } from "node:crypto";
-globalThis.crypto=webcrypto;
+import { generateKeyPairSync, sign } from "node:crypto";
 import "../static/trusted-attestation.js";
 const {publicKey,privateKey}=generateKeyPairSync("ed25519");
 const trusted={"review-key-1":{issuer:"independent-review-board",public_key_spki:Buffer.from(publicKey.export({type:"spki",format:"der"})).toString("base64url")}};
