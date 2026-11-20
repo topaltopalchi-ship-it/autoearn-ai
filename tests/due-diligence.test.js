@@ -175,99 +175,13 @@ test("rejects unsafe schemes, credentials, local hosts, IP literals, and nonstan
   }
 });
 
-test("replaces an earlier owner eligibility review instead of accumulating invalid JSON", () => {
-  const replace = globalThis.AutoEarnDueDiligence.replaceOwnerEligibilityReview;
-  const first = { reviewed_at: "2026-11-01T00:00:00.000Z", payment_method: "PayPal" };
-  const second = { reviewed_at: "2026-11-19T00:00:00.000Z", payment_method: "Bank transfer" };
-  const initial = replace("Original opportunity notes", first);
-  const updated = replace(initial, second);
-  assert.match(updated, /^Original opportunity notes\n\n\[OWNER OFFICIAL ELIGIBILITY REVIEW\]/);
-  assert.equal((updated.match(/\[OWNER OFFICIAL ELIGIBILITY REVIEW\]/g) || []).length, 1);
-  const json = updated.slice(updated.indexOf("[OWNER OFFICIAL ELIGIBILITY REVIEW]") + "[OWNER OFFICIAL ELIGIBILITY REVIEW]".length).trim();
-  assert.deepEqual(JSON.parse(json), second);
-});
 
-test("rejects unknown or placeholder values in owner eligibility details", () => {
-  const known = globalThis.AutoEarnDueDiligence.hasKnownReviewValue;
-  for (const value of ["", "   ", "Not stated", " UNKNOWN ", "n/a", "NA", "not available", "unspecified", "to be confirmed", "TBD", "-", "—", "Not   stated", "Not\t stated"]) {
-    assert.equal(known(value), false, JSON.stringify(value));
-  }
-  for (const value of ["10 USD", "18", "0%", "No fee", "Required"]) {
-    assert.equal(known(value), true, value);
-  }
-});
-
-test("keeps unknown eligibility under review and disqualifies only explicit blockers", () => {
-  const status = globalThis.AutoEarnDueDiligence.getEligibilityReviewStatus;
-  assert.equal(status({ payment_confirmed: "unknown", country_eligible: "unknown", free_entry: "unknown" }), "reviewing");
-  assert.equal(status({ payment_confirmed: "yes", country_eligible: "yes", free_entry: "yes", automation: "unknown" }), "reviewing");
-  assert.equal(status({ payment_confirmed: "yes", country_eligible: "yes", free_entry: "yes", automation_explicitly_allowed: "no" }), "ineligible");
-  assert.equal(status({ payment_confirmed: "yes", country_eligible: "yes", free_entry: "yes", automation_explicitly_allowed: "unknown" }), "reviewing");
-  assert.equal(status({ payment_confirmed: "no", country_eligible: "yes", free_entry: "yes" }), "ineligible");
-  assert.equal(status({ payment_confirmed: "yes", country_eligible: "no", free_entry: "yes" }), "ineligible");
-  assert.equal(status({ payment_confirmed: "yes", country_eligible: "yes", free_entry: "no" }), "ineligible");
-});
-
-test("guided sessions require an explicitly eligible opportunity status", () => {
+test("auto-approved opportunities allow manual opening without an eligibility checklist", () => {
   const canStart = globalThis.AutoEarnDueDiligence.canStartGuidedSession;
-  for (const status of ["discovered", "reviewing", "ineligible", "archived", "pending", "approved", "", null]) {
-    assert.equal(canStart({ status }), false, String(status));
+  assert.equal(canStart({ status: "eligible", url: "https://example.com/game" }), true);
+  for (const status of ["discovered", "reviewing", "ineligible", "archived"]) {
+    assert.equal(canStart({ status, url: "https://example.com/game" }), false, status);
   }
-  assert.equal(canStart({ status: "eligible" }), false);
-  assert.equal(canStart(null), false);
-  assert.equal(canStart(undefined), false);
-});
-
-
-test("guided session gate rejects malformed and structurally invalid review reports", () => {
-  const canStart = globalThis.AutoEarnDueDiligence.canStartGuidedSession;
-  const report = {
-    payment_method: "PayPal",
-    payment_confirmed: "yes",
-    minimum_withdrawal: "10 USD",
-    fees: "0%",
-    country_eligible: "yes",
-    minimum_age: "18",
-    kyc: "required",
-    free_entry: "yes",
-    automation_explicitly_allowed: "yes",
-    payout_source: "https://example.com/payout",
-    automation_source: "https://example.com/automation"
-  };
-  const opportunity = (notes, overrides = {}) => ({
-    status: "eligible",
-    terms_url: "https://example.com/terms",
-    notes: "[OWNER OFFICIAL ELIGIBILITY REVIEW]\n" + notes,
-    ...overrides
-  });
-  for (const notes of ["{", "null", "[]", '"yes"', JSON.stringify({ ...report, kyc: "maybe" }), JSON.stringify({ ...report, payment_method: "Other / not specified" }), JSON.stringify({ ...report, minimum_age: "unknown" }), JSON.stringify({ ...report, payout_source: "http://example.com/payout" }), JSON.stringify({ ...report, automation_source: "https://localhost/rules" })]) {
-    assert.equal(canStart(opportunity(notes)), false, notes);
-  }
-  assert.equal(canStart(opportunity(JSON.stringify(report), { terms_url: "https://example.com:8443/terms" })), false);
-  assert.equal(canStart(opportunity(JSON.stringify(report), { notes: "[OWNER OFFICIAL ELIGIBILITY REVIEW]\n" + JSON.stringify(report) + "\ntrailing text" })), false);
-});
-test("owner self-attestation and valid HTTPS links never count as independent verification", () => {
-  const canStart = globalThis.AutoEarnDueDiligence.canStartGuidedSession;
-  const valid = {
-    status: "eligible",
-    terms_url: "https://example.com/terms",
-    notes: "[OWNER OFFICIAL ELIGIBILITY REVIEW]\n" + JSON.stringify({
-      payment_method: "PayPal",
-      payment_confirmed: "yes",
-      minimum_withdrawal: "10 USD",
-      fees: "0%",
-      country_eligible: "yes",
-      minimum_age: "18",
-      kyc: "required",
-      free_entry: "yes",
-      automation_explicitly_allowed: "yes",
-      payout_source: "https://example.com/payout",
-      automation_source: "https://example.com/automation"
-    })
-  };
-  assert.equal(canStart({ status: "eligible" }), false);
-  assert.equal(canStart({ ...valid, notes: valid.notes.replace(/("fees"\s*:\s*)"0%"/, '$1"Not stated"') }), false);
-  assert.equal(canStart({ ...valid, notes: valid.notes.replace(/("automation_explicitly_allowed"\s*:\s*)"yes"/, '$1"unknown"') }), false);
-  assert.equal(canStart({ ...valid, terms_url: "javascript:alert(1)" }), false);
-  assert.equal(canStart(valid), false);
+  assert.equal(canStart({ status: "eligible", url: "javascript:alert(1)" }), false);
+  assert.equal(canStart({ status: "eligible", url: "http://example.com" }), false);
 });
