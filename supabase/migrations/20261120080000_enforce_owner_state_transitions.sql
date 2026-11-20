@@ -23,7 +23,7 @@ begin
   end if;
 
   if new.status is distinct from old.status then
-    if (old.status = 'discovered' and new.status in ('reviewing', 'archived'))
+    if (old.status = 'discovered' and new.status in ('reviewing', 'ineligible', 'archived'))
        or (old.status = 'reviewing' and new.status in ('ineligible', 'archived'))
        or (old.status = 'ineligible' and new.status = 'archived') then
       null;
@@ -71,7 +71,7 @@ begin
   end if;
 
   if old.status = 'pending_approval' and new.status = 'approved' then
-    new.approved_at := clock_timestamp();
+    new.approved_at := pg_catalog.clock_timestamp();
     new.completed_at := null;
   elsif old.status = 'approved' and new.status = 'completed' then
     if old.approved_at is null then
@@ -79,7 +79,7 @@ begin
         using errcode = '23514';
     end if;
     new.approved_at := old.approved_at;
-    new.completed_at := clock_timestamp();
+    new.completed_at := pg_catalog.clock_timestamp();
   elsif old.status in ('pending_approval', 'approved') and new.status = 'cancelled' then
     new.approved_at := old.approved_at;
     new.completed_at := null;
