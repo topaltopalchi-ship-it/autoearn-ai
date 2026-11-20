@@ -41,14 +41,10 @@ begin
   from public.opportunities
   where url = 'https://ci.example.org/opportunity';
 
-  begin
-    update public.opportunities set status = 'eligible' where id = v_opportunity_id;
-    raise exception 'Expected owner promotion to eligible to fail.';
-  exception when check_violation then
-    null;
-  end;
-
-  update public.opportunities set status = 'reviewing' where id = v_opportunity_id;
+  update public.opportunities set status = 'eligible' where id = v_opportunity_id;
+  if (select status from public.opportunities where id = v_opportunity_id) <> 'eligible' then
+    raise exception 'Automatic opportunity approval was not persisted.';
+  end if;
   update public.opportunities set status = 'archived' where id = v_opportunity_id;
 
   if (select status from public.opportunities where id = v_opportunity_id) <> 'archived' then
