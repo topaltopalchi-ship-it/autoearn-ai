@@ -124,9 +124,17 @@ begin
   where amount = 12.50;
 
   begin
-    update public.rewards set status = 'paid'
+    update public.rewards set status = 'paid', reference = null
     where amount = 12.50;
-    raise exception 'Expected paid reward without a reference to fail.';
+    raise exception 'Expected paid reward with a NULL reference to fail.';
+  exception when check_violation then
+    null;
+  end;
+
+  begin
+    update public.rewards set status = 'paid', reference = '   '
+    where amount = 12.50;
+    raise exception 'Expected paid reward with a blank reference to fail.';
   exception when check_violation then
     null;
   end;
