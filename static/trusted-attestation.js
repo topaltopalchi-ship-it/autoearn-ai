@@ -15,8 +15,8 @@ if(typeof keyId!=="string"||!keyId||!payload||typeof payload!=="object"||Array.i
 const trust=trustedKeys&&Object.hasOwn(trustedKeys,keyId)?trustedKeys[keyId]:null;
 if(!trust||trust.status!=="active"||typeof trust.issuer!=="string"||!trust.issuer||typeof trust.public_key_spki!=="string")return fail("untrusted_signing_key");
 if(trust.revoked===true)return fail("signing_key_revoked");
-const keyStarts=trust.not_before?Date.parse(trust.not_before):NaN,keyEnds=trust.not_after?Date.parse(trust.not_after):NaN;
-if((trust.not_before&&!Number.isFinite(keyStarts))||(trust.not_after&&!Number.isFinite(keyEnds)))return fail("invalid_trusted_key_dates");
+const keyStarts=trust.not_before?strictIso(trust.not_before):NaN,keyEnds=trust.not_after?strictIso(trust.not_after):NaN;
+if((trust.not_before&&!Number.isFinite(keyStarts))||(trust.not_after&&!Number.isFinite(keyEnds))||(Number.isFinite(keyStarts)&&Number.isFinite(keyEnds)&&keyEnds<=keyStarts))return fail("invalid_trusted_key_dates");
 if(Number.isFinite(keyStarts)&&now<keyStarts)return fail("signing_key_not_yet_valid");
 if(Number.isFinite(keyEnds)&&now>=keyEnds)return fail("signing_key_expired");
 if(payload.issuer!==trust.issuer)return fail("issuer_mismatch");
