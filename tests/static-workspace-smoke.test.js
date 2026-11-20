@@ -35,19 +35,20 @@ test("single-owner workspace exposes password sign-in only, never public sign-up
 
 test("metadata and local helper scripts load before the application controller", () => {
   const ordered = [
-    'src="./config.js"',
-    'src="./reward-ledger.js"',
-    'src="./due-diligence.js"',
-    'src="./discovery-provenance.js"',
-    'src="./opportunity-economics.js"',
-    'src="./app.js"',
-    'src="./game-agent.js"',
-    'src="./puzzle.js"',
+    /src="\.\/config\.js(?:\?[^"]*)?"/,
+    /src="\.\/reward-ledger\.js(?:\?[^"]*)?"/,
+    /src="\.\/due-diligence\.js(?:\?[^"]*)?"/,
+    /src="\.\/discovery-provenance\.js(?:\?[^"]*)?"/,
+    /src="\.\/opportunity-economics\.js(?:\?[^"]*)?"/,
+    /src="\.\/app\.js(?:\?[^"]*)?"/,
+    /src="\.\/game-agent\.js(?:\?[^"]*)?"/,
+    /src="\.\/puzzle\.js(?:\?[^"]*)?"/,
   ];
   let previous = -1;
   for (const marker of ordered) {
-    const index = html.indexOf(marker);
-    assert.notEqual(index, -1, `Missing script reference: ${marker}`);
+    const match = marker.exec(html);
+    assert.ok(match, `Missing script reference: ${marker}`);
+    const index = match.index;
     assert.ok(index > previous, `Script order violation at: ${marker}`);
     previous = index;
   }
