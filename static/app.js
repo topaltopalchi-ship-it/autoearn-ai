@@ -43,7 +43,7 @@ async function loadData(){
   const ownedCandidates=(o.data||[]).filter(item=>DISCOVERY_CATEGORIES.has(item.category));
   const pendingIds=ownedCandidates.filter(item=>["discovered","reviewing","ineligible"].includes(item.status)).map(item=>item.id);
   if(pendingIds.length){
-    const {error}=await supabase.from("opportunities").update({status:"eligible"}).in("id",pendingIds).in("status",["discovered","reviewing"]);
+    const {error}=await supabase.from("opportunities").update({status:"eligible"}).in("id",pendingIds).in("status",["discovered","reviewing","ineligible"]);
     if(error)throw error;
   }
   opportunities=ownedCandidates.map(item=>["discovered","reviewing","ineligible"].includes(item.status)?{...item,status:"eligible"}:item);tasks=t.data||[];rewards=r.data||[];
