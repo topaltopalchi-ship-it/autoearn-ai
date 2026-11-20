@@ -35,32 +35,32 @@ values (
 
 do $$
 declare
-  opportunity_id bigint;
+  v_opportunity_id bigint;
 begin
-  select id into opportunity_id
+  select id into v_opportunity_id
   from public.opportunities
   where url = 'https://ci.example.org/opportunity';
 
   begin
-    update public.opportunities set status = 'eligible' where id = opportunity_id;
+    update public.opportunities set status = 'eligible' where id = v_opportunity_id;
     raise exception 'Expected owner promotion to eligible to fail.';
   exception when check_violation then
     null;
   end;
 
-  update public.opportunities set status = 'reviewing' where id = opportunity_id;
-  update public.opportunities set status = 'archived' where id = opportunity_id;
+  update public.opportunities set status = 'reviewing' where id = v_opportunity_id;
+  update public.opportunities set status = 'archived' where id = v_opportunity_id;
 
-  if (select status from public.opportunities where id = opportunity_id) <> 'archived' then
+  if (select status from public.opportunities where id = v_opportunity_id) <> 'archived' then
     raise exception 'Valid opportunity transitions were not persisted.';
   end if;
 
   insert into public.tasks (owner_id, opportunity_id, description)
-  values (auth.uid(), opportunity_id, 'Verify lifecycle transitions');
+  values (auth.uid(), v_opportunity_id, 'Verify lifecycle transitions');
 
   begin
     update public.tasks set status = 'completed'
-    where opportunity_id = opportunity_id;
+    where public.tasks.opportunity_id = v_opportunity_id;
     raise exception 'Expected direct task completion to fail.';
   exception when check_violation then
     null;
@@ -82,7 +82,7 @@ begin
   end if;
 
   insert into public.rewards (owner_id, opportunity_id, amount, currency)
-  values (auth.uid(), opportunity_id, 12.50, 'USD');
+  values (auth.uid(), v_opportunity_id, 12.50, 'USD');
 
   begin
     update public.rewards set opportunity_id = null
@@ -123,7 +123,7 @@ begin
   end;
 
   -- The FK action must clear the association while preserving the paid ledger row.
-  delete from public.opportunities where id = opportunity_id;
+  delete from public.opportunities where id = v_opportunity_id;
 
   if not exists (
     select 1 from public.rewards
