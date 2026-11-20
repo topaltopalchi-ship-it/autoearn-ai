@@ -33,7 +33,7 @@ export function parseBoundedSearchResponse(raw: string): unknown {
 }
 export type CandidateDecision =
   | { accepted: true; url: string; payoutMethods: string[] }
-  | { accepted: false; reason: "invalid_url" | "excluded_category" | "missing_free_entry_evidence" | "missing_reward_evidence" | "missing_payout_evidence" };
+  | { accepted: false; reason: "invalid_url" | "excluded_category" };
 
 const EXCLUDED_RESULT_RE = /\b(survey|surveys|questionnaire|microtask|micro-task|micro.?jobs?|crowd.?work|gig work|data entry|app testing|website testing|mystery shopping|paid to click|click.?to.?earn|watch (?:video )?ads|view ads|ad viewing|ad watching|paid to install apps|task marketplace|task platform|earn by completing tasks|freelance job|job opening|career|news|press release|blog post|article|guide|directory|archives?|roundup|review|comparison|cashback|cash back|loyalty program|rewards? program|points redemption|redeem points|affiliate referral|referral bonus|invite friends|sign.?up bonus|registration bonus|paid to register|offerwall|price chart|token price|market cap|cryptocurrency price|payment gateway|accept payments|merchant account|business payments|casino|gambling|betting|sportsbook|bookmaker|betting exchange|poker|roulette|slot machine|slot games|real.?money gaming)\b/i;
 const GAME_ACTIVITY_RE = /\b(game|games|gaming|play|player|puzzle|contest|competition|tournament|sweepstakes|giveaway|raffle|lucky draw|prize draw|free draw|lottery|spin|wheel|daily spin|scratch|instant.?win|quiz|trivia|iq test|brain.?test|predict|prediction|pick.?em|match predictor|score predictor|hackathon|agentic|ai agent|agent tournament|autonomous agent)\b/i;
@@ -202,7 +202,7 @@ export function evaluateCandidate(rawUrl: string, title: string, description: st
     return { accepted: false, reason: "excluded_category" };
   }
   // Narrow exception: Zoa's official agent ladder uses free, non-purchasable chips;
-  // candidates still enter the ordinary "discovered" review queue, never auto-play.
+  // accepted candidates are only approved for manual opening, never auto-play.
   const verifiedZoaAgentSeason = host === "play.zoagames.com"
     && /agent season 1/i.test(text)
     && /free chips|agents play free/i.test(text)
@@ -217,11 +217,9 @@ export function evaluateCandidate(rawUrl: string, title: string, description: st
     return { accepted: false, reason: "excluded_category" };
   }
 
-  if (!FREE_ENTRY_RE.test(text)) return { accepted: false, reason: "missing_free_entry_evidence" };
-  // Reject misleading promotional language even when payout keywords appear elsewhere.
-  if (NO_REAL_REWARD_RE.test(text)) return { accepted: false, reason: "missing_reward_evidence" };
-  if (!REWARD_EVIDENCE_RE.test(text) || !MONETARY_REWARD_RE.test(text)) return { accepted: false, reason: "missing_reward_evidence" };
-  if (!PAYOUT_CONTEXT_RE.test(text) || !SPECIFIC_PAYOUT_METHOD_RE.test(text)) return { accepted: false, reason: "missing_payout_evidence" };
+  // Do not require search snippets to prove free entry, a cash prize, or a payout route.
+  // Such evidence is often absent from snippets and is informational only. Explicit paid-entry,
+  // gambling, non-cash-only, survey, microtask, and other excluded offers remain rejected.
 
   const lower = text.toLowerCase();
   const payoutMethods = [
