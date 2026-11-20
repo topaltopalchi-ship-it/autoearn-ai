@@ -66,11 +66,13 @@ function renderOpportunities(){
   const q=$("search").value.toLowerCase(),status=$("filter").value;
   const rows=opportunities.filter(o=>(!status||o.status===status)&&[o.title,o.platform,o.category].some(x=>(x||"").toLowerCase().includes(q)));
   const sortMode=$("opportunity-sort")?.value||"evidence";
-  const sortedRows=sortMode==="economics"?window.AutoEarnOpportunityEconomics.sortByExpectedHourlyValue(rows):window.AutoEarnDueDiligence.sortOpportunities(rows,sortMode);
-  const summary=window.AutoEarnDueDiligence.summarizeOpportunities(rows);
+  const earningRows=rows.filter(o=>window.AutoEarnDueDiligence.classifyOpportunityType(o)!=="irrelevant");
+  const irrelevantRows=rows.filter(o=>window.AutoEarnDueDiligence.classifyOpportunityType(o)==="irrelevant");
+  const sortedRows=sortMode==="economics"?window.AutoEarnOpportunityEconomics.sortByExpectedHourlyValue(earningRows):window.AutoEarnDueDiligence.sortOpportunities(earningRows,sortMode);
+  const summary=window.AutoEarnDueDiligence.summarizeOpportunities(earningRows);
   $("opportunity-summary").textContent=summary.total
-    ? `Showing ${summary.total} opportunities · ${summary.scored} scored · Average evidence completeness: ${summary.averageScore===null?"—":summary.averageScore+"/100"} · High: ${summary.counts.high} · Medium: ${summary.counts.medium} · Low disclosure: ${summary.counts.low} · Unscored: ${summary.counts.unscored}`
-    : "No opportunities match the current search and status filters.";
+    ? `Potential earning opportunities: ${summary.total} · Scored: ${summary.scored} · Average evidence completeness: ${summary.averageScore===null?"—":summary.averageScore+"/100"} · Separated business/service links: ${irrelevantRows.length}`
+    : `No potential earning opportunities match. Separated business/service links: ${irrelevantRows.length}`;
   $("opportunity-list").innerHTML=sortedRows.length?sortedRows.map(o=>{
     const platformUrl=safePublicHttpsUrl(o.url);
     const termsUrl=o.terms_url?safePublicHttpsUrl(o.terms_url):null;
