@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import "../static/reward-ledger.js";
-const {sumByCurrency,summarize,summarizeByMonth,validateReward}=globalThis.AutoEarnRewardLedger;
+const {sumByCurrency,summarize,summarizeByMonth,validateReward,canTransition}=globalThis.AutoEarnRewardLedger;
 
 test("sums currencies separately without mixing them",()=>{
   assert.deepEqual(sumByCurrency([{amount:10,currency:"USD"},{amount:5,currency:"EUR"},{amount:2,currency:"USD"}]),{USD:12,EUR:5});
@@ -40,4 +40,14 @@ test("groups reward totals by UTC month and currency without mixing statuses",()
     {month:"2026-11",currencies:{USD:{paid:12,pending:8,confirmed:0}}},
     {month:"2026-10",currencies:{EUR:{paid:0,pending:0,confirmed:4}}}
   ]);
+});
+
+test("allows only pending-to-confirmed/rejected and confirmed-to-paid/rejected transitions",()=>{
+  assert.equal(canTransition("pending","confirmed"),true);
+  assert.equal(canTransition("pending","rejected"),true);
+  assert.equal(canTransition("confirmed","paid"),true);
+  assert.equal(canTransition("confirmed","rejected"),true);
+  for(const [from,to] of [["pending","paid"],["paid","confirmed"],["paid","rejected"],["rejected","pending"],["unknown","paid"]]){
+    assert.equal(canTransition(from,to),false);
+  }
 });
