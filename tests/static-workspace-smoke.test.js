@@ -43,3 +43,27 @@ test("metadata and local helper scripts load before the application controller",
     previous = index;
   }
 });
+
+const netlify = readFileSync(new URL("../netlify.toml", import.meta.url), "utf8");
+const deploy = readFileSync(new URL("../.github/workflows/netlify-deploy.yml", import.meta.url), "utf8");
+
+test("Netlify response headers retain the static app security baseline", () => {
+  for (const header of [
+    "X-Content-Type-Options = \"nosniff\"",
+    "X-Frame-Options = \"DENY\"",
+    "frame-ancestors 'none'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "Cache-Control = \"no-store\"",
+  ]) assert.ok(netlify.includes(header), `Missing security header/directive: ${header}`);
+  assert.match(netlify, /publish = "static"/);
+});
+
+test("production hosting deploy stays manual and restricted to develop", () => {
+  assert.match(deploy, /workflow_dispatch:/);
+  assert.match(deploy, /if: github\.ref == 'refs\/heads\/develop'/);
+  assert.match(deploy, /netlify-cli@27\.20\.1/);
+  assert.match(deploy, /NETLIFY_AUTH_TOKEN/);
+  assert.match(deploy, /NETLIFY_SITE_ID/);
+  assert.doesNotMatch(deploy, /on:\s*\n\s*push:/);
+});
