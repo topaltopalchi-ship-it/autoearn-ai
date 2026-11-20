@@ -33,6 +33,7 @@ class DatabaseLifecycleMigrationTests(unittest.TestCase):
     def test_opportunities_can_be_auto_approved_on_insert_and_update(self):
         self.assertIn("new.status not in ('discovered', 'eligible')", self.sql)
         self.assertIn("new.status in ('reviewing', 'eligible', 'ineligible', 'archived')", self.sql)
+        self.assertIn("old.status = 'ineligible' and new.status in ('eligible', 'archived')", self.sql)
         self.assertIn("owners insert opportunities", self.sql)
         self.assertIn("alter column status set default 'eligible'", self.sql)
 
