@@ -66,13 +66,15 @@ function renderOpportunities(){
   const q=$("search").value.toLowerCase(),status=$("filter").value;
   const rows=opportunities.filter(o=>(!status||o.status===status)&&[o.title,o.platform,o.category].some(x=>(x||"").toLowerCase().includes(q)));
   const sortMode=$("opportunity-sort")?.value||"evidence";
-  const earningRows=rows.filter(o=>window.AutoEarnDueDiligence.classifyOpportunityType(o)!=="irrelevant"&&window.AutoEarnDueDiligence.classifyEntryCost(o)==="free");
-  const separatedRows=rows.filter(o=>!earningRows.includes(o));
+  const relevantRows=rows.filter(o=>window.AutoEarnDueDiligence.classifyOpportunityType(o)!=="irrelevant");
+  const earningRows=relevantRows.filter(o=>window.AutoEarnDueDiligence.classifyEntryCost(o)==="free");
+  const costReviewRows=relevantRows.filter(o=>window.AutoEarnDueDiligence.classifyEntryCost(o)!=="free");
+  const irrelevantRows=rows.filter(o=>window.AutoEarnDueDiligence.classifyOpportunityType(o)==="irrelevant");
   const sortedRows=sortMode==="economics"?window.AutoEarnOpportunityEconomics.sortByExpectedHourlyValue(earningRows):window.AutoEarnDueDiligence.sortOpportunities(earningRows,sortMode);
   const summary=window.AutoEarnDueDiligence.summarizeOpportunities(earningRows);
   $("opportunity-summary").textContent=summary.total
-    ? `Free-entry candidates (text-indicated, not verified): ${summary.total} · Scored: ${summary.scored} · Average evidence completeness: ${summary.averageScore===null?"—":summary.averageScore+"/100"} · Separated paid / unknown / unrelated: ${separatedRows.length}`
-    : `No text-indicated free-entry candidates match. Separated paid / unknown / unrelated: ${separatedRows.length}`;
+    ? `Free-entry candidates (text-indicated, not verified): ${summary.total} · Scored: ${summary.scored} · Average evidence completeness: ${summary.averageScore===null?"—":summary.averageScore+"/100"} · Needs cost review: ${costReviewRows.length} · Unrelated: ${irrelevantRows.length}`
+    : `No text-indicated free-entry candidates match. Needs cost review: ${costReviewRows.length} · Unrelated: ${irrelevantRows.length}`;
   $("opportunity-list").innerHTML=sortedRows.length?sortedRows.map(o=>{
     const platformUrl=safePublicHttpsUrl(o.url);
     const termsUrl=o.terms_url?safePublicHttpsUrl(o.terms_url):null;
@@ -92,15 +94,18 @@ function renderOpportunities(){
     const payoutEvidence=safePublicHttpsUrl(o.payout_evidence_url);
     const evidenceLine=(countryEvidence||payoutEvidence)?"<br>Evidence: "+(countryEvidence?'<a href="'+esc(countryEvidence)+'" target="_blank" rel="noopener noreferrer">Country source ↗</a>':"")+(countryEvidence&&payoutEvidence?" · ":"")+(payoutEvidence?'<a href="'+esc(payoutEvidence)+'" target="_blank" rel="noopener noreferrer">Payout source ↗</a>':""):"";
     const payoutMetadataLine="<br><strong>Country / payout:</strong> "+countryLine+excludedLine+"<br>"+withdrawalLine+" · "+payoutLine+evidenceLine+"<br><small>Owner-entered information; not independently verified and does not affect auto-approval.</small>";
-    const costClass=window.AutoEarnDueDiligence.classifyEntryCost(o);
-    const costLabel=costClass==="free"?"Free · text-indicated":costClass==="paid"?"Paid · text-indicated":"Cost unknown";
+    const costLabel="Free · text-indicated";
     return `<div class="item"><div><h3>${esc(o.title)} <span class="pill">${esc(costLabel)}</span> <span class="pill">${esc(o.status==="eligible"?"Auto-approved · not verified":o.status)}</span></h3><p>${esc(o.platform)} · ${esc(categoryLabel(o.category))} · Metadata score ${esc(o.score)}/60<br>${platformLink}${termsLink}<br>${esc(o.reward_description||"No reward details entered")}${payoutMetadataLine}${economicsLine}${discoveryProvenanceHtml(o)}<br><strong>Access:</strong> Approved for manual opening only; payout and legitimacy are not verified.</p></div><div class="item-actions"><button class="primary" data-start="${esc(o.id)}" ${!AutoEarnDueDiligence.canStartGuidedSession(o)?"disabled":""}>Open manually</button></div></div>`;
-  }).join(""):'<div class="empty">No matching opportunities.</div>';
+  }).join(""):'<div class="empty">No matching free-entry candidates.</div>';
   $("opportunity-list").querySelectorAll("[data-start]").forEach(b=>b.onclick=()=>createTask(Number(b.dataset.start)));
-  $("irrelevant-summary").textContent=separatedRows.length
-    ? `${separatedRows.length} paid-entry, unknown-cost, or unrelated item(s) separated. Original records are preserved; text classification is not verification.`
-    : "No paid, unknown-cost, or unrelated items detected.";
-  $("irrelevant-list").innerHTML=separatedRows.length?separatedRows.map(o=>{const cost=AutoEarnDueDiligence.classifyEntryCost(o);const kind=AutoEarnDueDiligence.classifyOpportunityType(o)==="irrelevant"?"Unrelated / service":cost==="paid"?"Paid · text-indicated":"Cost unknown";return `<div class="item"><div><h3>${esc(o.title)} <span class="pill">${esc(kind)}</span></h3><p>${esc(o.platform)} · ${esc(categoryLabel(o.category))}<br>${esc(o.reward_description||"No reward details entered")}<br><a href="${esc(safePublicHttpsUrl(o.url)||"#")}" target="_blank" rel="noopener noreferrer">Review link ↗</a></p></div></div>`}).join(""):'<div class="empty">No separated links.</div>';
+  $("cost-review-summary").textContent=costReviewRows.length
+    ? `${costReviewRows.length} relevant item(s) need cost review or are text-marked paid. No assumption that these are earning opportunities.`
+    : "No relevant items need cost review.";
+  $("cost-review-list").innerHTML=costReviewRows.length?costReviewRows.map(o=>{const cost=AutoEarnDueDiligence.classifyEntryCost(o);const kind=cost==="paid"?"Paid · text-indicated":"Entry cost unknown";return `<div class="item"><div><h3>${esc(o.title)} <span class="pill">${esc(kind)}</span></h3><p>${esc(o.platform)} · ${esc(categoryLabel(o.category))}<br>${esc(o.reward_description||"No reward details entered")}<br><a href="${esc(safePublicHttpsUrl(o.url)||"#")}" target="_blank" rel="noopener noreferrer">Review link ↗</a></p></div></div>`}).join(""):'<div class="empty">No cost-review items.</div>';
+  $("irrelevant-summary").textContent=irrelevantRows.length
+    ? `${irrelevantRows.length} item(s) classified as informational, business-service, or unrelated by text rules. Records are preserved; classification may need human review.`
+    : "No unrelated items detected.";
+  $("irrelevant-list").innerHTML=irrelevantRows.length?irrelevantRows.map(o=>`<div class="item"><div><h3>${esc(o.title)} <span class="pill">Potentially unrelated</span></h3><p>${esc(o.platform)} · ${esc(categoryLabel(o.category))}<br>${esc(o.reward_description||"No reward details entered")}<br><a href="${esc(safePublicHttpsUrl(o.url)||"#")}" target="_blank" rel="noopener noreferrer">Review link ↗</a></p></div></div>`).join(""):'<div class="empty">No unrelated links.</div>';
 }
 async function createTask(id){
   const opportunity=opportunities.find(item=>Number(item.id)===Number(id));
