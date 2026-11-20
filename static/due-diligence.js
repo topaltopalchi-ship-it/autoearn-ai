@@ -73,23 +73,6 @@
     return values.map((value) => labels[value] || value).join(", ") || "Other";
   }
 
-  function hasKnownReviewValue(value) {
-    const normalized = String(value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
-    if (!normalized) return false;
-    return !new Set([
-      "not stated",
-      "unknown",
-      "n/a",
-      "na",
-      "not available",
-      "unspecified",
-      "to be confirmed",
-      "tbd",
-      "-",
-      "—",
-    ]).has(normalized);
-  }
-
   function canStartGuidedSession(opportunity) {
     // This gate only enables a user-initiated visit to a public HTTPS page.
     // It never authorizes automated gameplay, account actions, or payments.
@@ -125,9 +108,6 @@
     summarizeOpportunities,
     formatCategoryLabels,
     safePublicHttpsUrl,
-    replaceOwnerEligibilityReview,
-    hasKnownReviewValue,
-    getEligibilityReviewStatus,
     canStartGuidedSession,
   });
 })(globalThis);
