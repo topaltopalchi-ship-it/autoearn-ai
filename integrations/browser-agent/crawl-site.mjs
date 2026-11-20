@@ -41,7 +41,7 @@ export async function crawlSameOriginSite({
     const url = normalized.href;
     if (visited.has(url)) continue;
     visited.add(url);
-    if (normalized.origin !== approvedOrigin) continue;
+    if (normalized.origin !== approvedOrigin || normalized.username || normalized.password || (normalized.port && normalized.port !== "443")) continue;
     await openPage(url);
     const observation = await inspectPage();
     if (isBlocked(observation)) {
