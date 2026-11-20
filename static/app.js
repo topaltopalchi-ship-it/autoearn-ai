@@ -146,8 +146,16 @@ async function createTask(id){
   await loadData();
 }
 async function setStatus(id,status){
-  const {error}=await supabase.from("opportunities").update({status}).eq("id",id);
-  if(error)return fail(error);await loadData();
+  // The dashboard exposes only the low-risk "mark reviewing" action.
+  // Never let a stale or unexpected UI call promote an opportunity to eligible.
+  if(status!=="reviewing")return toast("Opportunity status can only be moved to reviewing here.");
+  const opportunity=opportunities.find(item=>Number(item.id)===Number(id));
+  if(!opportunity)return toast("Opportunity not found. Refresh and try again.");
+  if(!["discovered","reviewing"].includes(opportunity.status))return toast("Only discovered opportunities can be moved to reviewing.");
+  const {data,error}=await supabase.from("opportunities").update({status:"reviewing"}).eq("id",id).eq("status",opportunity.status).select("id").maybeSingle();
+  if(error)return fail(error);
+  if(!data)return toast("Opportunity status changed elsewhere. Refresh and try again.");
+  await loadData();
 }
 function openRewardForOpportunity(id){
   const opportunity=opportunities.find(item=>Number(item.id)===Number(id));
