@@ -78,7 +78,19 @@ function renderOpportunities(){
     const termsLink=termsUrl?' · <a href="'+esc(termsUrl)+'" target="_blank" rel="noopener noreferrer">Terms ↗</a>':'';
     const economics=window.AutoEarnOpportunityEconomics.extractOwnerEstimate(o.notes||"");
     const economicsLine=economics?"<br><strong>Owner-estimated net value:</strong> "+money(economics.expectedNetPerHour,economics.currency)+"/hour · "+money(economics.expectedNet,economics.currency)+" total expected net (not verified or guaranteed)":"";
-    return `<div class="item"><div><h3>${esc(o.title)} <span class="pill">${esc(o.status==="eligible"?"Auto-approved · not verified":o.status)}</span></h3><p>${esc(o.platform)} · ${esc(categoryLabel(o.category))} · Metadata score ${esc(o.score)}/60<br>${platformLink}${termsLink}<br>${esc(o.reward_description||"No reward details entered")}${economicsLine}${discoveryProvenanceHtml(o)}<br><strong>Access:</strong> Approved for manual opening only; payout and legitimacy are not verified.</p></div><div class="item-actions"><button class="primary" data-start="${esc(o.id)}" ${!AutoEarnDueDiligence.canStartGuidedSession(o)?"disabled":""}>Open manually</button></div></div>`;
+    const eligibleCountries=Array.isArray(o.eligible_countries)?o.eligible_countries:[];
+    const excludedCountries=Array.isArray(o.excluded_countries)?o.excluded_countries:[];
+    const payoutMethods=Array.isArray(o.payout_methods)?o.payout_methods:[];
+    const countryLine=eligibleCountries.length?"Eligible countries (owner-entered): "+esc(eligibleCountries.join(", ")): "Country eligibility: unknown";
+    const excludedLine=excludedCountries.length?" · Excluded: "+esc(excludedCountries.join(", ")):"";
+    const withdrawalLine=o.minimum_withdrawal_amount!==null&&o.minimum_withdrawal_amount!==undefined
+      ? "Minimum withdrawal: "+money(o.minimum_withdrawal_amount,o.withdrawal_currency||"USD"):"Minimum withdrawal: unknown";
+    const payoutLine="Payout methods: "+(payoutMethods.length?esc(payoutMethods.join(", ")):"unknown");
+    const countryEvidence=safePublicHttpsUrl(o.country_evidence_url);
+    const payoutEvidence=safePublicHttpsUrl(o.payout_evidence_url);
+    const evidenceLine=(countryEvidence||payoutEvidence)?"<br>Evidence: "+(countryEvidence?'<a href="'+esc(countryEvidence)+'" target="_blank" rel="noopener noreferrer">Country source ↗</a>':"")+(countryEvidence&&payoutEvidence?" · ":"")+(payoutEvidence?'<a href="'+esc(payoutEvidence)+'" target="_blank" rel="noopener noreferrer">Payout source ↗</a>'):"";
+    const payoutMetadataLine="<br><strong>Country / payout:</strong> "+countryLine+excludedLine+"<br>"+withdrawalLine+" · "+payoutLine+evidenceLine+"<br><small>Owner-entered information; not independently verified and does not affect auto-approval.</small>";
+    return `<div class="item"><div><h3>${esc(o.title)} <span class="pill">${esc(o.status==="eligible"?"Auto-approved · not verified":o.status)}</span></h3><p>${esc(o.platform)} · ${esc(categoryLabel(o.category))} · Metadata score ${esc(o.score)}/60<br>${platformLink}${termsLink}<br>${esc(o.reward_description||"No reward details entered")}${payoutMetadataLine}${economicsLine}${discoveryProvenanceHtml(o)}<br><strong>Access:</strong> Approved for manual opening only; payout and legitimacy are not verified.</p></div><div class="item-actions"><button class="primary" data-start="${esc(o.id)}" ${!AutoEarnDueDiligence.canStartGuidedSession(o)?"disabled":""}>Open manually</button></div></div>`;
   }).join(""):'<div class="empty">No matching opportunities.</div>';
   $("opportunity-list").querySelectorAll("[data-start]").forEach(b=>b.onclick=()=>createTask(Number(b.dataset.start)));
 }
@@ -233,10 +245,21 @@ function bindWorkspace(){
   document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>b.closest("dialog").close());
   $("opportunity-form").onsubmit=async e=>{
     e.preventDefault();const data=Object.fromEntries(new FormData(e.target));
+    const splitMetadataList=value=>String(value||"").split(/[,\\n]/).map(item=>item.trim()).filter(Boolean);
+    data.eligible_countries=splitMetadataList(data.eligible_countries_input);
+    data.excluded_countries=splitMetadataList(data.excluded_countries_input);
+    data.payout_methods=splitMetadataList(data.payout_methods_input);
+    delete data.eligible_countries_input;delete data.excluded_countries_input;delete data.payout_methods_input;
+    data.minimum_withdrawal_amount=String(data.minimum_withdrawal_amount||"").trim()?Number(data.minimum_withdrawal_amount):null;
+    data.withdrawal_currency=(data.withdrawal_currency||"USD").trim().toUpperCase();
     const safeUrl=safePublicHttpsUrl(data.url);
     if(!safeUrl)return toast("Enter a valid public HTTPS platform URL (no IP address, local host, credentials, or custom port).");
     if(data.terms_url&&!safePublicHttpsUrl(data.terms_url))return toast("The official terms link must be a valid public HTTPS URL.");
-    const {error}=await supabase.from("opportunities").insert({...data,owner_id:currentUser.id,status:"eligible",url:safeUrl,terms_url:data.terms_url?safePublicHttpsUrl(data.terms_url):"",score:(data.terms_url?25:0)+(data.eligibility?20:0)+(data.reward_description?15:0)});
+    if(data.country_evidence_url&&!safePublicHttpsUrl(data.country_evidence_url))return toast("Country evidence must be a public HTTPS URL.");
+    if(data.payout_evidence_url&&!safePublicHttpsUrl(data.payout_evidence_url))return toast("Payout evidence must be a public HTTPS URL.");
+    if(!/^[A-Z]{3}$/.test(data.withdrawal_currency))return toast("Withdrawal currency must be a three-letter code such as USD.");
+    if(data.minimum_withdrawal_amount!==null&&(!Number.isFinite(data.minimum_withdrawal_amount)||data.minimum_withdrawal_amount<0))return toast("Minimum withdrawal must be zero or greater.");
+    const {error}=await supabase.from("opportunities").insert({...data,owner_id:currentUser.id,status:"eligible",url:safeUrl,terms_url:data.terms_url?safePublicHttpsUrl(data.terms_url):"",country_evidence_url:data.country_evidence_url?safePublicHttpsUrl(data.country_evidence_url):"",payout_evidence_url:data.payout_evidence_url?safePublicHttpsUrl(data.payout_evidence_url):"",score:(data.terms_url?25:0)+(data.eligibility?20:0)+(data.reward_description?15:0)});
     if(error)return fail(error);e.target.closest("dialog").close();e.target.reset();toast("Opportunity saved");await loadData();
   };
   $("reward-form").onsubmit=async e=>{
