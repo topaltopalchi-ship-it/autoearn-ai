@@ -55,7 +55,7 @@ Deno.serve((req: Request) => {
 
     const found: Array<Record<string, unknown>> = [];
     const errors: string[] = [];
-    const rejected = { invalid_url: 0, excluded_category: 0, missing_free_entry_evidence: 0, missing_reward_evidence: 0, missing_payout_evidence: 0 };
+    const rejected = { invalid_url: 0, excluded_category: 0 };
     let acceptedCandidates = 0;
     const searchStats: Array<{ category: string; query: string; results: number; status: number }> = [];
 
