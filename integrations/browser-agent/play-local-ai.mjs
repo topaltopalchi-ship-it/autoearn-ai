@@ -1,6 +1,6 @@
 import { readDomGameMetrics } from "./dom-game-metrics.mjs";
 import { chromium } from "playwright";
-import { guardApprovedBrowserContext } from "./approved-url.mjs";
+import { validateApprovedTarget, guardApprovedBrowserContext } from "./approved-url.mjs";
 import "../../static/game-agent.js";
 import { createOllamaGameDecision } from "./ollama-decision-provider.mjs";
 import { createOllamaGamePerception } from "./ollama-game-perception.mjs";
@@ -27,11 +27,7 @@ function validateTarget() {
   if (process.env.AUTOEARN_AUTOMATION_APPROVED !== "YES") {
     throw new Error("Confirm that the site's official rules permit automated play: set AUTOEARN_AUTOMATION_APPROVED=YES.");
   }
-  const target = new URL(gameUrl);
-  if (target.protocol !== "https:" || !approvedOrigins.has(target.origin)) {
-    throw new Error("Game URL must match an explicitly approved exact HTTPS origin.");
-  }
-  return target;
+  return validateApprovedTarget(gameUrl, approvedOrigins);
 }
 
 function verificationGate(text) {
