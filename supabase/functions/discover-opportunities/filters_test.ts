@@ -74,7 +74,7 @@ Deno.test("rejects a free sweepstakes whose only prize is a gift card", () => {
   assertRejected("https://example.com/sweepstakes", "Free sweepstakes win a gift card", "No purchase necessary. Prize payout is delivered by Visa gift card.", "excluded_category");
 });
 Deno.test("rejects a free draw whose only prize is physical merchandise", () => {
-  assertRejected("https://example.com/draw", "Free prize draw win a phone", "No purchase necessary. Winner receives a new phone delivered by courier.", "missing_reward_evidence");
+  assertRejected("https://example.com/draw", "Free prize draw win a phone", "No purchase necessary. Winner receives a new phone delivered by courier.", "excluded_category");
 });
 Deno.test("rejects a paid raffle with no free entry route", () => {
   assertRejected("https://example.com/raffle", "Paid raffle win a car", "Buy a ticket, entry fee required. Prize paid by bank transfer.", "excluded_category");
