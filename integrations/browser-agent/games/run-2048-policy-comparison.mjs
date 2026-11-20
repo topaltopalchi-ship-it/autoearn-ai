@@ -14,6 +14,7 @@ function readBoundedInteger(name, fallback, minimum, maximum) {
 const report = compare2048Policies({
   seed: readBoundedInteger("AUTOEARN_2048_POLICY_SEED", 2048, 0, 0xffffffff),
   episodes: readBoundedInteger("AUTOEARN_2048_POLICY_EPISODES", 5, 1, 20),
-  maxMoves: readBoundedInteger("AUTOEARN_2048_POLICY_MAX_MOVES", 500, 1, 1000)
+  maxMoves: readBoundedInteger("AUTOEARN_2048_POLICY_MAX_MOVES", 500, 1, 1000),
+  maxNodes: readBoundedInteger("AUTOEARN_2048_POLICY_MAX_NODES", 1200, 100, 200000)
 });
 console.log(JSON.stringify(report, null, 2));
