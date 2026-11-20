@@ -129,6 +129,7 @@
     calculateEvidenceCompleteness,
     sortOpportunities,
     classifyEntryCost,
+    classifyOpportunityType,
     summarizeOpportunities,
     formatCategoryLabels,
     safePublicHttpsUrl,
