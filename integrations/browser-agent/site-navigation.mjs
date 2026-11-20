@@ -7,7 +7,7 @@ export function isSafeNavigationTarget(target, approvedOrigin) {
   if (target.role === "link") {
     try {
       const url = new URL(target.href);
-      return url.protocol === "https:" && url.origin === approvedOrigin;
+      return url.protocol === "https:" && url.origin === approvedOrigin && !url.username && !url.password && (!url.port || url.port === "443");
     } catch {
       return false;
     }
