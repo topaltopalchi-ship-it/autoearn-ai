@@ -24,7 +24,7 @@ export async function crawlSameOriginSite({
     throw new TypeError("openPage and inspectPage callbacks are required.");
   }
   const start = new URL(startUrl);
-  if (start.protocol !== "https:" || start.origin !== approvedOrigin) {
+  if (start.protocol !== "https:" || start.origin !== approvedOrigin || start.username || start.password || (start.port && start.port !== "443")) {
     throw new Error("Start URL must match the approved HTTPS origin.");
   }
   const queue = [{ url: start.href, depth: 0 }];
