@@ -3,12 +3,18 @@ name: Deploy AutoEarn AI to Netlify
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
+    if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout develop
         uses: actions/checkout@v4
+        with:
+          ref: develop
 
       - name: Check deployment credentials
         env:
