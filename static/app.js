@@ -41,12 +41,12 @@ async function loadData(){
   ]);
   for(const result of [o,t,r]) if(result.error) throw result.error;
   const ownedCandidates=(o.data||[]).filter(item=>DISCOVERY_CATEGORIES.has(item.category));
-  const pendingIds=ownedCandidates.filter(item=>["discovered","reviewing"].includes(item.status)).map(item=>item.id);
+  const pendingIds=ownedCandidates.filter(item=>["discovered","reviewing","ineligible"].includes(item.status)).map(item=>item.id);
   if(pendingIds.length){
     const {error}=await supabase.from("opportunities").update({status:"eligible"}).in("id",pendingIds).in("status",["discovered","reviewing"]);
     if(error)throw error;
   }
-  opportunities=ownedCandidates.map(item=>["discovered","reviewing"].includes(item.status)?{...item,status:"eligible"}:item);tasks=t.data||[];rewards=r.data||[];
+  opportunities=ownedCandidates.map(item=>["discovered","reviewing","ineligible"].includes(item.status)?{...item,status:"eligible"}:item);tasks=t.data||[];rewards=r.data||[];
   render();
 }
 function formatRewardTotals(rows){
@@ -178,7 +178,7 @@ function bindWorkspace(){
       if(data?.needsSetup) throw new Error(data.error);
       if(data?.error) throw new Error(data.error);
       const rejected = data.rejected || {};
-      const summary = `Filter summary: ${data.accepted_candidates || 0} accepted candidates; ${rejected.invalid_url || 0} invalid URLs; ${rejected.excluded_category || 0} excluded categories; ${rejected.missing_free_entry_evidence || 0} without proof of free entry; ${rejected.missing_reward_evidence || 0} without clear prize evidence; ${rejected.missing_payout_evidence || 0} without clear payout evidence.`;
+      const summary = `Discovery summary: ${data.accepted_candidates || 0} candidates found; ${rejected.invalid_url || 0} invalid URLs; ${rejected.excluded_category || 0} excluded categories.`;
       if ((data.saved || 0) === 0) {
         const details = Array.isArray(data.searches)
           ? data.searches.map(item => `${item.query}: ${item.results} results (HTTP ${item.status})`).join("\\n")
