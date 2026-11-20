@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateApprovedTarget } from "../approved-url.mjs";
+import { validateApprovedTarget, isApprovedRequestUrl } from "../approved-url.mjs";
 
 const origins = new Set(["https://games.example"]);
 
@@ -18,4 +18,20 @@ test("rejects embedded credentials, nonstandard ports, and unapproved origins", 
   ]) {
     assert.throws(() => validateApprovedTarget(url, origins));
   }
+});
+
+test("blocks off-origin, insecure, credentialed, and nonstandard-port browser requests", () => {
+  for (const url of [
+    "http://games.example/script.js",
+    "https://other.example/redirected",
+    "https://user:secret@games.example/resource",
+    "https://games.example:8443/resource",
+    "not a URL"
+  ]) {
+    assert.equal(isApprovedRequestUrl(url, "https://games.example"), false, url);
+  }
+});
+
+test("allows same-origin HTTPS resources", () => {
+  assert.equal(isApprovedRequestUrl("https://games.example/assets/game.js", "https://games.example"), true);
 });
