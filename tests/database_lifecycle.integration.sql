@@ -42,6 +42,7 @@ begin
   from public.opportunities
   where url = 'https://ci.example.org/opportunity';
 
+  update public.opportunities set status = 'ineligible' where id = v_opportunity_id;
   update public.opportunities set status = 'eligible' where id = v_opportunity_id;
   if (select status from public.opportunities where id = v_opportunity_id) <> 'eligible' then
     raise exception 'Automatic opportunity approval was not persisted.';
