@@ -2,6 +2,7 @@ import { readDomGameMetrics } from "./dom-game-metrics.mjs";
 import { chromium } from "playwright";
 import { collectNavigationTargets } from "./site-navigation.mjs";
 import { crawlSameOriginSite } from "./crawl-site.mjs";
+import { validateApprovedTarget } from "./approved-url.mjs";
 
 const gameUrl = process.env.AUTOEARN_GAME_URL;
 const allowedOrigins = new Set(
@@ -13,12 +14,7 @@ const maxDepth = Math.min(6, Math.max(0, Number(process.env.AUTOEARN_MAX_DEPTH |
 const maxDurationMs = Math.min(5 * 60_000, Math.max(5_000, Number(process.env.AUTOEARN_MAX_DURATION_MS || 60_000)));
 
 function validateTarget(value) {
-  let url;
-  try { url = new URL(value); } catch { throw new Error("AUTOEARN_GAME_URL must be a valid URL."); }
-  if (url.protocol !== "https:" || url.username || url.password || !allowedOrigins.has(url.origin)) {
-    throw new Error("Target must use HTTPS and match an explicitly approved exact origin.");
-  }
-  return url;
+  return validateApprovedTarget(value, allowedOrigins);
 }
 
 function looksLikeVerificationGate(snapshot, title) {
