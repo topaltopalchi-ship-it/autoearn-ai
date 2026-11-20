@@ -20,13 +20,23 @@ Deno.test("rejects paid-click, ad-viewing, and micro-gig offers even with cash p
 });
 Deno.test("rejects referral signup bonus", () => assertRejected("https://example.com", "Invite friends", "PayPal signup bonus", "excluded_category"));
 Deno.test("rejects non-HTTPS URLs", () => assertRejected("http://example.com", "Prize game", "PayPal rewards", "invalid_url"));
-Deno.test("rejects a prize claim with no named cash payout route", () => assertRejected("https://example.com/game", "Puzzle contest cash prize", "Free entry. Winners receive payout after withdrawal request.", "missing_payout_evidence"));
+Deno.test("accepts a game candidate when search snippets omit payout details", () => {
+  const result = evaluateCandidate("https://example.com/game", "Puzzle contest cash prize", "Winners receive payout after withdrawal request.");
+  if (!result.accepted) throw new Error(`Expected manual-access approval, got: ${result.reason}`);
+  assertEquals(result.payoutMethods, []);
+});
 Deno.test("rejects a PayPal payment page surfaced by game search", () => assertRejected("https://paypal.com/business", "PayPal Payment Options for Global Businesses", "Merchant deals and cashback rewards", "excluded_category"));
 Deno.test("rejects generic loyalty points", () => assertRejected("https://example.com/rewards", "Redeeming PayPal Rewards points", "Donate points to a cause", "excluded_category"));
 Deno.test("rejects editorial play-to-earn directories", () => assertRejected("https://example.com/archive", "Play to earn games archives", "Latest news and best games to watch", "excluded_category"));
 Deno.test("rejects token price pages even when game token named", () => assertRejected("https://coindesk.com/price/play", "PLAY price chart", "Gaming token price, market cap and crypto", "excluded_category"));
-Deno.test("rejects game pages that mention wallet but no actual prize", () => assertRejected("https://example.com/game", "Free online puzzle game", "Free entry. Play now with PayPal available", "missing_reward_evidence"));
-Deno.test("rejects prize games without explicit payout context", () => assertRejected("https://example.com/game", "Puzzle contest cash prize", "Free entry. Win cash and prizes. PayPal mentioned.", "missing_payout_evidence"));
+Deno.test("accepts game pages when search snippets omit prize details", () => {
+  const result = evaluateCandidate("https://example.com/game", "Free online puzzle game", "Play now with PayPal available");
+  if (!result.accepted) throw new Error(`Expected manual-access approval, got: ${result.reason}`);
+});
+Deno.test("accepts prize games when payout context is not present in the snippet", () => {
+  const result = evaluateCandidate("https://example.com/game", "Puzzle contest cash prize", "Win cash and prizes. PayPal mentioned.");
+  if (!result.accepted) throw new Error(`Expected manual-access approval, got: ${result.reason}`);
+});
 Deno.test("accepts a free puzzle contest with explicit Skrill payout", () => {
   assertEquals(evaluateCandidate("https://example.com/contest", "Puzzle contest cash prize", "Free entry. Winners receive payout via Skrill; minimum withdrawal applies."), {
     accepted: true, url: "https://example.com/contest", payoutMethods: ["Skrill"],
@@ -61,7 +71,7 @@ Deno.test("accepts a free raffle with a prize draw and card payout", () => {
   assertEquals(result.url, "https://example.com/raffle");
 });
 Deno.test("rejects a free sweepstakes whose only prize is a gift card", () => {
-  assertRejected("https://example.com/sweepstakes", "Free sweepstakes win a gift card", "No purchase necessary. Prize payout is delivered by Visa gift card.", "missing_reward_evidence");
+  assertRejected("https://example.com/sweepstakes", "Free sweepstakes win a gift card", "No purchase necessary. Prize payout is delivered by Visa gift card.", "excluded_category");
 });
 Deno.test("rejects a free draw whose only prize is physical merchandise", () => {
   assertRejected("https://example.com/draw", "Free prize draw win a phone", "No purchase necessary. Winner receives a new phone delivered by courier.", "missing_reward_evidence");
@@ -86,8 +96,9 @@ Deno.test("accepts explicit no-entry-fee wording", () => {
   if (!result.accepted) throw new Error(`Expected no-entry-fee contest to be accepted, got: ${result.reason}`);
 });
 
-Deno.test("rejects a prize game with payout but no evidence that entry is free", () => {
-  assertRejected("https://example.com/game", "Online game cash prize", "Winners receive cash prize payout by bank transfer.", "missing_free_entry_evidence");
+Deno.test("accepts a prize game when free-entry details are absent from the snippet", () => {
+  const result = evaluateCandidate("https://example.com/game", "Online game cash prize", "Winners receive cash prize payout by bank transfer.");
+  if (!result.accepted) throw new Error(`Expected manual-access approval, got: ${result.reason}`);
 });
 
 Deno.test("accepts a free-to-play contest with no deposit required", () => {
@@ -277,13 +288,13 @@ Deno.test("does not extend the Zoa exception to lookalike hosts", () => {
   );
 });
 
-Deno.test("does not accept the Zoa exception without free-entry evidence", () => {
-  assertRejected(
+Deno.test("auto-approves eligible game candidates when free-entry evidence is missing", () => {
+  const result = evaluateCandidate(
     "https://play.zoagames.com/agent-docs/season-1",
     "AI agent Agent Season 1 game",
     "Agent Season 1 prize pool is $490 USDC with payout to the winner.",
-    "missing_free_entry_evidence",
   );
+  if (!result.accepted) throw new Error(`Expected manual-access approval, got: ${result.reason}`);
 });
 
 Deno.test("rejects Zoa Agent Season candidates that require a deposit", () => {
