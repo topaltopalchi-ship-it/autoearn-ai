@@ -211,6 +211,9 @@ test("separates payment processors and business tools from earning opportunities
   const classify = globalThis.AutoEarnDueDiligence.classifyOpportunityType;
   assert.equal(classify({ title: "PayPal Payments", platform: "PayPal", url: "https://www.paypal.com/us/business/accept-payments/paypal-payments" }), "irrelevant");
   assert.equal(classify({ title: "Stripe payment gateway", platform: "Stripe", url: "https://stripe.com" }), "irrelevant");
+  assert.equal(classify({ title: "Free-to-play", platform: "Wikipedia", url: "https://en.wikipedia.org/wiki/Free-to-play", reward_description: "Battle passes are also used in some free-to-play games" }), "irrelevant");
+  assert.equal(classify({ title: "Press Release: New PayPal Rewards Program", platform: "PayPal Newsroom", url: "https://newsroom.paypal.com/story" }), "irrelevant");
+  assert.equal(classify({ title: "Donating PayPal Rewards", platform: "Charity", reward_description: "Donate rewards to charity" }), "irrelevant");
   assert.equal(classify({ title: "Daily prize puzzle", category: "puzzle", reward_description: "Cash prize for winners" }), "review");
   assert.equal(classify({ title: "Survey panel", reward_description: "Get paid for completed surveys" }), "review");
 });
