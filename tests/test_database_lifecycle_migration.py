@@ -46,6 +46,7 @@ class DatabaseLifecycleMigrationTests(unittest.TestCase):
     def test_rewards_must_start_pending_and_paid_requires_reference(self):
         self.assertIn("new.status <> 'pending'", self.sql)
         self.assertIn("a paid reward requires a payment reference", self.sql)
+        self.assertIn("new.reference is null or pg_catalog.btrim(new.reference) = ''", self.sql)
         self.assertIn("old.status = 'confirmed' and new.status in ('paid', 'rejected')", self.sql)
         self.assertIn("confirmed or paid reward records cannot be deleted", self.sql)
 
