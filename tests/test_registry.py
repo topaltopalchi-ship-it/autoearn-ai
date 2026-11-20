@@ -5,12 +5,12 @@ from autoearn.registry import SourceRegistry
 
 
 class SourceRegistryTests(unittest.TestCase):
-    def test_adds_candidate_and_keeps_it_pending(self):
+    def test_adds_candidate_and_auto_approves_it_for_manual_access(self):
         registry = SourceRegistry()
         item = SourceCandidate("Game A", "https://example.com/rewards")
         stored, created = registry.add(item)
         self.assertTrue(created)
-        self.assertEqual(stored.status, "pending")
+        self.assertEqual(stored.to_record()["status"], "eligible")
         self.assertEqual(len(registry), 1)
 
     def test_duplicate_canonical_url_is_not_added_twice(self):
@@ -32,10 +32,9 @@ class SourceRegistryTests(unittest.TestCase):
     def test_list_filters_status_and_rejects_invalid_filter(self):
         registry = SourceRegistry()
         registry.add(SourceCandidate("Game A", "https://a.example.com"))
-        self.assertEqual(len(registry.list("pending")), 1)
-        self.assertEqual(registry.list("approved"), [])
+        self.assertEqual(len(registry.list("eligible")), 1)
         with self.assertRaises(ValueError):
-            registry.list("automatic")
+            registry.list("pending")
 
 
 if __name__ == "__main__":
