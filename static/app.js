@@ -36,7 +36,7 @@ function fail(error){console.error(error);toast(error.message||"Something went w
 async function loadData(){
   const [o,t,r]=await Promise.all([
     supabase.from("opportunities").select("*").order("created_at",{ascending:false}),
-    supabase.from("tasks").select("*, opportunities(title,platform)").order("created_at",{ascending:false}),
+    supabase.from("tasks").select("*, opportunities(*)").order("created_at",{ascending:false}),
     supabase.from("rewards").select("*, opportunities(title)").order("created_at",{ascending:false})
   ]);
   for(const result of [o,t,r]) if(result.error) throw result.error;
