@@ -15,7 +15,7 @@ const maxDurationMs = Math.min(5 * 60_000, Math.max(5_000, Number(process.env.AU
 function validateTarget(value) {
   let url;
   try { url = new URL(value); } catch { throw new Error("AUTOEARN_GAME_URL must be a valid URL."); }
-  if (url.protocol !== "https:" || !allowedOrigins.has(url.origin)) {
+  if (url.protocol !== "https:" || url.username || url.password || !allowedOrigins.has(url.origin)) {
     throw new Error("Target must use HTTPS and match an explicitly approved exact origin.");
   }
   return url;
