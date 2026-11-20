@@ -95,6 +95,10 @@ function renderOpportunities(){
     return `<div class="item"><div><h3>${esc(o.title)} <span class="pill">${esc(costLabel)}</span> <span class="pill">${esc(o.status==="eligible"?"Auto-approved · not verified":o.status)}</span></h3><p>${esc(o.platform)} · ${esc(categoryLabel(o.category))} · Metadata score ${esc(o.score)}/60<br>${platformLink}${termsLink}<br>${esc(o.reward_description||"No reward details entered")}${payoutMetadataLine}${economicsLine}${discoveryProvenanceHtml(o)}<br><strong>Access:</strong> Approved for manual opening only; payout and legitimacy are not verified.</p></div><div class="item-actions"><button class="primary" data-start="${esc(o.id)}" ${!AutoEarnDueDiligence.canStartGuidedSession(o)?"disabled":""}>Open manually</button></div></div>`;
   }).join(""):'<div class="empty">No matching opportunities.</div>';
   $("opportunity-list").querySelectorAll("[data-start]").forEach(b=>b.onclick=()=>createTask(Number(b.dataset.start)));
+  $("irrelevant-summary").textContent=irrelevantRows.length
+    ? `${irrelevantRows.length} link(s) separated automatically. Original records are preserved; classification is heuristic and may need review.`
+    : "No business-service links detected.";
+  $("irrelevant-list").innerHTML=irrelevantRows.length?irrelevantRows.map(o=>`<div class="item"><div><h3>${esc(o.title)} <span class="pill">Business / service</span></h3><p>${esc(o.platform)} · ${esc(categoryLabel(o.category))}<br>${esc(o.reward_description||"No reward details entered")}<br><a href="${esc(safePublicHttpsUrl(o.url)||"#")}" target="_blank" rel="noopener noreferrer">Review link ↗</a></p></div></div>`).join(""):'<div class="empty">No separated links.</div>';
 }
 async function createTask(id){
   const opportunity=opportunities.find(item=>Number(item.id)===Number(id));
