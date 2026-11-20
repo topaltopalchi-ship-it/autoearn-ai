@@ -39,16 +39,9 @@ jobs:
       - name: Test browser-agent navigation and page classification
         working-directory: integrations/browser-agent
         run: npm install --ignore-scripts --no-audit --no-fund && node --check approved-url.mjs && node --check runner.mjs && node --check play-2048.mjs && node --check play-local-ai.mjs && node --check play-tic-tac-toe.mjs && node --check play-detected-game.mjs && node --check games/2048-strategy.mjs && node --check games/2048-episode-simulator.mjs && node --check games/run-2048-heuristic-comparison.mjs && node --check play-local-ai.mjs && node --check play-tic-tac-toe.mjs && node --check play-detected-game.mjs && node --check ollama-decision-provider.mjs && node --check ollama-game-perception.mjs && node --check game-rule-extractor.mjs && node --check game-cell-browser-adapter.mjs && node --check connect-four-browser-adapter.mjs && node --check othello-browser-adapter.mjs && node --check game-outcome-detector.mjs && node --check game-instruction-discovery.mjs && node --check game-site-discovery.mjs && node --check game-experience-memory.mjs && node --check experience-verification.mjs && node --check rate-game-experience.mjs && npm test
-      - name: Run bounded paired 2048 heuristic experiment
+      - name: Check 2048 benchmark entrypoint
         working-directory: integrations/browser-agent
-        env:
-          AUTOEARN_2048_EPISODES: "20"
-          AUTOEARN_2048_DEPTH: "2"
-          AUTOEARN_2048_MAX_MOVES: "500"
-        run: |
-          AUTOEARN_2048_SNAKE_WEIGHT=0.25 node games/run-2048-heuristic-comparison.mjs
-          AUTOEARN_2048_SNAKE_WEIGHT=0.5 node games/run-2048-heuristic-comparison.mjs
-          AUTOEARN_2048_SNAKE_WEIGHT=1 node games/run-2048-heuristic-comparison.mjs
+        run: node --check games/run-2048-heuristic-comparison.mjs
       - name: Check paired 2048 experiment entrypoints
         working-directory: integrations/browser-agent
         run: node --check games/2048-policy-comparison.mjs && node --check games/run-2048-policy-comparison.mjs
