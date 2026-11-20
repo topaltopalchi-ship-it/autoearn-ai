@@ -21,6 +21,7 @@ insert into auth.users (id) values
 
 \ir ../supabase/migrations/20261118134402_create_autoearn_core_tables_with_owner_rls.sql
 \ir ../supabase/migrations/20261120080000_enforce_owner_state_transitions.sql
+\ir ../supabase/migrations/20261120100000_add_country_payout_metadata.sql
 
 set role authenticated;
 set request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
@@ -46,6 +47,31 @@ begin
   update public.opportunities set status = 'eligible' where id = v_opportunity_id;
   if (select status from public.opportunities where id = v_opportunity_id) <> 'eligible' then
     raise exception 'Automatic opportunity approval was not persisted.';
+  end if;
+
+  update public.opportunities
+  set eligible_countries = array['Azerbaijan', 'Georgia'],
+      excluded_countries = array['United States'],
+      minimum_withdrawal_amount = 25.00,
+      withdrawal_currency = 'USD',
+      payout_methods = array['bank_transfer', 'crypto'],
+      country_evidence_url = 'https://publisher.example.org/countries',
+      payout_evidence_url = 'https://publisher.example.org/payouts'
+  where id = v_opportunity_id;
+
+  if not exists (
+    select 1 from public.opportunities
+    where id = v_opportunity_id
+      and status = 'eligible'
+      and eligible_countries = array['Azerbaijan', 'Georgia']
+      and excluded_countries = array['United States']
+      and minimum_withdrawal_amount = 25.00
+      and withdrawal_currency = 'USD'
+      and payout_methods = array['bank_transfer', 'crypto']
+      and country_evidence_url = 'https://publisher.example.org/countries'
+      and payout_evidence_url = 'https://publisher.example.org/payouts'
+  ) then
+    raise exception 'Country/payout metadata was not persisted or changed opportunity approval.';
   end if;
   update public.opportunities set status = 'archived' where id = v_opportunity_id;
 
