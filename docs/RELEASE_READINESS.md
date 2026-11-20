@@ -21,6 +21,12 @@ Validated commit: `5426d14db61ca32b50befc2374a5432e95acd340`
 - Security advisor warning: leaked-password protection is disabled. Enable it in Supabase Auth settings before public release.
 - Performance advisor reports two currently unused indexes: `tasks_opportunity_idx` and `rewards_opportunity_idx`. This is informational; do not remove them without workload review.
 
+### Auth warning remediation
+
+The current Supabase documentation states that leaked-password protection is available on the Pro plan and above. In the Dashboard, open **Authentication → Sign In / Providers → Email**, then enable **Prevent use of leaked passwords** and save. If the project is on the Free plan, this control may be unavailable; do not treat the warning as evidence that an account password has leaked. As a fallback, set a minimum password length of at least 8 characters and require a stronger character mix in the same Email provider settings. Re-run the Security Advisor after any change.
+
+Reference: https://supabase.com/docs/guides/auth/password-security
+
 ## Hosting
 
 - Netlify deploy workflow is manual-only (`workflow_dispatch`) and refuses refs other than `develop`.
