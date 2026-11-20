@@ -1,5 +1,6 @@
 import { readDomGameMetrics } from "./dom-game-metrics.mjs";
 import { chromium } from "playwright";
+import { guardApprovedBrowserContext } from "./approved-url.mjs";
 import "../../static/game-agent.js";
 import { createOllamaGameDecision } from "./ollama-decision-provider.mjs";
 import { createOllamaGamePerception } from "./ollama-game-perception.mjs";
@@ -62,7 +63,8 @@ function localGameStateKey(observation) {
 async function main() {
   const target = validateTarget();
   const browser = await chromium.launch({ headless: false });
-  const context = await browser.newContext({ acceptDownloads: false });
+  const context = await browser.newContext({ acceptDownloads: false, serviceWorkers: "block" });
+  await guardApprovedBrowserContext(context, target.origin);
   const page = await context.newPage();
   page.setDefaultTimeout(5_000);
   let blocked = false;
