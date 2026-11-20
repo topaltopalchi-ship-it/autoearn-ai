@@ -47,6 +47,17 @@ class DatabaseLifecycleMigrationTests(unittest.TestCase):
         self.assertIn("old.status = 'confirmed' and new.status in ('paid', 'rejected')", self.sql)
         self.assertIn("confirmed or paid reward records cannot be deleted", self.sql)
 
+    def test_reward_link_is_cleared_only_when_linked_opportunity_is_deleted(self):
+        self.assertIn("new.opportunity_id is distinct from old.opportunity_id", self.sql)
+        self.assertIn("new.opportunity_id is not null", self.sql)
+        self.assertIn("exists (", self.sql)
+        self.assertIn("from public.opportunities", self.sql)
+        self.assertIn("where id = old.opportunity_id", self.sql)
+        self.assertIn(
+            "reward opportunity association is immutable except when its opportunity is deleted",
+            self.sql,
+        )
+
     def test_replaces_broad_owner_policies_with_explicit_operations(self):
         self.assertIn('drop policy if exists "owner manages opportunities"', self.sql)
         self.assertIn('drop policy if exists "owner manages tasks"', self.sql)
