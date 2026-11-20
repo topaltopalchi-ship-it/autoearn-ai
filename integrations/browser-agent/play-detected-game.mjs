@@ -1,5 +1,5 @@
 import { chromium } from "playwright";
-import { guardApprovedBrowserContext } from "./approved-url.mjs";
+import { validateApprovedTarget, guardApprovedBrowserContext } from "./approved-url.mjs";
 import "../../static/game-agent.js";
 import { create2048BrowserAdapter } from "./2048-browser-adapter.mjs";
 import { createTicTacToeBrowserAdapter } from "./tic-tac-toe-browser-adapter.mjs";
@@ -21,9 +21,7 @@ const maxDurationMs = Math.min(5 * 60_000, Math.max(5_000, Number(process.env.AU
 function validateTarget() {
   if (!gameUrl) throw new Error("Set AUTOEARN_GAME_URL.");
   if (process.env.AUTOEARN_AUTOMATION_APPROVED !== "YES") throw new Error("Confirm the site's rules permit automated play by setting AUTOEARN_AUTOMATION_APPROVED=YES.");
-  const target = new URL(gameUrl);
-  if (target.protocol !== "https:" || !allowedOrigins.has(target.origin)) throw new Error("The game URL must match an explicitly approved HTTPS origin.");
-  return target;
+  return validateApprovedTarget(gameUrl, allowedOrigins);
 }
 
 async function assertSafePage(page, target, blocked) {
