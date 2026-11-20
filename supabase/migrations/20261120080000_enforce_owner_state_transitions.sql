@@ -8,8 +8,8 @@ set search_path = ''
 as $$
 begin
   if tg_op = 'INSERT' then
-    if new.status <> 'discovered' then
-      raise exception 'New opportunities must start as discovered.'
+    if new.status not in ('discovered', 'eligible') then
+      raise exception 'New opportunities must start as discovered or auto-approved eligible.'
         using errcode = '23514';
     end if;
     return new;
@@ -23,8 +23,9 @@ begin
   end if;
 
   if new.status is distinct from old.status then
-    if (old.status = 'discovered' and new.status in ('reviewing', 'ineligible', 'archived'))
-       or (old.status = 'reviewing' and new.status in ('ineligible', 'archived'))
+    if (old.status = 'discovered' and new.status in ('reviewing', 'eligible', 'ineligible', 'archived'))
+       or (old.status = 'reviewing' and new.status in ('eligible', 'ineligible', 'archived'))
+       or (old.status = 'eligible' and new.status in ('ineligible', 'archived'))
        or (old.status = 'ineligible' and new.status = 'archived') then
       null;
     else
@@ -187,6 +188,8 @@ before delete on public.rewards
 for each row execute function public.autoearn_guard_reward_delete();
 
 -- Replace broad FOR ALL policies with explicit owner-scoped operations.
+alter table public.opportunities alter column status set default 'eligible';
+
 drop policy if exists "owner manages opportunities" on public.opportunities;
 drop policy if exists "owner manages tasks" on public.tasks;
 drop policy if exists "owner manages rewards" on public.rewards;
@@ -195,9 +198,9 @@ create policy "owners read opportunities"
 on public.opportunities for select to authenticated
 using ((select auth.uid()) = owner_id);
 
-create policy "owners insert discovered opportunities"
+create policy "owners insert opportunities"
 on public.opportunities for insert to authenticated
-with check ((select auth.uid()) = owner_id and status = 'discovered');
+with check ((select auth.uid()) = owner_id and status in ('discovered', 'eligible'));
 
 create policy "owners update opportunities"
 on public.opportunities for update to authenticated
