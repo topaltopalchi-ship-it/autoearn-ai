@@ -43,7 +43,7 @@ def normalize_url(url: str) -> str:
 
 @dataclass(frozen=True)
 class Opportunity:
-    """User-reviewed opportunity metadata; scores are estimates, not guarantees."""
+    """Auto-approved manual-access metadata; scores are advisory, not guarantees."""
 
     title: str
     url: str
