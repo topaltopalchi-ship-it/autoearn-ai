@@ -7,6 +7,19 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: autoearn_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d autoearn_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: denoland/setup-deno@v2
@@ -44,5 +57,12 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
       - run: pytest -q
+      - name: Run PostgreSQL lifecycle integration tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/autoearn_test
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/database_lifecycle.integration.sql
       - name: Build pinned Zoa agent worker (no API key required)
         run: docker build --tag autoearn-zoa-agent:ci integrations/zoa
