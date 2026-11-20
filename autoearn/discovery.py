@@ -9,11 +9,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
 import ipaddress
-from typing import Literal
 
 from .opportunities import normalize_url
-
-ReviewStatus = Literal["pending", "approved", "rejected"]
 
 
 def _validate_public_https_url(value: str) -> str:
@@ -49,7 +46,6 @@ class SourceCandidate:
     terms_url: str | None = None
     country_notes: str = ""
     payment_notes: str = ""
-    status: ReviewStatus = "pending"
     discovered_at: str = ""
 
     def __post_init__(self) -> None:
@@ -60,8 +56,6 @@ class SourceCandidate:
             _validate_public_https_url(self.terms_url)
         if not isinstance(self.category, str) or not self.category.strip():
             raise ValueError("category is required")
-        if self.status not in ("pending", "approved", "rejected"):
-            raise ValueError("status must be pending, approved, or rejected")
         if self.discovered_at:
             try:
                 datetime.fromisoformat(self.discovered_at.replace("Z", "+00:00"))
@@ -84,6 +78,6 @@ class SourceCandidate:
             "terms_url": _validate_public_https_url(self.terms_url) if self.terms_url else "",
             "country_notes": self.country_notes.strip(),
             "payment_notes": self.payment_notes.strip(),
-            "status": self.status,
+            "status": "eligible",
             "discovered_at": self.discovered_at or datetime.now(timezone.utc).isoformat(),
         }
