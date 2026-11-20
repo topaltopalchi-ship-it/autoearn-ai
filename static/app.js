@@ -158,6 +158,16 @@ function openRewardForOpportunity(id){
   form.elements.status.value="pending";
   $("reward-dialog").showModal();
 }
+async function transitionTask(id,expectedStatus,nextStatus,timestampField){
+  const allowed={pending_approval:{approved:"approved_at"},approved:{completed:"completed_at"}};
+  if(!Object.hasOwn(allowed[expectedStatus]||{},nextStatus)||allowed[expectedStatus][nextStatus]!==timestampField){
+    return toast("Invalid task status transition.");
+  }
+  const {data,error}=await supabase.from("tasks").update({status:nextStatus,[timestampField]:new Date().toISOString()}).eq("id",id).eq("status",expectedStatus).select("id").maybeSingle();
+  if(error)return fail(error);
+  if(!data)return toast("Task status changed elsewhere. Refresh and try again.");
+  await loadData();
+}
 function renderTasks(){
   $("task-list").innerHTML=tasks.length?tasks.map(t=>{
     const completedAt=t.completed_at?new Date(t.completed_at).toLocaleString():"";
@@ -165,8 +175,8 @@ function renderTasks(){
     const rewardAction=t.status==="completed"&&t.opportunity_id?'<button class="secondary" data-reward-opportunity="'+esc(t.opportunity_id)+'">Record actual reward</button>':"";
     return `<div class="item"><div><h3>${esc(t.description)}</h3><p>${esc(t.opportunities?.title||"Opportunity")} · ${esc(t.opportunities?.platform||"")} · ${esc(t.status)}${dateLine}</p></div><div class="item-actions">${t.status==="pending_approval"?'<button class="primary" data-approve="'+esc(t.id)+'">Approve task</button>':''}${t.status==="approved"?'<button class="secondary" data-complete="'+esc(t.id)+'">Mark completed</button>':''}${rewardAction}</div></div>`;
   }).join(""):'<div class="empty">No tasks yet. Create a task from an opportunity.</div>';
-  $("task-list").querySelectorAll("[data-approve]").forEach(b=>b.onclick=async()=>{if(!confirm("Approve this task? You remain responsible for following platform rules."))return;const {error}=await supabase.from("tasks").update({status:"approved",approved_at:new Date().toISOString()}).eq("id",b.dataset.approve).eq("status","pending_approval");if(error)return fail(error);await loadData()});
-  $("task-list").querySelectorAll("[data-complete]").forEach(b=>b.onclick=async()=>{const {error}=await supabase.from("tasks").update({status:"completed",completed_at:new Date().toISOString()}).eq("id",b.dataset.complete).eq("status","approved");if(error)return fail(error);await loadData()});
+  $("task-list").querySelectorAll("[data-approve]").forEach(b=>b.onclick=async()=>{if(!confirm("Approve this task? You remain responsible for following platform rules."))return;await transitionTask(b.dataset.approve,"pending_approval","approved","approved_at")});
+  $("task-list").querySelectorAll("[data-complete]").forEach(b=>b.onclick=async()=>{await transitionTask(b.dataset.complete,"approved","completed","completed_at")});
   $("task-list").querySelectorAll("[data-reward-opportunity]").forEach(b=>b.onclick=()=>openRewardForOpportunity(Number(b.dataset.rewardOpportunity)));
 }
 function renderRewards(){
