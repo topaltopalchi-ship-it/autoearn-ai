@@ -90,30 +90,12 @@
     ]).has(normalized);
   }
 
-  function canStartGuidedSession(_opportunity) {
-    // Owner-entered reports and HTTPS links are claims, not independent evidence.
-    // Keep the guided-session gate closed until a trusted server-side verifier
-    // can attest to official terms, payout, geography, and automation permission.
-    return false;
+  function canStartGuidedSession(opportunity) {
+    // This gate only enables a user-initiated visit to a public HTTPS page.
+    // It never authorizes automated gameplay, account actions, or payments.
+    return opportunity?.status === "eligible" && Boolean(safePublicHttpsUrl(opportunity?.url));
   }
 
-  function getEligibilityReviewStatus(review = {}) {
-    if (
-      review.payment_confirmed === "no" ||
-      review.country_eligible === "no" ||
-      review.free_entry === "no" ||
-      review.automation_explicitly_allowed === "no"
-    ) return "ineligible";
-    return "reviewing";
-  }
-
-  function replaceOwnerEligibilityReview(notes, report) {
-    const marker = "[OWNER OFFICIAL ELIGIBILITY REVIEW]";
-    const source = String(notes || "");
-    const markerIndex = source.indexOf(marker);
-    const base = markerIndex >= 0 ? source.slice(0, markerIndex).trimEnd() : source.trimEnd();
-    return base + (base ? "\n\n" : "") + marker + "\n" + JSON.stringify(report, null, 2);
-  }
 
   function summarizeOpportunities(opportunities) {
     const rows = Array.isArray(opportunities) ? opportunities : [];
