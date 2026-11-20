@@ -16,6 +16,11 @@ jobs:
         with:
           ref: develop
 
+      - name: Set up Node.js for Netlify CLI
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - name: Check deployment credentials
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
