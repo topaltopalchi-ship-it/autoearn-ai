@@ -15,7 +15,7 @@ The web interface connects directly to Supabase Auth and the three owner-protect
 - Human approval is required before a task can be marked completed.
 - Discovery snippets and evidence-completeness signals are informational only. Auto-approval does not prove official status, cash payout, geographic eligibility, or permission to automate.
 - Explainable opportunity metadata score; not a guarantee of legitimacy or payment.
-- The FastAPI host serves the static app and a health endpoint only; no unauthenticated SQLite CRUD API is exposed. User data is stored in Supabase.
+- The primary deployment target is Netlify: `netlify.toml` publishes the `static/` directory directly, so FastAPI is not required for the production static site. An optional FastAPI host can serve the same `static/` directory plus `/api/health`; it exposes no user-data CRUD API. In both modes, user data is stored in Supabase.
 
 ## Reward ledger and monthly reporting
 
@@ -30,7 +30,11 @@ Completed manual sessions now include a **Record actual reward** action linked t
 2. Open **Authentication → Users** and create/invite only your own email address.
 3. Open **Project Settings → API Keys** and copy the **publishable** key (starts with `sb_publishable_`). Never copy a secret or service_role key into the website.
 4. Put that publishable key in `static/config.js` as the value of `publishableKey`.
-5. Deploy the static `static/` directory to a static host over HTTPS. Configure the host to serve `index.html` at the site root.
+5. Deploy with the included Netlify configuration (connect the repository and select the `develop` branch for a preview, or the approved release branch when ready). The configured publish directory is `static/`; serve it over HTTPS with `index.html` at the site root. No Python server is needed for this static deployment.
+
+### Optional FastAPI host
+
+For environments that require an application server, install `requirements.txt` and run `uvicorn app.main:app --host 0.0.0.0 --port 8000`. The server exposes `/api/health` and serves the static directory at `/`. It does not replace Supabase Auth/RLS and does not provide a database CRUD API.
 
 The Supabase project URL is already configured in `static/config.js`. No database password or service-role key is required in the browser.
 
