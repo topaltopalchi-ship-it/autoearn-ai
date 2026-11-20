@@ -2,7 +2,7 @@
 
 ## Product direction
 
-AutoEarn AI is a private, owner-only workspace for discovering, evaluating, and tracking reward opportunities. It supports manual participation and bounded local game-agent experiments. It does not promise income or perform unattended third-party reward farming.
+AutoEarn AI is a private, single-owner personal workspace for one account holder to discover, evaluate, and track reward opportunities. There is no public registration, multi-tenant onboarding, or plan to support additional users. The owner signs in with the one account created directly in Supabase. It supports manual participation and bounded local game-agent experiments. It does not promise income or perform unattended third-party reward farming.
 
 ## Implemented in develop
 
@@ -21,12 +21,12 @@ AutoEarn AI is a private, owner-only workspace for discovering, evaluating, and 
 
 ## Remaining before production release
 
-1. **Owner-controlled setup:** confirm the production Supabase project settings, invite-only account, publishable key, and allowed site URL/redirect configuration.
+1. **Single-owner setup:** verify public sign-ups are disabled, retain only the owner's Supabase Auth account, confirm the publishable key and allowed site URL/redirect configuration, and verify sign-in/sign-out. Do not add user-management or multi-tenant features.
 2. **Database release:** review and apply the pending migrations to the intended Supabase project only after explicit owner authorization. CI tests use an ephemeral PostgreSQL instance and do not update production.
 3. **Hosting release:** configure the production Netlify site and deploy the approved branch only after explicit owner authorization. No production deploy has been performed by this work.
 4. **Smoke test:** verify sign-in, opportunity discovery, manual add/edit, task transitions, reward ledger, country/payout metadata, and sign-out on the deployed site.
 5. **First external platform:** select one named platform and verify its official OAuth/API documentation, country availability, payout terms, and exact automation permissions before building a connector. Until then, external accounts remain manual-only.
-6. **Operational safeguards:** confirm backups, recovery procedure, rate limits, audit expectations, and owner access before any multi-user expansion.
+6. **Operational safeguards:** confirm backups, recovery procedure, rate limits, and audit expectations for the sole owner. Multi-user expansion is out of scope.
 
 ## Safety boundaries
 
