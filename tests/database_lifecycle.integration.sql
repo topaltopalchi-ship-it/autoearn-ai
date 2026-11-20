@@ -172,7 +172,7 @@ $$;
 
 -- Verify that a second authenticated account cannot read or create workspace data.
 set request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
-do $
+do $$
 begin
   if (select count(*) from public.rewards) <> 0
      or (select count(*) from public.opportunities) <> 0
@@ -188,6 +188,6 @@ begin
     null;
   end;
 end;
-$;
+$$;
 
 reset role;
