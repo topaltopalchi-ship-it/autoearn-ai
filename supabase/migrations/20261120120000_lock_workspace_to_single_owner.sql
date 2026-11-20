@@ -12,18 +12,18 @@ begin
 end;
 $$;
 
-create schema if not exists private;
-revoke all on schema private from public, anon, authenticated;
+create schema if not exists autoearn_private;
+revoke all on schema autoearn_private from public, anon, authenticated;
 
-create table private.autoearn_owner_guard (
+create table autoearn_private.autoearn_owner_guard (
   owner_id uuid primary key references auth.users(id) on delete restrict,
   singleton boolean not null default true unique check (singleton)
 );
 
-insert into private.autoearn_owner_guard (owner_id)
+insert into autoearn_private.autoearn_owner_guard (owner_id)
 select id from auth.users;
 
-revoke all on table private.autoearn_owner_guard from public, anon, authenticated;
+revoke all on table autoearn_private.autoearn_owner_guard from public, anon, authenticated;
 
 create or replace function public.autoearn_is_single_owner()
 returns boolean
@@ -34,7 +34,7 @@ set search_path = ''
 as $$
   select exists (
     select 1
-    from private.autoearn_owner_guard
+    from autoearn_private.autoearn_owner_guard
     where owner_id = (select auth.uid())
       and singleton
   );
