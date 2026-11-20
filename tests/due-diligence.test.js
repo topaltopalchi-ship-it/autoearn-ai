@@ -205,3 +205,11 @@ test("sorts free opportunities before unknown and paid without mutating input", 
   );
   assert.deepEqual(rows.map((item) => item.id), ["paid", "unknown", "free"]);
 });
+
+\ntest("separates payment processors and business tools from earning opportunities", () => {
+  const classify = globalThis.AutoEarnDueDiligence.classifyOpportunityType;
+  assert.equal(classify({ title: "PayPal Payments", platform: "PayPal", url: "https://www.paypal.com/us/business/accept-payments/paypal-payments" }), "irrelevant");
+  assert.equal(classify({ title: "Stripe payment gateway", platform: "Stripe", url: "https://stripe.com" }), "irrelevant");
+  assert.equal(classify({ title: "Daily prize puzzle", category: "puzzle", reward_description: "Cash prize for winners" }), "review");
+  assert.equal(classify({ title: "Survey panel", reward_description: "Get paid for completed surveys" }), "review");
+});
