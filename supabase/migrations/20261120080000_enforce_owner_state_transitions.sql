@@ -103,21 +103,30 @@ begin
       raise exception 'New reward records must start as pending.'
         using errcode = '23514';
     end if;
-    if new.status = 'paid' and pg_catalog.btrim(new.reference) = '' then
-      raise exception 'A paid reward requires a payment reference.'
-        using errcode = '23514';
-    end if;
     return new;
   end if;
 
   if new.id is distinct from old.id
      or new.owner_id is distinct from old.owner_id
-     or new.opportunity_id is distinct from old.opportunity_id
      or new.amount is distinct from old.amount
      or new.currency is distinct from old.currency
      or new.created_at is distinct from old.created_at then
-    raise exception 'Reward identity, ownership, amount, currency, and opportunity fields are immutable.'
+    raise exception 'Reward identity, ownership, amount, and currency fields are immutable.'
       using errcode = '23514';
+  end if;
+
+  -- ON DELETE SET NULL must be allowed to preserve the reward ledger when
+  -- its linked opportunity is deleted. Owners still cannot edit this link.
+  if new.opportunity_id is distinct from old.opportunity_id then
+    if new.opportunity_id is not null
+       or old.opportunity_id is null
+       or exists (
+         select 1 from public.opportunities
+         where id = old.opportunity_id
+       ) then
+      raise exception 'Reward opportunity association is immutable except when its opportunity is deleted.'
+        using errcode = '23514';
+    end if;
   end if;
 
   if new.status is not distinct from old.status then
