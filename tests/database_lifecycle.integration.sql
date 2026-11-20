@@ -147,7 +147,7 @@ set request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
 do $$
 begin
   if (select count(*) from public.rewards) <> 0 then
-    raise exception 'RLS exposed another owner's reward rows.';
+    raise exception 'RLS exposed another user reward rows.';
   end if;
 end;
 $$;
