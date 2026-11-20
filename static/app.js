@@ -245,7 +245,7 @@ function bindWorkspace(){
   document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>b.closest("dialog").close());
   $("opportunity-form").onsubmit=async e=>{
     e.preventDefault();const data=Object.fromEntries(new FormData(e.target));
-    const splitMetadataList=value=>String(value||"").split(/[,\\n]/).map(item=>item.trim()).filter(Boolean);
+    const splitMetadataList=value=>String(value||"").split(/[,\n]/).map(item=>item.trim()).filter(Boolean);
     data.eligible_countries=splitMetadataList(data.eligible_countries_input);
     data.excluded_countries=splitMetadataList(data.excluded_countries_input);
     data.payout_methods=splitMetadataList(data.payout_methods_input);
