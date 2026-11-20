@@ -2,17 +2,18 @@
 
 Checked: 2026-11-20 (UTC)
 Branch: `develop`
-Validated commit: `028fee3320fb870271bd8ecf10d125ac2dd56271`
+Validated commit: `b80d66e03b810f558ca27de2c077770ea6cc3556`
 
 ## Automated validation
 
-- GitHub Actions CI: passed on `028fee3320fb870271bd8ecf10d125ac2dd56271`, including JavaScript, browser-agent, Deno, Python, PostgreSQL lifecycle integration, and the pinned Zoa Docker build. Run: https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44702207591
-- Python tests workflow: passed.
+- GitHub Actions CI: passed on `b80d66e03b810f558ca27de2c077770ea6cc3556`, including JavaScript, browser-agent, Deno, Python, PostgreSQL lifecycle integration, and the pinned Zoa Docker build. Run: https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44702910847
+- Python tests workflow: passed on the same commit. Run: https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44702910833
 - Static workspace smoke tests include element-ID, owner-only UI, script ordering, security-header, and manual-deploy checks.
 
 ## Supabase production project
 
 - Project status: `ACTIVE_HEALTHY`; PostgreSQL 17.
+- Product mode: one private owner account only. The static app exposes password sign-in and sign-out, not public sign-up. Confirm Supabase public sign-ups remain disabled and only the owner's account exists before release.
 - Applied migration history currently contains only `20261118134402_create_autoearn_core_tables_with_owner_rls`.
 - These migrations exist in `develop` but are not recorded as applied in production:
   - `20261120080000_enforce_owner_state_transitions`
@@ -36,11 +37,11 @@ Reference: https://supabase.com/docs/guides/auth/password-security
 
 ## Release gates still requiring owner action
 
-1. Enable leaked-password protection in Supabase Auth and re-check the security advisor.
+1. Verify public sign-ups are disabled and only the owner's account exists; strengthen password settings in Supabase Auth and re-check the security advisor. Leaked-password protection is Pro+ only.
 2. Review the two pending SQL migrations against the production schema and approve their application explicitly.
 3. Confirm Netlify site configuration and required GitHub Actions secrets; deploy only after explicit authorization.
 4. Run deployed-site smoke tests for sign-in, discovery, manual opportunity entry, task lifecycle, reward ledger, metadata, and sign-out.
-5. Select the first external platform and verify official country, payout, OAuth/API, and automation terms before implementing any connector.
+5. Select the first external platform and verify official country, payout, OAuth/API, and automation terms before implementing any connector. This is for the owner's own account only.
 
 ## Product and safety boundaries
 
