@@ -4,7 +4,7 @@ function publicHttps(v){try{const u=new URL(String(v||"")),h=u.hostname.toLowerC
 function canonical(v){if(Array.isArray(v))return"["+v.map(canonical).join(",")+"]";if(v&&typeof v==="object")return"{"+Object.keys(v).sort().map(k=>JSON.stringify(k)+":"+canonical(v[k])).join(",")+"}";return JSON.stringify(v)}
 function decode(v){if(typeof v!=="string"||!/^[A-Za-z0-9_-]+$/.test(v))return null;try{const b=v.replace(/-/g,"+").replace(/_/g,"/")+"=".repeat((4-v.length%4)%4),s=root.atob(b);return Uint8Array.from(s,c=>c.charCodeAt(0))}catch(_){return null}}
 const fail=reason=>Object.freeze({verified:false,reason});
-function BufferlessBase64Url(bytes,encoded){try{const binary=Array.from(bytes,b=>String.fromCharCode(b)).join("");let base64=root.btoa(binary).replace(/=/g,"").replace(/\\+/g,"-").replace(/\\//g,"_");return base64===encoded}catch(_){return false}}
+function BufferlessBase64Url(bytes,encoded){try{const binary=Array.from(bytes,b=>String.fromCharCode(b)).join("");let base64=root.btoa(binary).replaceAll("+","-").replaceAll("/","_").replace(/=+$/,"");return base64===encoded}catch(_){return false}}
 async function verifyTrustedAttestation(envelope,trustedKeys,now=Date.now()){try{
 if(!root.crypto?.subtle)return fail("webcrypto_unavailable");
 if(!envelope||typeof envelope!=="object"||Array.isArray(envelope))return fail("invalid_envelope");
