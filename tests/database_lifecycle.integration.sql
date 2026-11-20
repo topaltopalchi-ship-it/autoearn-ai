@@ -25,12 +25,13 @@ insert into auth.users (id) values
 set role authenticated;
 set request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
 
-insert into public.opportunities (owner_id, title, platform, url)
+insert into public.opportunities (owner_id, title, platform, url, status)
 values (
   auth.uid(),
   'Lifecycle integration test',
   'AutoEarn CI',
-  'https://ci.example.org/opportunity'
+  'https://ci.example.org/opportunity',
+  'discovered'
 );
 
 do $$
