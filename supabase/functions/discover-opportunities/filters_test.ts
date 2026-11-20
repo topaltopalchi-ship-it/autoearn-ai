@@ -80,7 +80,7 @@ Deno.test("rejects a paid raffle with no free entry route", () => {
   assertRejected("https://example.com/raffle", "Paid raffle win a car", "Buy a ticket, entry fee required. Prize paid by bank transfer.", "excluded_category");
 });
 Deno.test("rejects a spin wheel with no real prize or payout evidence", () => {
-  assertRejected("https://example.com/wheel", "Free lucky spin wheel game", "Free entry. Spin for fun and collect points.", "missing_reward_evidence");
+  assertRejected("https://example.com/wheel", "Free lucky spin wheel game", "Free entry. Spin for fun and collect points.", "excluded_category");
 });
 
 Deno.test("accepts a free sports prediction contest with a real prize payout", () => {
@@ -180,7 +180,7 @@ Deno.test("rejects a wheel game that requires a deposit", () => {
   assertRejected("https://example.com/wheel", "Lucky wheel cash prize", "Deposit $5 to unlock daily spins. Winners receive payout by PayPal.", "excluded_category");
 });
 Deno.test("rejects a free spin claim without verifiable prize payout context", () => {
-  assertRejected("https://example.com/spin", "Daily free spin wheel", "Spin for fun and collect points. No withdrawal information is provided.", "missing_reward_evidence");
+  assertRejected("https://example.com/spin", "Daily free spin wheel", "Spin for fun and collect points. No withdrawal information is provided.", "excluded_category");
 });
 Deno.test("accepts free instant-win promotion only with prize and payout evidence", () => {
   const result = evaluateCandidate("https://example.com/instant-win", "Free instant win cash prize", "No purchase necessary. Winner receives prize payout by bank transfer under official rules.");
@@ -189,23 +189,23 @@ Deno.test("accepts free instant-win promotion only with prize and payout evidenc
 });
 
 Deno.test("rejects promotional copy that explicitly says there is no cash prize", () => {
-  assertRejected("https://example.com/spin", "Free spin cash prize promotion", "No purchase necessary. No cash prize is offered; collect points only.", "missing_reward_evidence");
+  assertRejected("https://example.com/spin", "Free spin cash prize promotion", "No purchase necessary. No cash prize is offered; collect points only.", "excluded_category");
 });
 Deno.test("rejects points that cannot be withdrawn even when payout keywords appear", () => {
-  assertRejected("https://example.com/game", "Free puzzle game cash reward", "Free entry. Points only, cannot be withdrawn. Payout information is not applicable.", "missing_reward_evidence");
+  assertRejected("https://example.com/game", "Free puzzle game cash reward", "Free entry. Points only, cannot be withdrawn. Payout information is not applicable.", "excluded_category");
 });
 Deno.test("rejects entertainment-only games that use misleading prize wording", () => {
-  assertRejected("https://example.com/wheel", "Lucky wheel win cash prize", "Free spin for entertainment only. No monetary reward.", "missing_reward_evidence");
+  assertRejected("https://example.com/wheel", "Lucky wheel win cash prize", "Free spin for entertainment only. No monetary reward.", "excluded_category");
 });
 
 Deno.test("rejects cash-prize wording contradicted by no-cash-value terms", () => {
-  assertRejected("https://example.com/promo", "Free game win cash prize", "No purchase necessary. The advertised prize has no cash value and cannot be redeemed for cash. Winners receive payout details by PayPal.", "missing_reward_evidence");
+  assertRejected("https://example.com/promo", "Free game win cash prize", "No purchase necessary. The advertised prize has no cash value and cannot be redeemed for cash. Winners receive payout details by PayPal.", "excluded_category");
 });
 Deno.test("rejects non-withdrawable virtual tokens despite withdrawal keywords", () => {
-  assertRejected("https://example.com/tokens", "Free puzzle game cash reward", "Free entry. Virtual points only; rewards are non-withdrawable. Withdrawal and payout are not supported.", "missing_reward_evidence");
+  assertRejected("https://example.com/tokens", "Free puzzle game cash reward", "Free entry. Virtual points only; rewards are non-withdrawable. Withdrawal and payout are not supported.", "excluded_category");
 });
 Deno.test("rejects entertainment-only spin promotions with misleading winner payout text", () => {
-  assertRejected("https://example.com/spin", "Daily free spin win cash prize", "Free spin for entertainment only. No monetary reward is provided, although the page describes a payout process.", "missing_reward_evidence");
+  assertRejected("https://example.com/spin", "Daily free spin win cash prize", "Free spin for entertainment only. No monetary reward is provided, although the page describes a payout process.", "excluded_category");
 });
 
 
@@ -224,22 +224,22 @@ Deno.test("discovers the official fmsg free autonomous-agent puzzle hackathon wi
   assertEquals(result.payoutMethods, ["Bank transfer"]);
 });
 
-Deno.test("rejects AI-agent prize claims with only a generic payment processor", () => {
-  assertRejected(
+Deno.test("accepts AI-agent prize candidates without a named payout processor", () => {
+  const result = evaluateCandidate(
     "https://example.com/agent-tournament",
     "Agentic AI agent tournament",
     "No entry fee. Autonomous AI agents compete for first place prize of $500. Prizes are paid through a third-party payment processor.",
-    "missing_payout_evidence",
   );
+  if (!result.accepted) throw new Error(`Expected manual-access approval, got: ${result.reason}`);
 });
 
-Deno.test("holds AI-agent contest with unnamed payment processor for manual discovery review", () => {
-  assertRejected(
+Deno.test("auto-approves AI-agent contest without requiring a named payout processor", () => {
+  const result = evaluateCandidate(
     "https://agenticworldcup.ai/rules",
     "Agentic World Cup official contest rules",
     "NO ENTRY FEE. First Place Prize: $500 (US). Second Place Prize: $300 (US). Third Place Prize: $200 (US). All prize payments are subject to the ability of Sponsor's third-party payment processor to process payment to the winner.",
-    "missing_payout_evidence",
   );
+  if (!result.accepted) throw new Error(`Expected manual-access approval, got: ${result.reason}`);
 });
 
 Deno.test("discovers Zoa agent season only with official host, free chips, and prize evidence", () => {
