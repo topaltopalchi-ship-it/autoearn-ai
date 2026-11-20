@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const OWNER_REVIEW_MARKER = "[OWNER OFFICIAL ELIGIBILITY REVIEW]";
+  const OWNER_ECONOMICS_MARKERS = ["[OWNER OPPORTUNITY ECONOMICS]", "[OWNER OFFICIAL ELIGIBILITY REVIEW]"];
 
   function estimateOpportunityEconomics(input = {}) {
     const reward = Number(input.rewardAmount);
@@ -38,10 +38,13 @@
 
   function extractOwnerEstimate(notes) {
     const source = String(notes || "");
-    const markerIndex = source.lastIndexOf(OWNER_REVIEW_MARKER);
-    if (markerIndex < 0) return null;
+    const marker = OWNER_ECONOMICS_MARKERS
+      .map(value => ({ value, index: source.lastIndexOf(value) }))
+      .filter(item => item.index >= 0)
+      .sort((a, b) => b.index - a.index)[0];
+    if (!marker) return null;
     try {
-      const report = JSON.parse(source.slice(markerIndex + OWNER_REVIEW_MARKER.length).trim());
+      const report = JSON.parse(source.slice(marker.index + marker.value.length).trim());
       const estimate = report?.estimated_economics;
       if (!estimate || typeof estimate !== "object") return null;
       return estimateOpportunityEconomics({
