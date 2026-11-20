@@ -53,6 +53,14 @@
       <label>Category<select name="category"><option value="game">Online games with prizes</option><option value="sweepstakes">Online sweepstakes / draws</option><option value="raffle">Free raffles / prize draws</option><option value="wheel">Spin wheel / lucky wheel</option><option value="prediction">Free prediction contests</option><option value="puzzle">Puzzle competitions</option><option value="iq-test">IQ tests / brain challenges</option><option value="instant-win">Instant-win / scratch games</option></select></label>
       <label>Advertised reward<textarea name="reward_description" placeholder="Describe the advertised reward; do not assume it is guaranteed."></textarea></label>
       <label>Additional notes (optional)<textarea name="eligibility"></textarea></label>
+      <label>Eligible countries (comma-separated; owner-entered)<textarea name="eligible_countries_input" placeholder="Azerbaijan, Georgia"></textarea></label>
+      <label>Excluded countries (comma-separated; owner-entered)<textarea name="excluded_countries_input" placeholder="United States"></textarea></label>
+      <label>Minimum withdrawal amount<input name="minimum_withdrawal_amount" type="number" min="0" step="0.01" placeholder="25"></label>
+      <label>Withdrawal currency<input name="withdrawal_currency" value="USD" maxlength="3" required></label>
+      <label>Payout methods (comma-separated)<textarea name="payout_methods_input" placeholder="Bank transfer, PayPal"></textarea></label>
+      <label>Country information source (public HTTPS)<input name="country_evidence_url" type="url" placeholder="https://example.com/eligibility"></label>
+      <label>Payout information source (public HTTPS)<input name="payout_evidence_url" type="url" placeholder="https://example.com/payouts"></label>
+      <p class="translator-privacy">Country and payout details are owner-entered research, not verified guarantees. They never block opportunity auto-approval or authorize automated activity.</p>
       <label>Terms URL<input name="terms_url" type="url" placeholder="https://example.com/terms"></label>
       <label>Notes<textarea name="notes"></textarea></label><button class="primary" type="submit">Save opportunity</button>
     </form></dialog>
