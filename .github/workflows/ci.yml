@@ -48,9 +48,9 @@ jobs:
       - name: Run bounded paired 2048 search-policy experiment
         working-directory: integrations/browser-agent
         env:
-          AUTOEARN_2048_POLICY_EPISODES: "2"
-          AUTOEARN_2048_POLICY_MAX_MOVES: "80"
-          AUTOEARN_2048_POLICY_MAX_NODES: "1200"
+          AUTOEARN_2048_POLICY_EPISODES: "1"
+          AUTOEARN_2048_POLICY_MAX_MOVES: "30"
+          AUTOEARN_2048_POLICY_MAX_NODES: "250"
           AUTOEARN_2048_POLICY_SEED: "2048"
         run: node games/run-2048-policy-comparison.mjs
       - run: deno check --minimum-dependency-age=60m --node-modules-dir=auto supabase/functions/discover-opportunities/index.ts
