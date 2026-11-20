@@ -29,3 +29,13 @@ export function isApprovedRequestUrl(value, approvedOrigin) {
     return false;
   }
 }
+
+export async function guardApprovedBrowserContext(context, approvedOrigin) {
+  await context.route("**/*", route => {
+    if (isApprovedRequestUrl(route.request().url(), approvedOrigin)) {
+      return route.continue();
+    }
+    return route.abort("blockedbyclient");
+  });
+  return context;
+}
