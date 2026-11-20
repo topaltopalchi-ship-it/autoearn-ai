@@ -263,7 +263,7 @@ Deno.test("does not extend the Zoa exception to lookalike hosts", () => {
     "https://play.zoagames.com.attacker.example/agent-docs/season-1",
     "AI agent Agent Season 1 game",
     "Agents play free with free chips. Agent Season 1 prize pool is $490 USDC with payout to the winner.",
-    "excluded_category",
+    "invalid_url",
   );
 });
 
