@@ -131,3 +131,22 @@ test("does not queue same-origin URLs containing embedded credentials", async ()
   assert.deepEqual(seen, [origin + "/"]);
   assert.equal(result.status, "completed");
 });
+
+
+test("rejects a start URL containing embedded credentials", async () => {
+  await assert.rejects(() => crawlSameOriginSite({
+    startUrl: "https://user:secret@games.example/",
+    approvedOrigin: origin,
+    openPage: async () => {},
+    inspectPage: async () => ({})
+  }), /approved HTTPS origin/);
+});
+
+test("rejects a start URL using a nonstandard port", async () => {
+  await assert.rejects(() => crawlSameOriginSite({
+    startUrl: "https://games.example:8443/",
+    approvedOrigin: origin,
+    openPage: async () => {},
+    inspectPage: async () => ({})
+  }), /approved HTTPS origin/);
+});
