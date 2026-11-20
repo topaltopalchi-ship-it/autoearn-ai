@@ -71,12 +71,13 @@ test("end-to-end auto-approval keeps economics and reward records separate", () 
     })
   ].join("\n");
 
+  const economicsNotes = discoveredNotes + "\\n[OWNER OPPORTUNITY ECONOMICS]\\n" + JSON.stringify({estimated_economics:{reward_amount:20,currency:"USD",success_probability:0.7,time_hours:2,direct_costs:3}});
   const opportunity = {
     id: "candidate-1",
     status: "eligible",
     url: "https://publisher.example.org/",
     terms_url: "https://publisher.example.org/rules",
-    notes: discoveredNotes,
+    notes: economicsNotes,
     created_at: "2026-11-20T08:00:00.000Z"
   };
 
