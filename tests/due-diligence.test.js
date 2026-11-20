@@ -185,3 +185,23 @@ test("auto-approved opportunities allow manual opening without an eligibility ch
   assert.equal(canStart({ status: "eligible", url: "javascript:alert(1)" }), false);
   assert.equal(canStart({ status: "eligible", url: "http://example.com" }), false);
 });
+
+test("classifies explicit free and paid signals and keeps ambiguous costs unknown", () => {
+  const classify = globalThis.AutoEarnDueDiligence.classifyEntryCost;
+  assert.equal(classify({ reward_description: "Free-to-play contest, no purchase necessary" }), "free");
+  assert.equal(classify({ notes: "Entry fee required; paid registration" }), "paid");
+  assert.equal(classify({ reward_description: "Win a cash prize" }), "unknown");
+});
+
+test("sorts free opportunities before unknown and paid without mutating input", () => {
+  const rows = [
+    { id: "paid", notes: "Paid entry; entry fee required" },
+    { id: "unknown", notes: "Cash prize details" },
+    { id: "free", reward_description: "Free entry; no purchase necessary" },
+  ];
+  assert.deepEqual(
+    globalThis.AutoEarnDueDiligence.sortOpportunities(rows).map((item) => item.id),
+    ["free", "unknown", "paid"],
+  );
+  assert.deepEqual(rows.map((item) => item.id), ["paid", "unknown", "free"]);
+});
