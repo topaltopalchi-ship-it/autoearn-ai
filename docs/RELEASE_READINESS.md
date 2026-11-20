@@ -2,12 +2,12 @@
 
 Checked: 2026-11-20 (UTC)
 Branch: `develop`
-Validated commit: `08242d58a2f07fc0d864f904bf6f4f6844084e3c`
+Latest develop commit checked: `8d0a7aef915e555e36589256a7aacfdd0184392b`
 
 ## Automated validation
 
-- GitHub Actions CI: passed on `08242d58a2f07fc0d864f904bf6f4f6844084e3c`, including JavaScript, browser-agent, Deno, Python, PostgreSQL lifecycle integration (including second-account isolation), and the pinned Zoa Docker build. Run: https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44704729223
-- Python tests workflow: passed on the same commit. Run: https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44704729254
+- GitHub Actions CI: passed on `8d0a7aef915e555e36589256a7aacfdd0184392b`. Run: https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44704893024
+- Python tests workflow: passed on the same commit. Run: https://github.com/topaltopalchi-ship-it/autoearn-ai/actions/runs/44704893005
 - Static workspace smoke tests include element-ID, owner-only sign-in surface, script ordering, security-header, and manual-deploy checks.
 
 ## Supabase production project
