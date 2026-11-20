@@ -1,4 +1,5 @@
 import { chromium } from "playwright";
+import { guardApprovedBrowserContext } from "./approved-url.mjs";
 import "../../static/game-agent.js";
 import { create2048BrowserAdapter } from "./2048-browser-adapter.mjs";
 import { createAdaptive2048Decision } from "./games/2048-strategy.mjs";
@@ -28,7 +29,8 @@ function validateTarget() {
 async function main() {
   const target = validateTarget();
   const browser = await chromium.launch({ headless: false });
-  const context = await browser.newContext({ acceptDownloads: false });
+  const context = await browser.newContext({ acceptDownloads: false, serviceWorkers: "block" });
+  await guardApprovedBrowserContext(context, target.origin);
   const page = await context.newPage();
   let blocked = false;
   context.on("page", popup => {
