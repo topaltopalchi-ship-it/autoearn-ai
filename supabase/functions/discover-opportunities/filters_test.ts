@@ -8,6 +8,16 @@ function assertRejected(url: string, title: string, description: string, reason:
 }
 
 Deno.test("rejects survey even when it mentions PayPal", () => assertRejected("https://example.com/survey", "Paid survey", "Earn PayPal rewards", "excluded_category"));
+Deno.test("rejects paid-click, ad-viewing, and micro-gig offers even with cash payout wording", () => {
+  for (const [path, title, description] of [
+    ["/click", "Paid to click cash reward", "Free entry. Click ads to earn cash prize paid by PayPal."],
+    ["/ads", "Watch video ads for cash", "Free to play. Watch video ads and withdraw cash by Skrill."],
+    ["/tasks", "Micro jobs task platform", "Free registration. Complete data entry tasks for cash payout by bank transfer."],
+    ["/apps", "Paid app testing offers", "Free entry. Test apps and receive cash reward via PayPal."],
+  ]) {
+    assertRejected("https://example.com" + path, title, description, "excluded_category");
+  }
+});
 Deno.test("rejects referral signup bonus", () => assertRejected("https://example.com", "Invite friends", "PayPal signup bonus", "excluded_category"));
 Deno.test("rejects non-HTTPS URLs", () => assertRejected("http://example.com", "Prize game", "PayPal rewards", "invalid_url"));
 Deno.test("rejects a prize claim with no named cash payout route", () => assertRejected("https://example.com/game", "Puzzle contest cash prize", "Free entry. Winners receive payout after withdrawal request.", "missing_payout_evidence"));
