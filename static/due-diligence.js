@@ -49,14 +49,11 @@
   function classifyOpportunityType(item) {
     const text = [item?.title, item?.platform, item?.url, item?.category, item?.reward_description, item?.eligibility, item?.notes]
       .filter(Boolean).join(" ").toLowerCase();
-    const businessService = /\\b(?:payment processor|payment gateway|accept payments|business payments|merchant services|invoice(?:s|ing)? software|accounting software|website builder|e-?commerce platform|online store builder|customer relationship management|\\bcrm\\b|marketing automation|advertising platform|business management software|point of sale|\\bpos system\\b|web hosting provider)\\b/.test(text);
-    const knownServiceDomain = /(?:^|\\.)paypal\\.com(?:$|\\/)|(?:^|\\.)stripe\\.com(?:$|\\/)|(?:^|\\.)squareup\\.com(?:$|\\/)/.test(String(item?.url || "").toLowerCase().replace(/^https?:\\/\\//, ""));
+    const businessService = /\b(?:payment processor|payment gateway|accept payments|business payments|merchant services|invoice(?:s|ing)? software|accounting software|website builder|e-?commerce platform|online store builder|customer relationship management|crm|marketing automation|advertising platform|business management software|point of sale|pos system|web hosting provider)\b/.test(text);
+    const normalizedUrl = String(item?.url || "").toLowerCase().replace(/^https?:\/\//, "");
+    const knownServiceDomain = /(?:^|\.)paypal\.com(?:$|\/)|(?:^|\.)stripe\.com(?:$|\/)|(?:^|\.)squareup\.com(?:$|\/)/.test(normalizedUrl);
     if (businessService || knownServiceDomain) return "irrelevant";
-    const earningCategories = new Set(["game","sweepstakes","wheel","raffle","prediction","puzzle","iq-test","instant-win"]);
-    const categoryMatch = String(item?.category || "").split(",").some(value => earningCategories.has(value.trim().toLowerCase()));
-    if (categoryMatch) return "review";
-    const earningSignals = /\\b(?:paid survey|get paid|earn (?:money|cash|rewards)|cash prize|win (?:cash|money|prizes)|reward for|payout for|prize draw|sweepstakes|contest|tournament|task platform)\\b/.test(text);
-    return earningSignals ? "review" : "review";
+    return "review";
   }
 
   function sortOpportunities(opportunities, mode = "evidence") {
