@@ -94,7 +94,7 @@ function renderOpportunities(){
   const q=$("search").value.toLowerCase(),status=$("filter").value;
   const rows=opportunities.filter(o=>(!status||o.status===status)&&[o.title,o.platform,o.category].some(x=>(x||"").toLowerCase().includes(q)));
   const sortMode=$("opportunity-sort")?.value||"evidence";
-  const sortedRows=window.AutoEarnDueDiligence.sortOpportunities(rows,sortMode);
+  const sortedRows=sortMode==="economics"?window.AutoEarnOpportunityEconomics.sortByExpectedHourlyValue(rows):window.AutoEarnDueDiligence.sortOpportunities(rows,sortMode);
   const summary=window.AutoEarnDueDiligence.summarizeOpportunities(rows);
   $("opportunity-summary").textContent=summary.total
     ? `Showing ${summary.total} opportunities · ${summary.scored} scored · Average evidence completeness: ${summary.averageScore===null?"—":summary.averageScore+"/100"} · High: ${summary.counts.high} · Medium: ${summary.counts.medium} · Needs review: ${summary.counts.low} · Unscored: ${summary.counts.unscored}`
