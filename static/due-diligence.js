@@ -36,11 +36,24 @@
     };
   }
 
+  function classifyEntryCost(item) {
+    const text = [item?.title, item?.platform, item?.reward_description, item?.eligibility, item?.notes]
+      .filter(Boolean).join(" ").toLowerCase().replace(/[‐‑‒–—]/g, "-");
+    const free = /\b(?:free[- ](?:to[- ]play|entry|registration)|no (?:purchase|entry fee|deposit|payment) (?:necessary|required)|without (?:an? )?entry fee|zero entry fee)\b/.test(text);
+    const paid = /\b(?:paid entry|entry fee|buy[- ]in|purchase required|deposit required|pay to enter|paid registration|subscription required)\b/.test(text);
+    if (free && !paid) return "free";
+    if (paid && !free) return "paid";
+    return "unknown";
+  }
+
   function sortOpportunities(opportunities, mode = "evidence") {
     const rows = Array.isArray(opportunities) ? [...opportunities] : [];
     const evidenceScore = (item) =>
       calculateEvidenceCompleteness(item?.notes, item?.terms_url)?.score ?? -1;
     rows.sort((a, b) => {
+      const costRank = { free: 0, unknown: 1, paid: 2 };
+      const costDelta = costRank[classifyEntryCost(a)] - costRank[classifyEntryCost(b)];
+      if (costDelta !== 0) return costDelta;
       if (mode === "newest") {
         return String(b?.created_at || "").localeCompare(String(a?.created_at || ""));
       }
@@ -105,6 +118,7 @@
     extractReviewFlags,
     calculateEvidenceCompleteness,
     sortOpportunities,
+    classifyEntryCost,
     summarizeOpportunities,
     formatCategoryLabels,
     safePublicHttpsUrl,
