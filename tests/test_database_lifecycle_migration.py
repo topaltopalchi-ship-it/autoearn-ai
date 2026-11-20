@@ -30,10 +30,11 @@ class DatabaseLifecycleMigrationTests(unittest.TestCase):
             with self.subTest(trigger=name):
                 self.assertIn(f"create trigger {name}", self.sql)
 
-    def test_opportunities_cannot_be_promoted_to_eligible_by_owner_updates(self):
-        self.assertIn("new.status in ('reviewing', 'ineligible', 'archived')", self.sql)
-        self.assertNotIn("new.status = 'eligible'", self.sql)
-        self.assertIn("owners insert discovered opportunities", self.sql)
+    def test_opportunities_can_be_auto_approved_on_insert_and_update(self):
+        self.assertIn("new.status not in ('discovered', 'eligible')", self.sql)
+        self.assertIn("new.status in ('reviewing', 'eligible', 'ineligible', 'archived')", self.sql)
+        self.assertIn("owners insert opportunities", self.sql)
+        self.assertIn("alter column status set default 'eligible'", self.sql)
 
     def test_tasks_have_one_way_approval_and_completion_transitions(self):
         self.assertIn("old.status = 'pending_approval' and new.status = 'approved'", self.sql)
@@ -64,7 +65,7 @@ class DatabaseLifecycleMigrationTests(unittest.TestCase):
         self.assertIn('drop policy if exists "owner manages rewards"', self.sql)
         for policy in (
             "owners read opportunities",
-            "owners insert discovered opportunities",
+            "owners insert opportunities",
             "owners update opportunities",
             "owners delete opportunities",
             "owners read tasks",
