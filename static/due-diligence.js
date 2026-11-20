@@ -101,7 +101,8 @@
     if (
       review.payment_confirmed === "no" ||
       review.country_eligible === "no" ||
-      review.free_entry === "no"
+      review.free_entry === "no" ||
+      review.automation_explicitly_allowed === "no"
     ) return "ineligible";
     return "reviewing";
   }
