@@ -115,3 +115,19 @@ test("attaches explicit known-game detection without guessing from labels", asyn
   assert.equal(result.pages[0].gameDetection.gameType, "tic-tac-toe");
   assert.equal(result.pages[0].gameDetection.reason, "explicit_board_signature");
 });
+
+
+test("does not queue same-origin URLs containing embedded credentials", async () => {
+  const seen = [];
+  const result = await crawlSameOriginSite({
+    startUrl: origin + "/",
+    approvedOrigin: origin,
+    openPage: async url => { seen.push(url); },
+    inspectPage: async () => ({ navigationTargets: [
+      { role: "link", name: "Credential URL", href: "https://user:secret@games.example/private" },
+      { role: "link", name: "Nonstandard port", href: "https://games.example:8443/private" }
+    ] })
+  });
+  assert.deepEqual(seen, [origin + "/"]);
+  assert.equal(result.status, "completed");
+});
