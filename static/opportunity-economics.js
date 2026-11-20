@@ -1,6 +1,8 @@
 (function (root) {
   "use strict";
 
+  const OWNER_REVIEW_MARKER = "[OWNER OFFICIAL ELIGIBILITY REVIEW]";
+
   function estimateOpportunityEconomics(input = {}) {
     const reward = Number(input.rewardAmount);
     const probability = Number(input.successProbability);
@@ -34,6 +36,45 @@
     });
   }
 
-  root.AutoEarnOpportunityEconomics = Object.freeze({ estimateOpportunityEconomics });
+  function extractOwnerEstimate(notes) {
+    const source = String(notes || "");
+    const markerIndex = source.lastIndexOf(OWNER_REVIEW_MARKER);
+    if (markerIndex < 0) return null;
+    try {
+      const report = JSON.parse(source.slice(markerIndex + OWNER_REVIEW_MARKER.length).trim());
+      const estimate = report?.estimated_economics;
+      if (!estimate || typeof estimate !== "object") return null;
+      return estimateOpportunityEconomics({
+        rewardAmount: estimate.reward_amount,
+        currency: estimate.currency,
+        successProbability: estimate.success_probability,
+        timeHours: estimate.time_hours,
+        directCosts: estimate.direct_costs
+      });
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function sortByExpectedHourlyValue(opportunities) {
+    const rows = Array.isArray(opportunities) ? [...opportunities] : [];
+    const value = item => extractOwnerEstimate(item?.notes);
+    rows.sort((a, b) => {
+      const estimateA = value(a), estimateB = value(b);
+      if (Boolean(estimateA) !== Boolean(estimateB)) return estimateA ? -1 : 1;
+      if (estimateA && estimateB && estimateA.currency === estimateB.currency &&
+          estimateA.expectedNetPerHour !== estimateB.expectedNetPerHour) {
+        return estimateB.expectedNetPerHour - estimateA.expectedNetPerHour;
+      }
+      return String(b?.created_at || "").localeCompare(String(a?.created_at || ""));
+    });
+    return rows;
+  }
+
+  root.AutoEarnOpportunityEconomics = Object.freeze({
+    estimateOpportunityEconomics,
+    extractOwnerEstimate,
+    sortByExpectedHourlyValue
+  });
   if (typeof module !== "undefined" && module.exports) module.exports = root.AutoEarnOpportunityEconomics;
 })(typeof globalThis !== "undefined" ? globalThis : this);
