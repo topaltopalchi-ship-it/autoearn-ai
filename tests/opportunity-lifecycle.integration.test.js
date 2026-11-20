@@ -71,3 +71,66 @@ test("reward ledger distinguishes pending, confirmed and evidenced paid amounts"
   assert.match(ledger.validateReward({ amount: 7, currency: "USD", status: "paid", reference: "" }), /reference/i);
   assert.equal(ledger.validateReward({ amount: 7, currency: "USD", status: "paid", reference: "TX-1" }), "");
 });
+
+
+test("end-to-end review keeps discovered leads unverified while economics and reward records stay separate", () => {
+  const economics = globalThis.AutoEarnOpportunityEconomics;
+  const discoveredNotes = [
+    "Due-diligence flags: official_source_not_verified, official_terms_source_not_verified.",
+    "[DISCOVERY PROVENANCE]",
+    JSON.stringify({
+      source: "Mwmbl search",
+      search_query: "cash game rewards",
+      discovered_at: "2026-11-20T08:00:00.000Z",
+      excerpt: "A search result mentions a cash reward."
+    })
+  ].join("\\n");
+
+  const report = {
+    reviewed_at: "2026-11-20T08:30:00.000Z",
+    payment_method: "PayPal",
+    payment_confirmed: "yes",
+    minimum_withdrawal: "10 USD",
+    fees: "0%",
+    country_eligible: "yes",
+    minimum_age: "18",
+    kyc: "not-required",
+    free_entry: "yes",
+    automation_explicitly_allowed: "yes",
+    payout_source: "https://publisher.example.org/payout",
+    automation_source: "https://publisher.example.org/automation",
+    estimated_economics: {
+      reward_amount: 20,
+      currency: "USD",
+      success_probability: 0.7,
+      time_hours: 2,
+      direct_costs: 3
+    }
+  };
+  const reviewedNotes = diligence.replaceOwnerEligibilityReview(discoveredNotes, report);
+  const opportunity = {
+    id: "candidate-1",
+    status: "eligible",
+    url: "https://publisher.example.org/",
+    terms_url: "https://publisher.example.org/rules",
+    notes: reviewedNotes,
+    created_at: "2026-11-20T08:00:00.000Z"
+  };
+
+  const evidence = diligence.calculateEvidenceCompleteness(opportunity.notes, opportunity.terms_url);
+  assert.equal(evidence.officialTermsVerified, false);
+  assert.equal(evidence.organizerIdentityVerified, false);
+  assert.equal(diligence.getEligibilityReviewStatus(report), "reviewing");
+  assert.equal(diligence.canStartGuidedSession(opportunity), false);
+
+  const estimate = economics.extractOwnerEstimate(opportunity.notes);
+  assert.equal(estimate.expectedNet, 11);
+  assert.equal(estimate.expectedNetPerHour, 5.5);
+  assert.equal(economics.sortByExpectedHourlyValue([opportunity])[0].id, "candidate-1");
+
+  const pendingReward = { amount: 11, currency: "USD", status: "pending", reference: "" };
+  assert.equal(ledger.validateReward(pendingReward), "");
+  assert.equal(ledger.summarize([pendingReward]).pending.length, 1);
+  assert.match(ledger.validateReward({ ...pendingReward, status: "paid" }), /reference/i);
+  assert.equal(ledger.summarize([{ ...pendingReward, status: "paid" }]).paid.length, 0);
+});
